@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from chroma_cube.core.board import CLASSIC_BOARD, Board, Cell
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -16,13 +18,14 @@ from chroma_cube.core.clues import (
     Not,
     Or,
     Property,
+    Region,
     Relation,
 )
 from chroma_cube.core.colors import Palette
 
 _ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth")
 _NUMBERS = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
-_OPENERS = ("It's ", "Either ", "Exactly ", "At least ", "Every ")
+_OPENERS = ("It's ", "Either ", "Exactly ", "At least ", "Every ", "No ", "Not ", "Some ")
 
 
 def render(clue: Clue, palette: Palette, board: Board = CLASSIC_BOARD) -> str:
@@ -49,12 +52,16 @@ class _Renderer:
                 return RELATION_KINDS[kind].text.format(*self.names(refs))
             case Property():
                 return self.prop(clue, negated=False)
+            case AttributeClue():
+                return self.attribute(clue, negated=False)
             case BoardRule(kind=kind):
                 return BOARD_RULE_KINDS[kind].text
             case Not(clue=Relation(kind=kind, colors=refs)):
                 return RELATION_KINDS[kind].negated.format(*self.names(refs))
             case Not(clue=Property() as inner):
                 return self.prop(inner, negated=True)
+            case Not(clue=AttributeClue() as inner) if _has_negated_text(inner):
+                return self.attribute(inner, negated=True)
             case Not(clue=inner):
                 return "It's not true that " + _lower_opener(self.sentence(inner))
             case And(clues=clues):
@@ -89,6 +96,35 @@ class _Renderer:
             line = f"the {_ordinal(clue.index)} column"
         return template.format(subject or self.name(clue.color), line=line)
 
+    def attribute(self, clue: AttributeClue, *, negated: bool, subject: str | None = None) -> str:
+        kind = ATTRIBUTE_KINDS[clue.kind]
+        template = kind.negated if negated else kind.text
+        assert template is not None
+        n = clue.n if clue.n is not None else 0
+        sentence = template.format(
+            subject or (self.name(clue.color) if clue.color else ""),
+            value=clue.value,
+            region=self.region(clue.region) if clue.region else "",
+            n=_number(n),
+            colors="color" if n == 1 else "colors",
+            **{"is": "is" if n == 1 else "are"},
+        )
+        return sentence[0].upper() + sentence[1:]
+
+    def region(self, region: Region) -> str:
+        match region.kind:
+            case "corners":
+                return "in the corners"
+            case "edge":
+                return "on the edge"
+            case "center":
+                return "in the center"
+            case "row":
+                assert region.index is not None
+                return f"in the {self.row_name(region.index)} row"
+        assert region.index is not None
+        return f"in the {_ordinal(region.index)} column"
+
     def row_name(self, index: int) -> str:
         return _row_name(index, self.board)
 
@@ -114,6 +150,18 @@ class _Renderer:
             if len(set(subjects)) != len(subjects):
                 return None
             return "Either " + self.prop(first, negated=False, subject=self.either(subjects))
+        if isinstance(first, AttributeClue) and first.color is not None:
+            attrs = [sub for sub in clues if isinstance(sub, AttributeClue)]
+            if (
+                len(attrs) != len(clues)
+                or not _single_subject(ATTRIBUTE_KINDS[first.kind].text)
+                or any(_without_color(a) != _without_color(first) for a in attrs)
+            ):
+                return None
+            colored = tuple(a.color for a in attrs if a.color is not None)
+            if len(set(colored)) != len(colored):
+                return None
+            return "Either " + self.attribute(first, negated=False, subject=self.either(colored))
         if isinstance(first, Relation) and len(first.colors) == 2:
             relations = [sub for sub in clues if isinstance(sub, Relation)]
             other = first.colors[1]
@@ -172,8 +220,18 @@ def _single_subject(template: str) -> bool:
     return template.startswith("{0} ") and not template.startswith("{0} and ")
 
 
+def _has_negated_text(clue: AttributeClue) -> bool:
+    return ATTRIBUTE_KINDS[clue.kind].negated is not None
+
+
+def _without_color(clue: AttributeClue) -> tuple[str, str, Region | None, int | None]:
+    return clue.kind, clue.value, clue.region, clue.n
+
+
 def _is_compound(clue: Clue) -> bool:
     if isinstance(clue, Not):
+        if isinstance(clue.clue, AttributeClue):
+            return not _has_negated_text(clue.clue)
         return not isinstance(clue.clue, Relation | Property)
     return isinstance(clue, And | Or | Exactly | AtLeast)
 

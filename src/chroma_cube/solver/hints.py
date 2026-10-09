@@ -26,7 +26,7 @@ from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.puzzle import Puzzle
 from chroma_cube.core.render import cell_name
-from chroma_cube.solver.search import colors_in, solve
+from chroma_cube.solver.search import colors_named, solve
 
 __all__ = ["HINT_MAX_NODES", "Hint", "HintReason", "clear_solution_cache", "explain", "next_hint"]
 
@@ -116,7 +116,7 @@ class _Hinter:
         self._solved = False
         self._breaks: dict[tuple[Color, Cell], tuple[int, ...]] = {}
         self._violated_now = self._violated(placement)
-        self._named = [colors_in(clue, puzzle.palette) for clue in puzzle.clues]
+        self._named = [colors_named(clue, puzzle.palette) for clue in puzzle.clues]
 
     # ------------------------------------------------------------------ levels
 

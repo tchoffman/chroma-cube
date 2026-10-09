@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from itertools import product
 
 from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -19,6 +23,7 @@ from chroma_cube.core.clues import (
     Not,
     Or,
     Property,
+    Region,
     Relation,
 )
 from chroma_cube.core.colors import Color, Palette
@@ -34,8 +39,8 @@ SAT, VIOL, UNK = Truth.SATISFIED, Truth.VIOLATED, Truth.UNKNOWN
 def evaluate(clue: Clue, placement: Placement, board: Board, palette: Palette) -> Truth:
     """Decide `clue` on `placement`, as early as the placed cubes allow.
 
-    Relations and properties are exact: they are UNKNOWN only if some way of putting the
-    clue's unplaced colors on free cells makes them true and another makes them false.
+    Relations, properties and attribute clues are exact: they are UNKNOWN only if some
+    way of filling the free cells makes them true and another makes them false.
     Initial-letter references hold if some choice of distinct matching colors holds.
     Combinators use Kleene's three-valued logic over their sub-clues, so a combination
     can stay UNKNOWN even when every completion would decide it the same way.
@@ -53,6 +58,8 @@ def evaluate(clue: Clue, placement: Placement, board: Board, palette: Palette) -
                 board,
                 palette,
             )
+        case AttributeClue():
+            return _attribute(clue, placement, board, palette)
         case BoardRule(kind=kind):
             return BOARD_RULE_KINDS[kind].evaluate(placement, board, palette)
         case Not(clue=inner):
@@ -153,3 +160,114 @@ def _decide(
     if seen_true:
         return SAT
     return VIOL
+
+
+# --------------------------------------------------------------------------- attributes
+
+
+@dataclass(frozen=True)
+class _Pool:
+    """What is left to place: how many free cells, and how many unplaced colors have the
+    clue's value (`matching`) or not (`others`). Every unplaced color takes one free cell."""
+
+    free: int
+    matching: int
+    others: int
+
+    def without(self, matches: bool) -> _Pool:
+        """The pool once one more color (matching the value or not) has taken a cell."""
+        return _Pool(self.free - 1, self.matching - matches, self.others - (not matches))
+
+
+def _attribute(clue: AttributeClue, placement: Placement, board: Board, palette: Palette) -> Truth:
+    """Count matching cubes next to the clue's color or in its region, over every completion.
+
+    Only counts matter, so the unplaced colors are a pool of so many matching and so many
+    other colors rather than placements to try. A region is decided from its cells. A
+    color clue whose color is not placed yet tries that color on every free cell; initials
+    try each matching color and combine with Kleene "or".
+    """
+    kind = ATTRIBUTE_KINDS[clue.kind]
+    value, n = clue.value, clue.n
+
+    def holds(matching: int, others: int) -> bool:
+        return kind.holds(matching, others, n)
+
+    unplaced = placement.unplaced(palette)
+    matching = sum(1 for color in unplaced if color.has(value))
+    free = tuple(cell for cell in board if placement.color_at(cell) is None)
+    pool = _Pool(len(free), matching, len(unplaced) - matching)
+
+    if clue.region is not None:
+        return _truth(*_split(_region_cells(clue.region, board), placement, pool, value, holds))
+    assert clue.color is not None
+    truths = []
+    for color in _candidates(clue.color, palette):
+        cell = placement.cell_of(color)
+        if cell is not None:
+            cells = _neighbours(board, cell)
+            truths.append(_truth(*_split(cells, placement, pool, value, holds)))
+            continue
+        rest = pool.without(color.has(value))
+        seen_true = seen_false = False
+        for spot in free:
+            can_true, can_false = _split(_neighbours(board, spot), placement, rest, value, holds)
+            seen_true, seen_false = seen_true or can_true, seen_false or can_false
+            if seen_true and seen_false:
+                break
+        truths.append(_truth(seen_true, seen_false))
+    return _any(truths)
+
+
+@functools.cache
+def _neighbours(board: Board, cell: Cell) -> tuple[Cell, ...]:
+    return board.orthogonal_neighbours(cell)
+
+
+@functools.cache
+def _region_cells(region: Region, board: Board) -> tuple[Cell, ...]:
+    return region.cells(board)
+
+
+def _split(
+    cells: tuple[Cell, ...],
+    placement: Placement,
+    pool: _Pool,
+    value: str,
+    holds: Callable[[int, int], bool],
+) -> tuple[bool, bool]:
+    """Whether some completion makes `holds(matching, others)` true over `cells`, and
+    whether some makes it false.
+
+    Placed cubes in the cells are counted as they are. What can vary is how many matching
+    (`a`) and other (`b`) colors from the pool land on the empty cells here. Any split is
+    possible as long as the rest of the pool fits on the free cells elsewhere.
+    """
+    matching = others = empty = 0
+    for cell in cells:
+        color = placement.color_at(cell)
+        if color is None:
+            empty += 1
+        elif color.has(value):
+            matching += 1
+        else:
+            others += 1
+    if pool.matching + pool.others > pool.free:
+        return False, False
+    must_land = pool.matching + pool.others - (pool.free - empty)
+    can_true = can_false = False
+    for a in range(min(pool.matching, empty) + 1):
+        for b in range(max(0, must_land - a), min(pool.others, empty - a) + 1):
+            if holds(matching + a, others + b):
+                can_true = True
+            else:
+                can_false = True
+            if can_true and can_false:
+                return True, True
+    return can_true, can_false
+
+
+def _truth(can_true: bool, can_false: bool) -> Truth:
+    if can_true and can_false:
+        return UNK
+    return SAT if can_true else VIOL

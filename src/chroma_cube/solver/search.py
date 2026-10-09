@@ -16,13 +16,14 @@ placement of a color on a cell, and gives up once the count passes `max_nodes`.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
 from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.clues import (
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -244,18 +245,42 @@ class _Search:
 
 
 def colors_in(clue: Clue, palette: Palette) -> set[Color]:
-    """Every palette color the clue could be about; a board rule is about all of them."""
+    """Every palette color the clue depends on: placing one of them can change its truth.
+
+    A board rule depends on all of them, and so does an attribute clue: whether it holds
+    depends on whichever cubes land next to its color or in its region, not only on the
+    colors it names. The search re-checks a clue whenever one of these colors is placed.
+    """
+    match clue:
+        case BoardRule() | AttributeClue():
+            return set(palette)
+    return _colors(clue, palette, colors_in)
+
+
+def colors_named(clue: Clue, palette: Palette) -> set[Color]:
+    """Every palette color the clue's sentence names, which is what a player reads as
+    being about that cube. An attribute clue names its subject color, a region clue none;
+    a board rule counts as naming all of them."""
+    match clue:
+        case AttributeClue(color=color_ref):
+            return set() if color_ref is None else _resolve((color_ref,), palette)
+        case BoardRule():
+            return set(palette)
+    return _colors(clue, palette, colors_named)
+
+
+def _colors(
+    clue: Clue, palette: Palette, recurse: Callable[[Clue, Palette], set[Color]]
+) -> set[Color]:
     match clue:
         case Relation(colors=refs):
             return _resolve(refs, palette)
         case Property(color=color_ref):
             return _resolve((color_ref,), palette)
-        case BoardRule():
-            return set(palette)
         case Not(clue=inner):
-            return colors_in(inner, palette)
+            return recurse(inner, palette)
         case And(clues=subs) | Or(clues=subs) | Exactly(clues=subs) | AtLeast(clues=subs):
-            return set().union(*(colors_in(sub, palette) for sub in subs))
+            return set().union(*(recurse(sub, palette) for sub in subs))
     raise TypeError(f"not a clue: {clue!r}")
 
 
