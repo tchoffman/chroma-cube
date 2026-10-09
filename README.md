@@ -49,6 +49,11 @@ are given and cannot move.
 Mouse: click a palette cube, then a cell. Click a placed cube to pick it up, then another
 cell to move it (onto a placed cube swaps them). The mouse wheel scrolls the clues.
 
+Solved cards keep their tick between runs, and the board you were last working on comes
+back when you reopen its card. Progress is one `progress.json` in your user data folder
+(set `CHROMA_CUBE_DATA_DIR` to put it elsewhere); see D29 in
+[docs/DECISIONS.md](docs/DECISIONS.md) for the exact paths.
+
 ### In a browser
 
 Install with the `web` extra and pass `--serve`:
@@ -58,7 +63,8 @@ uv tool install 'chroma-cube[web] @ git+https://github.com/tchoffman/chroma-cube
 chroma-cube --serve                 # this machine only: http://127.0.0.1:8000
 ```
 
-Every browser tab gets its own game. In a checkout, `uv sync --extra web` then
+Every browser tab gets its own game, saving to the progress file on the machine running the
+server, so all tabs share the ticks and the last board saved wins. In a checkout, `uv sync --extra web` then
 `uv run chroma-cube --serve` does the same.
 
 To play from another device, bind to this machine's address on your network (here

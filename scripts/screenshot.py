@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import tempfile
 from pathlib import Path
 
+from chroma_cube.progress import Progress
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.screens import PlayScreen
@@ -17,7 +19,13 @@ SIZE = (100, 32)
 
 
 async def take(out: Path) -> None:
-    app = ChromaCubeApp(classic_puzzles()[:1])
+    # A throwaway progress store, so your own saves neither show up nor get overwritten.
+    with tempfile.TemporaryDirectory() as scratch:
+        await play_and_export(out, Progress(Path(scratch)))
+
+
+async def play_and_export(out: Path, progress: Progress) -> None:
+    app = ChromaCubeApp(classic_puzzles()[:1], progress)
     async with app.run_test(size=SIZE) as pilot:
         await pilot.press("enter")
         await pilot.press("w", "enter")
