@@ -188,7 +188,7 @@ class _Search:
         self.budget = max_nodes
         mentions: dict[Color, list[Clue]] = {color: [] for color in palette}
         for clue in clues:
-            for color in _colors_in(clue, palette):
+            for color in colors_in(clue, palette):
                 mentions[color].append(clue)
         self.mentions = {color: tuple(found) for color, found in mentions.items()}
 
@@ -243,7 +243,7 @@ class _Search:
         return evaluate(clue, placement, self.board, self.palette)
 
 
-def _colors_in(clue: Clue, palette: Palette) -> set[Color]:
+def colors_in(clue: Clue, palette: Palette) -> set[Color]:
     """Every palette color the clue could be about; a board rule is about all of them."""
     match clue:
         case Relation(colors=refs):
@@ -253,9 +253,9 @@ def _colors_in(clue: Clue, palette: Palette) -> set[Color]:
         case BoardRule():
             return set(palette)
         case Not(clue=inner):
-            return _colors_in(inner, palette)
+            return colors_in(inner, palette)
         case And(clues=subs) | Or(clues=subs) | Exactly(clues=subs) | AtLeast(clues=subs):
-            return set().union(*(_colors_in(sub, palette) for sub in subs))
+            return set().union(*(colors_in(sub, palette) for sub in subs))
     raise TypeError(f"not a clue: {clue!r}")
 
 

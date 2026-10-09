@@ -253,3 +253,29 @@ a machine can have several. `--port` takes 1-65535 only: port 0 would pick a ran
 the page never learns. The game command the server runs is quoted for cmd.exe on Windows
 and for a POSIX shell elsewhere; only macOS and Linux have been tried. The README screenshot is an SVG exported from a game driven by
 Textual's test pilot at 100x32, so it is sharp at any size and needs no terminal to retake.
+
+## D31: Hints look one cube ahead and prefer what a player would spot (2026-10-08)
+A hint is, in order: a cube the player put in the wrong place (it breaks a clue, or the
+card has one solution and it is elsewhere in it; when the solution is known only cubes off
+it are ever blamed, so a right cube is never called wrong because a wrong neighbour breaks
+a clue they share); a cube with one cell left where no clue breaks; a cell that only one
+cube left can take; and, only on a card with one solution, a cube from that solution, the
+one that settles the most clues. "Breaks" is the same VIOLATED the clue list shows, tested
+one cube at a time, so every forced hint can be explained by quoting clues the player can
+see. When several cubes are forced, the hint picks the one whose forcing clues all name it
+(a clue about Teal placing Teal beats the same clue crowding Mint out of its last other
+cell), then the one resting on fewest clues, then palette order; on card 1 this gives
+Magenta, Coral, White, Teal, Mint. A card with several solutions and nothing forced gets
+no hint rather than a guess, and a wrong cube that breaks nothing on such a card is not
+flagged. The uniqueness check runs with a budget of 50,000 trial placements, a quarter of
+the solver's default, so a key press answers quickly; a search that runs out counts as
+"not known to be unique" (see D28). The solution is searched once per card and cached, so
+pressing h again costs no search. Asking twice without moving counts once; the count
+survives a reset, shows in the win dialog, and is saved with the in-progress board (an
+optional `hints` field in the board's entry, read as 0 when missing or malformed, so older
+progress files still load), so quitting and resuming does not reset it. A board with hints
+taken is kept even when its cubes are back at the givens. An explanation quotes at most
+two clues and counts the rest ("and 2 more"); every involved clue is marked in the list
+anyway. The status line wraps to four lines, so a whole explanation shows at 60 and 80
+columns. We gave up deeper deductions (chains of two or more cubes) until a card needs
+them.

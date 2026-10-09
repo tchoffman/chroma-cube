@@ -10,6 +10,7 @@ from chroma_cube.core import (
     Truth,
     relation,
 )
+from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui.play import PlayState
 
 P = CLASSIC_PALETTE
@@ -212,3 +213,51 @@ def test_solved_needs_every_cube_placed_and_every_clue_satisfied() -> None:
         state.select(color)
         state.activate(cell)
     assert state.solved
+
+
+# ------------------------------------------------------------------ hints
+
+CARD_1 = classic_puzzles()[0]
+
+
+def test_a_hint_is_remembered_explained_and_counted() -> None:
+    state = PlayState(CARD_1)
+    message = state.take_hint()
+    assert state.hint is not None
+    assert (state.hint.color, state.hint.cell) == (MAGENTA, Cell(2, 1))
+    assert message.startswith("Magenta must go in the bottom row, second column")
+    assert state.hints_used == 1
+
+
+def test_asking_again_without_moving_does_not_count_twice() -> None:
+    state = PlayState(CARD_1)
+    state.take_hint()
+    state.take_hint()
+    assert state.hints_used == 1
+
+
+def test_a_change_on_the_tray_clears_the_hint_but_keeps_the_count() -> None:
+    state = PlayState(CARD_1)
+    state.take_hint()
+    state.select(MAGENTA)
+    assert state.hint is not None
+    state.activate(Cell(2, 1))
+    assert state.hint is None
+    state.take_hint()
+    state.reset()
+    assert state.hint is None
+    assert state.hints_used == 2
+
+
+def test_no_hint_when_nothing_is_forced() -> None:
+    state = PlayState(puzzle())
+    assert state.take_hint() == "No hint: nothing is forced yet."
+    assert state.hint is None
+    assert state.hints_used == 0
+
+
+def test_a_resumed_board_starts_with_the_hints_already_taken() -> None:
+    state = PlayState(CARD_1, CARD_1.givens, hints_used=2)
+    assert state.hints_used == 2
+    state.take_hint()
+    assert state.hints_used == 3

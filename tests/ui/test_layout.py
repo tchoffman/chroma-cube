@@ -1,8 +1,11 @@
 """The play screen fits common terminal sizes and keeps the keyboard on the tray."""
 
+import textwrap
+
 import pytest
 from textual.app import App
 from textual.widget import Widget
+from textual.widgets import Footer, Static
 
 from chroma_cube.core import (
     CLASSIC_PALETTE,
@@ -114,3 +117,29 @@ async def test_page_down_scrolls_the_clues() -> None:
         await pilot.press("pagedown")
         await pilot.pause()
         assert clues.scroll_y > 0
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20)])
+@pytest.mark.parametrize(
+    ("keys", "start", "end"),
+    [
+        ((), "Magenta must go", "can still hold."),
+        (("c", "right", "enter", "m", "left", "enter"), "Magenta does not belong", "1 more."),
+    ],
+    ids=["first-hint", "misplaced-with-three-clues"],
+)
+async def test_a_long_hint_wraps_and_the_tray_still_fits(
+    size: tuple[int, int], keys: tuple[str, ...], start: str, end: str
+) -> None:
+    async with ChromaCubeApp((DEMO,)).run_test(size=size) as pilot:
+        await pilot.press("enter", *keys, "h")
+        await pilot.pause()
+        message = pilot.app.screen.query_one("#message", Static)
+        text = str(message.render())
+        assert text.startswith(start) and text.endswith(end), text
+        lines = textwrap.wrap(text, width=message.content_size.width)
+        assert len(lines) > 1
+        assert len(lines) <= message.content_size.height, lines
+        assert message.region.bottom <= pilot.app.screen.query_one(Footer).region.y
+        for cell in pilot.app.screen.query(TrayCell):
+            assert_reachable(pilot.app, cell)

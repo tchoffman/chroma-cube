@@ -1,6 +1,6 @@
 import pytest
 
-from chroma_cube.core import CLASSIC_PALETTE, Board
+from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE, Board, Cell
 from chroma_cube.core.clues import (
     PROPERTY_KINDS,
     RELATION_KINDS,
@@ -14,7 +14,7 @@ from chroma_cube.core.clues import (
     prop,
     relation,
 )
-from chroma_cube.core.render import render
+from chroma_cube.core.render import cell_name, render
 
 RELATION_SENTENCES = {
     "same_row": "Black and White are in the same row",
@@ -283,3 +283,9 @@ def test_either_or_sharing_a_color_collapses(clue: Clue, sentence: str) -> None:
 def test_other_either_or_clues_keep_the_long_form(clue: Or) -> None:
     first = render(clue.clues[0], CLASSIC_PALETTE)
     assert render(clue, CLASSIC_PALETTE).startswith(f"Either {first}")
+
+
+def test_cells_are_named_by_row_then_column() -> None:
+    assert cell_name(Cell(0, 1), CLASSIC_BOARD) == "the top row, second column"
+    assert cell_name(Cell(1, 3), CLASSIC_BOARD) == "the middle row, fourth column"
+    assert cell_name(Cell(2, 0), Board(4, 4)) == "the third row, first column"
