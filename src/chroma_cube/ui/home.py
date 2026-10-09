@@ -11,9 +11,10 @@ from textual.screen import Screen
 from textual.widgets import Footer, Label, OptionList
 from textual.widgets.option_list import Option
 
+from chroma_cube.generator import DIFFICULTIES
 from chroma_cube.ui.infinite import RNG, play_generated
 from chroma_cube.ui.screens import CardListScreen
-from chroma_cube.ui.seeds import DAILY_DIFFICULTY, DIFFICULTIES, GameSpec, random_seed
+from chroma_cube.ui.seeds import DAILY_DIFFICULTY, GameSpec, random_seed
 
 if TYPE_CHECKING:
     from chroma_cube.ui.app import ChromaCubeApp
@@ -77,6 +78,5 @@ class DifficultyScreen(Screen[None]):
 
     @on(OptionList.OptionSelected)
     def choose(self, event: OptionList.OptionSelected) -> None:
-        difficulty = event.option.id
-        assert difficulty is not None
+        difficulty = DIFFICULTIES[event.option_index]
         play_generated(_game(self), GameSpec.infinite(difficulty, random_seed(RNG)))

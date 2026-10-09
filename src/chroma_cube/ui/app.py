@@ -10,9 +10,10 @@ from textual.app import App
 from textual.binding import Binding, BindingType
 
 from chroma_cube.core import Placement, Puzzle
+from chroma_cube.generator import generate as generate_puzzle
 from chroma_cube.progress import Progress
 from chroma_cube.ui.home import HomeScreen
-from chroma_cube.ui.infinite import Generate, generate_puzzle
+from chroma_cube.ui.infinite import Generate
 from chroma_cube.ui.screens import CardListScreen, PlayScreen, WinScreen
 
 

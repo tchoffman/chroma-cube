@@ -14,13 +14,14 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
 from chroma_cube.core import Puzzle
+from chroma_cube.generator import Difficulty
 from chroma_cube.ui.screens import PlayScreen, WinScreen
 from chroma_cube.ui.seeds import GameSpec, parse_seed
 
 if TYPE_CHECKING:
     from chroma_cube.ui.app import ChromaCubeApp
 
-Generate = Callable[[int, str], Puzzle]
+Generate = Callable[[int, Difficulty], Puzzle]
 """Makes the puzzle for a seed and a difficulty; the same arguments give the same puzzle."""
 
 RNG = random.Random()
@@ -42,13 +43,6 @@ _MODAL_CSS = """
         color: $error;
     }
 """
-
-
-def generate_puzzle(seed: int, difficulty: str) -> Puzzle:
-    """The real generator, imported on first use so the app starts quickly."""
-    from chroma_cube.generator import generate
-
-    return generate(seed, difficulty)
 
 
 def play_generated(app: ChromaCubeApp, spec: GameSpec, *, replace: bool = False) -> None:
@@ -159,7 +153,7 @@ class SeedScreen(ModalScreen[int | None]):
     DEFAULT_CSS = f"SeedScreen {{ {_MODAL_CSS} }}"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Cancel")]
 
-    def __init__(self, difficulty: str) -> None:
+    def __init__(self, difficulty: Difficulty) -> None:
         super().__init__()
         self.difficulty = difficulty
 

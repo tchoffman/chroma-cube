@@ -4,11 +4,11 @@ import threading
 from dataclasses import replace
 from datetime import date
 
-import pytest
 from textual.pilot import Pilot
 from textual.widgets import Input, Label, OptionList
 
 from chroma_cube.core import Placement, Puzzle
+from chroma_cube.generator import generate
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.solver import first_solution
 from chroma_cube.ui import ChromaCubeApp
@@ -227,10 +227,6 @@ def _demo_solution() -> Placement:
 
 
 async def test_a_generated_easy_puzzle_plays_to_a_win() -> None:
-    generator = pytest.importorskip("chroma_cube.generator")
-    generate = getattr(generator, "generate", None)
-    if generate is None:
-        pytest.skip("the generator is not on this branch yet")
     async with ChromaCubeApp(classic_puzzles(), today=lambda: TODAY).run_test(size=SIZE) as pilot:
         await pilot.press("down", "enter")
         await pilot.press("enter")  # easy is first
