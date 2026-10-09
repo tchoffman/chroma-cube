@@ -71,3 +71,30 @@ def test_palette_rejects_duplicate_ids() -> None:
     red = Color(id="red", name="Red", hex="#ff0000")
     with pytest.raises(ValueError):
         Palette((red, red))
+
+
+@pytest.mark.parametrize("bad", ["", "Bl", " b", "1"])
+def test_by_initial_needs_exactly_one_letter(bad: str) -> None:
+    with pytest.raises(ValueError):
+        CLASSIC_PALETTE.by_initial(bad)
+
+
+@pytest.mark.parametrize(
+    ("color_id", "name", "hex_value"),
+    [
+        ("", "Red", "#ff0000"),
+        ("red", "", "#ff0000"),
+        ("red", "Red", "red"),
+        ("red", "Red", "#ff000"),
+        ("red", "Red", "#gg0000"),
+        ("red", "Red", "ff0000"),
+    ],
+)
+def test_color_rejects_bad_fields(color_id: str, name: str, hex_value: str) -> None:
+    with pytest.raises(ValueError):
+        Color(id=color_id, name=name, hex=hex_value)
+
+
+def test_adjusted_classic_hex_values() -> None:
+    assert CLASSIC_PALETTE.by_id("mustard").hex == "#ccb800"
+    assert CLASSIC_PALETTE.by_id("purple").hex == "#9440d8"
