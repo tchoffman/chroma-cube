@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from textual import on
 from textual.app import ComposeResult
@@ -13,26 +13,15 @@ from textual.widgets.option_list import Option
 
 from chroma_cube.generator import DIFFICULTIES
 from chroma_cube.ui.infinite import RNG, play_generated
-from chroma_cube.ui.screens import CardListScreen
+from chroma_cube.ui.screens import CardListScreen, game
 from chroma_cube.ui.seeds import DAILY_DIFFICULTY, GameSpec, random_seed
-
-if TYPE_CHECKING:
-    from chroma_cube.ui.app import ChromaCubeApp
-
-
-def _game(screen: Screen[None]) -> ChromaCubeApp:
-    from chroma_cube.ui.app import ChromaCubeApp
-
-    app = screen.app
-    assert isinstance(app, ChromaCubeApp)
-    return app
 
 
 class HomeScreen(Screen[None]):
     """Where the app starts: the classic cards, an infinite puzzle or today's puzzle."""
 
     def compose(self) -> ComposeResult:
-        cards = len(_game(self).puzzles)
+        cards = len(game(self).puzzles)
         yield Label("Chroma Cube", id="list-title")
         yield OptionList(
             Option(
@@ -53,7 +42,7 @@ class HomeScreen(Screen[None]):
 
     @on(OptionList.OptionSelected)
     def choose(self, event: OptionList.OptionSelected) -> None:
-        app = _game(self)
+        app = game(self)
         match event.option.id:
             case "classic":
                 app.push_screen(CardListScreen())
@@ -82,4 +71,4 @@ class DifficultyScreen(Screen[None]):
     @on(OptionList.OptionSelected)
     def choose(self, event: OptionList.OptionSelected) -> None:
         difficulty = DIFFICULTIES[event.option_index]
-        play_generated(_game(self), GameSpec.infinite(difficulty, random_seed(RNG)))
+        play_generated(game(self), GameSpec.infinite(difficulty, random_seed(RNG)))

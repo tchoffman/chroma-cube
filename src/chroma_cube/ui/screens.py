@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from textual import events, on
 from textual.app import ComposeResult
@@ -22,6 +23,16 @@ if TYPE_CHECKING:
 CELL_MIN_HEIGHT = 3
 """A border and one line for the name."""
 CELL_MAX_HEIGHT = 5
+
+
+def game(screen: Screen[Any]) -> ChromaCubeApp:
+    """The running app, typed as ours."""
+    from chroma_cube.ui.app import ChromaCubeApp
+
+    app = screen.app
+    assert isinstance(app, ChromaCubeApp)
+    return app
+
 
 HINT = "Type a color's first letter or its number to take it, then Enter on a cell."
 
@@ -47,11 +58,7 @@ class CardListScreen(Screen[None]):
 
     @property
     def _game(self) -> ChromaCubeApp:
-        from chroma_cube.ui.app import ChromaCubeApp
-
-        app = self.app
-        assert isinstance(app, ChromaCubeApp)
-        return app
+        return game(self)
 
     def on_screen_resume(self) -> None:
         cards = self.query_one(OptionList)
@@ -166,11 +173,7 @@ class PlayScreen(Screen[None]):
 
     @property
     def _game(self) -> ChromaCubeApp:
-        from chroma_cube.ui.app import ChromaCubeApp
-
-        app = self.app
-        assert isinstance(app, ChromaCubeApp)
-        return app
+        return game(self)
 
     # ------------------------------------------------------------------ input
 
@@ -256,8 +259,12 @@ class WinScreen(ModalScreen[str]):
             yield Label("Every cube is placed and every clue holds.")
             yield Label(_hint_count(self.hints), id="win-hints")
             with Horizontal(id="win-buttons"):
-                yield Button("Next card", id="next", variant="success", disabled=not self.has_next)
-                yield Button("Back to list", id="back")
+                yield from self.buttons()
+
+    def buttons(self) -> Iterable[Button]:
+        """The choices under the message; each button's id is what the dialog dismisses with."""
+        yield Button("Next card", id="next", variant="success", disabled=not self.has_next)
+        yield Button("Back to list", id="back")
 
     def on_mount(self) -> None:
         self.query_one("#next" if self.has_next else "#back", Button).focus()

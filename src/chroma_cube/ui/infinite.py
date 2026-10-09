@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, ClassVar
 
 from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, Vertical
+from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
 from chroma_cube.core import Placement, Puzzle
 from chroma_cube.generator import Difficulty
-from chroma_cube.ui.screens import PlayScreen, WinScreen, _hint_count
+from chroma_cube.ui.screens import PlayScreen, WinScreen
 from chroma_cube.ui.seeds import GameSpec, parse_seed
 
 if TYPE_CHECKING:
@@ -190,12 +190,7 @@ class SeedScreen(ModalScreen[int | None]):
 class GeneratedWinScreen(WinScreen):
     """The win dialog for a generated puzzle: "Another" (infinite only) and "Back"."""
 
-    def compose(self) -> ComposeResult:
-        with Vertical(id="win"):
-            yield Label(f"Solved! {self.card_title}", id="win-title")
-            yield Label("Every cube is placed and every clue holds.")
-            yield Label(_hint_count(self.hints), id="win-hints")
-            with Horizontal(id="win-buttons"):
-                if self.has_next:
-                    yield Button("Another", id="next", variant="success")
-                yield Button("Back", id="back")
+    def buttons(self) -> Iterable[Button]:
+        if self.has_next:
+            yield Button("Another", id="next", variant="success")
+        yield Button("Back", id="back")

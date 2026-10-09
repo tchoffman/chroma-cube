@@ -18,7 +18,14 @@ def test_different_days_get_different_seeds() -> None:
 
 @pytest.mark.parametrize(
     ("text", "seed"),
-    [("48213", 48213), ("  7 ", 7), ("0", 0), ("20261008", 20261008), ("48_213", 48213), ("48 213", 48213)],
+    [
+        ("48213", 48213),
+        ("  7 ", 7),
+        ("0", 0),
+        ("20261008", 20261008),
+        ("48_213", 48213),
+        ("48 213", 48213),
+    ],
 )
 def test_parse_seed_reads_whole_numbers(text: str, seed: int) -> None:
     assert parse_seed(text) == seed
