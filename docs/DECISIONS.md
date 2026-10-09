@@ -245,5 +245,5 @@ We do not publish to PyPI yet: it needs a name claim and a token, and nobody has
 which starts one copy of the game per browser tab. It is an optional `web` extra, imported
 only when `--serve` is used, so the terminal game does not pull in a web server; without it
 `--serve` prints the install command and exits. `--serve` defaults to `127.0.0.1` because
-the server has no login. The README screenshot is an SVG exported from a game driven by Textual's test pilot at
-100x32, so it is sharp at any size and needs no real terminal to retake.
+the server has no login. The README screenshot is an SVG exported from a game driven by
+Textual's test pilot at 100x32, so it is sharp at any size and needs no terminal to retake.
