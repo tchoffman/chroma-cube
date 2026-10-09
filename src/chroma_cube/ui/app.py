@@ -8,7 +8,8 @@ from typing import ClassVar
 from textual.app import App
 from textual.binding import Binding, BindingType
 
-from chroma_cube.core import Puzzle
+from chroma_cube.core import Placement, Puzzle
+from chroma_cube.progress import Progress
 from chroma_cube.ui.screens import CardListScreen, PlayScreen, WinScreen
 
 
@@ -20,21 +21,30 @@ class ChromaCubeApp(App[None]):
     ENABLE_COMMAND_PALETTE = False
     BINDINGS: ClassVar[list[BindingType]] = [Binding("q", "quit", "Quit", priority=True)]
 
-    def __init__(self, puzzles: Sequence[Puzzle]) -> None:
+    def __init__(self, puzzles: Sequence[Puzzle], progress: Progress | None = None) -> None:
         super().__init__()
         self.puzzles = tuple(puzzles)
-        self.solved: set[str] = set()
-        """Ids of the cards solved this session."""
+        self.progress = Progress() if progress is None else progress
+        """Solved cards and the last board, saved in the per-user data directory."""
 
     def on_mount(self) -> None:
         self.push_screen(CardListScreen())
 
+    def is_solved(self, puzzle: Puzzle) -> bool:
+        return self.progress.is_solved(puzzle.id)
+
     def open_card(self, index: int) -> None:
-        self.push_screen(PlayScreen(index, self.puzzles[index]))
+        """Play a card, picking up where the player left it if its board was saved."""
+        puzzle = self.puzzles[index]
+        self.push_screen(PlayScreen(index, puzzle, self.progress.saved_board(puzzle)))
+
+    def board_changed(self, index: int, placement: Placement) -> None:
+        self.progress.save_board(self.puzzles[index], placement)
 
     def card_solved(self, index: int) -> None:
-        """Tick the card and offer the next one."""
-        self.solved.add(self.puzzles[index].id)
+        """Record the solve, forget the board, tick the card and offer the next one."""
+        self.progress.record_solve(self.puzzles[index].id)
+        self.progress.clear_board()
         has_next = index + 1 < len(self.puzzles)
 
         def chosen(choice: str | None) -> None:
