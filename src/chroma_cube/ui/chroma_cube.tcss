@@ -1,3 +1,7 @@
+/* Sizes come from the space available: the tray's rows and columns are set from the
+   board in code, every track here is a fraction, and narrow screens stack the clues
+   under the tray. */
+
 #list-title, #card-title {
     padding: 0 1;
     text-style: bold;
@@ -12,43 +16,55 @@
 }
 
 #left {
-    width: auto;
+    width: 3fr;
+    height: 1fr;
     padding: 0 1;
 }
 
 #tray {
-    width: 64;
-    height: 15;
+    height: 1fr;
+    grid-columns: 1fr;
+    grid-rows: 1fr;
     grid-gutter: 0;
 }
 
 TrayCell {
-    width: 16;
-    height: 5;
+    width: 1fr;
+    height: 1fr;
     border: round #808080;
     content-align: center middle;
     text-align: center;
     text-style: bold;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
 }
 
 TrayCell.empty {
     border: dashed $foreground 30%;
 }
 
-TrayCell.dark, PaletteChip.dark {
+TrayCell.dark {
     border: round #d0d0d0;
 }
 
-TrayCell.cursor {
+TrayCell.given {
+    border: double #808080;
+}
+
+TrayCell.given.dark {
+    border: double #d0d0d0;
+}
+
+#tray TrayCell.held {
+    border: thick $warning;
+}
+
+#tray TrayCell.cursor {
     border: heavy $accent;
 }
 
-TrayCell.held {
-    border: double $warning;
-}
-
-TrayCell.held.cursor {
-    border: double $accent;
+#tray TrayCell.held.cursor {
+    border: thick $accent;
 }
 
 .heading {
@@ -58,24 +74,27 @@ TrayCell.held.cursor {
 
 #palette {
     height: auto;
-    width: 64;
-    layout: grid;
-    grid-size: 4;
+    grid-columns: 1fr;
+    grid-rows: 1;
+    grid-gutter: 0 1;
 }
 
 PaletteChip {
-    height: 3;
-    border: round #808080;
+    width: 1fr;
+    height: 1;
     content-align: center middle;
     text-style: bold;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
 }
 
 PaletteChip.held {
-    border: double $warning;
+    text-style: bold underline;
 }
 
 #clues {
-    width: 1fr;
+    width: 2fr;
+    height: 1fr;
     padding: 0 1;
 }
 
@@ -99,6 +118,41 @@ ClueRow.unknown {
     height: 1;
     padding: 0 1;
     color: $text-muted;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Narrow screens: tray and palette on top at their smallest, clues scroll below. */
+
+PlayScreen.-narrow #play {
+    layout: vertical;
+}
+
+PlayScreen.-narrow #left {
+    width: 1fr;
+    height: auto;
+}
+
+PlayScreen.-narrow #tray {
+    height: auto;
+    grid-rows: 3;
+}
+
+PlayScreen.-narrow TrayCell {
+    height: 3;
+}
+
+PlayScreen.-narrow .heading {
+    padding: 0;
+}
+
+PlayScreen.-narrow #clues {
+    width: 1fr;
+    min-height: 3;
+}
+
+PlayScreen.-narrow ClueRow {
+    padding: 0;
 }
 
 WinScreen {
@@ -107,6 +161,7 @@ WinScreen {
 
 #win {
     width: 50;
+    max-width: 100%;
     height: auto;
     padding: 1 2;
     border: thick $success;

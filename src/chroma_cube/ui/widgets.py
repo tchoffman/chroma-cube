@@ -8,7 +8,9 @@ from textual.widgets import Static
 from chroma_cube.core import Cell, Color, Truth
 from chroma_cube.ui.swatch import STATUS_MARKERS, is_dark, text_color
 
-LOCK = "🔒"
+GIVEN_MARK = "▪"
+"""Before a given cube's name, in the same contrasting text color."""
+HELD_MARK = "▸"
 
 
 class TrayCell(Static):
@@ -30,8 +32,8 @@ class TrayCell(Static):
             self.styles.clear_rule("background")
             self.styles.clear_rule("color")
         else:
-            mark = f"\n{LOCK}" if given else "\n(held)" if held else ""
-            self.text = f"{color.name}{mark}"
+            mark = f"{GIVEN_MARK} " if given else f"{HELD_MARK} " if held else ""
+            self.text = f"{mark}{color.name}"
             self.styles.background = color.hex
             self.styles.color = text_color(color.hex)
         self.set_class(color is None, "empty")
@@ -65,7 +67,7 @@ class PaletteChip(Static):
         self.display = slot is not None
         self.set_class(held, "held")
         key = "" if slot is None or slot > 10 else f"{slot % 10} "
-        pointer = "▸ " if held else ""
+        pointer = f"{HELD_MARK} " if held else ""
         self.update(f"{pointer}{key}{self.color.name}")
 
     def on_click(self) -> None:

@@ -17,6 +17,7 @@ class ChromaCubeApp(App[None]):
 
     TITLE = "Chroma Cube"
     CSS_PATH = "chroma_cube.tcss"
+    ENABLE_COMMAND_PALETTE = False
     BINDINGS: ClassVar[list[BindingType]] = [Binding("q", "quit", "Quit", priority=True)]
 
     def __init__(self, puzzles: Sequence[Puzzle]) -> None:

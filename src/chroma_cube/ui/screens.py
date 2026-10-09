@@ -19,6 +19,10 @@ from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
 if TYPE_CHECKING:
     from chroma_cube.ui.app import ChromaCubeApp
 
+CELL_MIN_HEIGHT = 3
+"""A border and one line for the name."""
+CELL_MAX_HEIGHT = 5
+
 HINT = "Type a color's first letter or its number to take it, then Enter on a cell."
 
 
@@ -64,15 +68,22 @@ class PlayScreen(Screen[None]):
     """One card: the tray, the palette strip, the clues and a status line."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("up", "cursor(-1, 0)", "Move", show=False),
-        Binding("down", "cursor(1, 0)", "Move", show=False),
-        Binding("left", "cursor(0, -1)", "Move", show=False),
-        Binding("right", "cursor(0, 1)", "Move", show=False),
-        Binding("enter,space", "activate", "Place / pick up", key_display="⏎"),
-        Binding("x,backspace,delete", "return_cube", "To palette", priority=True),
+        Binding("up", "cursor(-1, 0)", "Move", show=False, priority=True),
+        Binding("down", "cursor(1, 0)", "Move", show=False, priority=True),
+        Binding("left", "cursor(0, -1)", "Move", show=False, priority=True),
+        Binding("right", "cursor(0, 1)", "Move", show=False, priority=True),
+        Binding("enter,space", "activate", "Place", key_display="⏎"),
+        Binding("x,backspace,delete", "return_cube", "Return", priority=True),
         Binding("r", "reset", "Reset", priority=True),
-        Binding("escape", "back", "Drop / back"),
+        Binding("escape", "back", "Back"),
+        Binding("pageup", "scroll_clues(-1)", "Clues", show=False),
+        Binding("pagedown", "scroll_clues(1)", "Clues", key_display="PgDn"),
     ]
+    HORIZONTAL_BREAKPOINTS = [
+        (0, "-narrow"),
+        (70, "-wide"),
+    ]
+    """Below 70 columns the clues go under the tray instead of beside it."""
 
     def __init__(self, index: int, puzzle: Puzzle) -> None:
         super().__init__()
@@ -88,11 +99,16 @@ class PlayScreen(Screen[None]):
                 tray = Grid(*(TrayCell(cell) for cell in board), id="tray")
                 tray.styles.grid_size_columns = board.cols
                 tray.styles.grid_size_rows = board.rows
+                tray.styles.min_height = board.rows * CELL_MIN_HEIGHT
+                tray.styles.max_height = board.rows * CELL_MAX_HEIGHT
                 yield tray
                 yield Label("Palette", classes="heading")
-                with Horizontal(id="palette"):
-                    yield from (PaletteChip(color) for color in puzzle.palette)
-            with VerticalScroll(id="clues"):
+                palette = Grid(*(PaletteChip(color) for color in puzzle.palette), id="palette")
+                palette.styles.grid_size_columns = board.cols
+                yield palette
+            clues = VerticalScroll(id="clues")
+            clues.can_focus = False
+            with clues:
                 yield Label("Clues", classes="heading")
                 yield from (ClueRow(sentence) for sentence in puzzle.rendered_clues())
         yield Static(HINT, id="message", markup=False)
@@ -142,6 +158,13 @@ class PlayScreen(Screen[None]):
 
     def action_activate(self) -> None:
         self._after_change(self.state.activate(self.state.cursor))
+
+    def action_scroll_clues(self, pages: int) -> None:
+        clues = self.query_one("#clues", VerticalScroll)
+        if pages > 0:
+            clues.scroll_page_down()
+        else:
+            clues.scroll_page_up()
 
     def action_return_cube(self) -> None:
         returned = self.state.return_held()

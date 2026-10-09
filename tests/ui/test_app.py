@@ -67,7 +67,8 @@ async def test_the_card_shows_givens_palette_and_clues() -> None:
     async with app().run_test(size=SIZE) as pilot:
         await pilot.press("enter")
         orange = cell_widget(pilot.app, Cell(1, 1))
-        assert "Orange" in orange.text and "🔒" in orange.text
+        assert orange.text == "▪ Orange"
+        assert orange.has_class("given")
         assert orange.styles.background.hex.lower() == "#ff8c00"
         chips = [chip for chip in pilot.app.screen.query(PaletteChip) if chip.display]
         assert sorted(chip.color.id for chip in chips) == sorted(SOLUTION)
