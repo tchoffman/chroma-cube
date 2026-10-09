@@ -93,6 +93,51 @@ def test_a_board_back_at_the_givens_is_forgotten(tmp_path: Path) -> None:
     assert Progress(tmp_path).saved_board(DEMO) is None
 
 
+def test_hints_used_are_saved_with_the_board(tmp_path: Path) -> None:
+    Progress(tmp_path).save_board(DEMO, magenta_at(2, 1), hints=2)
+    reloaded = Progress(tmp_path)
+    assert reloaded.saved_board(DEMO) == magenta_at(2, 1)
+    assert reloaded.saved_hints(DEMO.id) == 2
+    assert reloaded.saved_hints(OTHER.id) == 0
+    data = json.loads((tmp_path / "progress.json").read_text())
+    assert data["current"]["hints"] == 2
+
+
+def test_a_board_saved_before_hints_existed_reads_as_no_hints(tmp_path: Path) -> None:
+    current = {"puzzle": DEMO.id, "cubes": [{"color": "magenta", "row": 2, "col": 1}]}
+    (tmp_path / "progress.json").write_text(json.dumps({"version": 1, "current": current}))
+    progress = Progress(tmp_path)
+    assert progress.saved_board(DEMO) == magenta_at(2, 1)
+    assert progress.saved_hints(DEMO.id) == 0
+
+
+@pytest.mark.parametrize("hints", [-1, "2", True, 1.5, None])
+def test_a_bad_hint_count_reads_as_no_hints_and_keeps_the_board(
+    tmp_path: Path, hints: object
+) -> None:
+    current = {"puzzle": DEMO.id, "cubes": [], "hints": hints}
+    (tmp_path / "progress.json").write_text(json.dumps({"version": 1, "current": current}))
+    progress = Progress(tmp_path)
+    assert progress.saved_board(DEMO) == DEMO.givens
+    assert progress.saved_hints(DEMO.id) == 0
+
+
+def test_hints_keep_a_board_that_is_back_at_the_givens(tmp_path: Path) -> None:
+    progress = Progress(tmp_path)
+    progress.save_board(DEMO, magenta_at(2, 1), hints=1)
+    progress.save_board(DEMO, DEMO.givens, hints=1)
+    reloaded = Progress(tmp_path)
+    assert reloaded.saved_board(DEMO) == DEMO.givens
+    assert reloaded.saved_hints(DEMO.id) == 1
+
+
+def test_clearing_the_board_forgets_its_hints(tmp_path: Path) -> None:
+    progress = Progress(tmp_path)
+    progress.save_board(DEMO, magenta_at(2, 1), hints=3)
+    progress.clear_board(DEMO.id)
+    assert Progress(tmp_path).saved_hints(DEMO.id) == 0
+
+
 def test_clear_board_forgets_it(tmp_path: Path) -> None:
     progress = Progress(tmp_path)
     progress.save_board(DEMO, magenta_at(2, 1))

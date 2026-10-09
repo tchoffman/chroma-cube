@@ -222,3 +222,31 @@ async def test_the_win_dialog_counts_the_hints() -> None:
         text = str(pilot.app.screen.query_one("#win-hints", Label).render())
         assert text == "Solved with 2 hints."
         assert pilot.app.progress.record(DEMO.id) == SolveRecord(solves=1, best_hints=2)
+
+
+async def test_hints_taken_before_quitting_count_when_the_card_is_resumed() -> None:
+    async with app().run_test(size=SIZE) as pilot:
+        await pilot.press("enter", "h", "m", "down", "down", "right", "enter")
+        assert play(pilot.app).state.hints_used == 1
+    async with app().run_test(size=SIZE) as pilot:
+        await pilot.press("enter")
+        state = play(pilot.app).state
+        assert state.placement.cell_of(CLASSIC_PALETTE.by_id("magenta")) == Cell(2, 1)
+        assert state.hints_used == 1
+        await pilot.press("h")
+        for color_id, cell in SOLUTION.items():
+            if color_id != "magenta":
+                await pilot.click(f"#chip-{color_id}")
+                await pilot.click(f"#cell-{cell.row}-{cell.col}")
+        await pilot.pause()
+        assert isinstance(pilot.app.screen, WinScreen)
+        assert str(pilot.app.screen.query_one("#win-hints", Label).render()) == (
+            "Solved with 2 hints."
+        )
+        assert pilot.app.progress.record(DEMO.id) == SolveRecord(solves=1, best_hints=2)
+
+
+async def test_a_hint_alone_is_saved_before_any_cube_moves() -> None:
+    async with app().run_test(size=SIZE) as pilot:
+        await pilot.press("enter", "h")
+        assert pilot.app.progress.saved_hints(DEMO.id) == 1

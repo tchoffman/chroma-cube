@@ -86,10 +86,12 @@ class PlayScreen(Screen[None]):
     ]
     """Below 70 columns the clues go under the tray instead of beside it."""
 
-    def __init__(self, index: int, puzzle: Puzzle, placement: Placement | None = None) -> None:
+    def __init__(
+        self, index: int, puzzle: Puzzle, placement: Placement | None = None, hints: int = 0
+    ) -> None:
         super().__init__()
         self.index = index
-        self.state = PlayState(puzzle, placement)
+        self.state = PlayState(puzzle, placement, hints)
 
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
@@ -151,7 +153,10 @@ class PlayScreen(Screen[None]):
         if self.state.solved:
             self._game.card_solved(self.index, self.state.hints_used)
         else:
-            self._game.board_changed(self.index, self.state.placement)
+            self._save_board()
+
+    def _save_board(self) -> None:
+        self._game.board_changed(self.index, self.state.placement, self.state.hints_used)
 
     @property
     def _game(self) -> ChromaCubeApp:
@@ -183,6 +188,7 @@ class PlayScreen(Screen[None]):
 
     def action_hint(self) -> None:
         self.refresh_view(self.state.take_hint())
+        self._save_board()
 
     def action_reset(self) -> None:
         self.state.reset()

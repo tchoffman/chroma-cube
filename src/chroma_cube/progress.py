@@ -1,8 +1,9 @@
 """What the player has done, kept between runs in a small JSON file.
 
 The store remembers which cards were solved (how often, and the fewest hints used) and
-the cubes the player had placed on the last card they played. Reading never raises: a
-missing, empty or damaged file, or entries of the wrong shape, are treated as no progress.
+the cubes the player had placed on the last card they played, with the hints taken on it.
+Reading never raises: a missing, empty or damaged file, or entries of the wrong shape, are
+treated as no progress.
 Writing goes through a temporary file and a rename, so a crash mid-save leaves the old
 file whole, and a save that fails is dropped rather than interrupting the game.
 """
@@ -74,10 +75,11 @@ class SavedCube:
 
 @dataclass(frozen=True)
 class SavedBoard:
-    """The cubes the player had placed on one card, givens left out."""
+    """The cubes the player had placed on one card, givens left out, and the hints taken."""
 
     puzzle_id: str
     cubes: tuple[SavedCube, ...]
+    hints: int = 0
 
 
 class Progress:
@@ -127,10 +129,15 @@ class Progress:
             placement = placement.with_color(color, cell)
         return placement
 
-    def save_board(self, puzzle: Puzzle, placement: Placement) -> None:
-        """Remember `placement` as the board of the last card played.
+    def saved_hints(self, puzzle_id: str) -> int:
+        """The hints taken on the saved board of `puzzle_id`, or 0 if it has none."""
+        board = self._board
+        return board.hints if board is not None and board.puzzle_id == puzzle_id else 0
 
-        A board with nothing beyond the givens is forgotten instead.
+    def save_board(self, puzzle: Puzzle, placement: Placement, hints: int = 0) -> None:
+        """Remember `placement` and the hints taken as the board of the last card played.
+
+        A board with nothing beyond the givens and no hints is forgotten instead.
         """
         cubes = tuple(
             SavedCube(color.id, cell.row, cell.col)
@@ -138,7 +145,7 @@ class Progress:
             if (cell := placement.cell_of(color)) is not None
             and puzzle.givens.cell_of(color) is None
         )
-        board = SavedBoard(puzzle.id, cubes) if cubes else None
+        board = SavedBoard(puzzle.id, cubes, hints) if cubes or hints else None
         if board != self._board:
             self._board = board
             self._save()
@@ -196,6 +203,7 @@ class Progress:
                     {"color": cube.color, "row": cube.row, "col": cube.col}
                     for cube in self._board.cubes
                 ],
+                **({"hints": self._board.hints} if self._board.hints else {}),
             },
         }
         try:
@@ -248,4 +256,5 @@ def _parse_board(raw: object) -> SavedBoard | None:
             parsed.append(SavedCube(color, row, col))
         else:
             return None
-    return SavedBoard(puzzle_id, tuple(parsed))
+    hints = raw.get("hints")
+    return SavedBoard(puzzle_id, tuple(parsed), hints if _is_count(hints, 0) else 0)
