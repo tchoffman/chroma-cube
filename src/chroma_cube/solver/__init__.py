@@ -1,6 +1,8 @@
 """Solution search: find a puzzle's solutions, count them and report uniqueness."""
 
 from chroma_cube.solver.search import (
+    DEFAULT_MAX_NODES,
+    SearchBudgetExceeded,
     SolveResult,
     count_solutions,
     first_solution,
@@ -11,6 +13,8 @@ from chroma_cube.solver.search import (
 )
 
 __all__ = [
+    "DEFAULT_MAX_NODES",
+    "SearchBudgetExceeded",
     "SolveResult",
     "count_solutions",
     "first_solution",
