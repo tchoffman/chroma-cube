@@ -27,3 +27,14 @@ def test_each_truth_has_its_marker() -> None:
 def _contrast(a: str, b: str) -> float:
     high, low = sorted((luminance(a), luminance(b)), reverse=True)
     return (high + 0.05) / (low + 0.05)
+
+
+def test_the_ui_dark_line_is_the_core_tone_line() -> None:
+    from chroma_cube.core import EXTENDED_20, LIGHT_LUMINANCE
+    from chroma_cube.core import luminance as core_luminance
+
+    assert luminance is core_luminance
+    assert is_dark("#757575") and not is_dark("#767676")
+    assert core_luminance("#767676") >= LIGHT_LUMINANCE > core_luminance("#757575")
+    for color in EXTENDED_20:
+        assert is_dark(color.hex) == (color.tone == "dark"), color.name

@@ -35,6 +35,7 @@ from chroma_cube.core.colors import (
     EXTENDED_16,
     EXTENDED_20,
     FAMILIES,
+    LIGHT_LUMINANCE,
     PALETTES,
     QUALITIES,
     TEMPERATURES,
@@ -42,6 +43,7 @@ from chroma_cube.core.colors import (
     Color,
     Palette,
     attributes_from_hex,
+    luminance,
 )
 from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.parse import ClueParseError, parse_clue, parse_clues
@@ -69,6 +71,8 @@ __all__ = [
     "TEMPERATURES",
     "TONES",
     "attributes_from_hex",
+    "LIGHT_LUMINANCE",
+    "luminance",
     "BOARD_RULE_KINDS",
     "CLASSIC_BOARD",
     "CLASSIC_PALETTE",
