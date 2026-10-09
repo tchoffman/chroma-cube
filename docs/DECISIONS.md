@@ -149,3 +149,12 @@ point at the furthest token any reading reached, or at the cause of a well-forme
 impossible clue (a fourth row on a 3-row board). Text names rows and columns from 1. We gave
 up a parser generator (no new dependency) and linear-time parsing; real clues parse in a
 few milliseconds.
+
+## D23: A short "either" sentence only when it reads back as the same clue (2026-10-08)
+An `or` of two or three like clauses that differ only in their first color renders the way
+the cards do: "Either Teal or Black is in the same row as Cobalt". We never swap colors to
+reach that form, even for symmetric kinds (`next_to`, `knows`, `same_row`), because
+`parse(render(clue))` must return the same clue, and a swapped clue is a different AST even
+when it means the same thing. A shared first color ("Either White knows Teal or White knows
+Mint") keeps the long form, as do a shared initial (each part picks its own B), negated parts
+and four or more parts. We gave up the short form for those clues.

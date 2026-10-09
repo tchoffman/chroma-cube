@@ -138,7 +138,8 @@ _EXTRA_RELATION_TEXT: dict[str, list[tuple[str, str]]] = {
         ("{0} is directly to the right of {1}", "{0} isn't directly to the right of {1}")
     ],
 }
-"""Other ways of saying a relation, beside the registry's own English."""
+"""Other ways of saying a relation, beside the registry's own English (its `text`,
+`negated` and `alternatives`)."""
 
 _EXTRA_PROPERTY_TEXT: dict[str, list[tuple[str, str]]] = {
     "in_corner": [("{0} is in the corner", "{0} isn't in the corner")],
@@ -189,8 +190,12 @@ def _templates() -> list[_Template]:
     templates: list[_Template] = []
     for kind, relation_kind in RELATION_KINDS.items():
         texts = [(relation_kind.text, relation_kind.negated), *_EXTRA_RELATION_TEXT.get(kind, [])]
-        for text, negated in texts:
+        positives = [text for text, _ in texts]
+        if relation_kind.alternatives and relation_kind.alternatives not in positives:
+            positives.append(relation_kind.alternatives)
+        for text in positives:
             templates.append(_Template(_words(text), _relation_builder(kind, False)))
+        for _, negated in texts:
             templates.append(_Template(_words(negated), _relation_builder(kind, True)))
     for kind, property_kind in PROPERTY_KINDS.items():
         texts = [(property_kind.text, property_kind.negated), *_EXTRA_PROPERTY_TEXT.get(kind, [])]

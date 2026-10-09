@@ -1,8 +1,11 @@
 import pytest
 from hypothesis import given
+from hypothesis import strategies as st
 
 from chroma_cube.core import CLASSIC_PALETTE, Board
 from chroma_cube.core.clues import (
+    PROPERTY_KINDS,
+    RELATION_KINDS,
     And,
     AtLeast,
     BoardRule,
@@ -10,12 +13,14 @@ from chroma_cube.core.clues import (
     Exactly,
     Not,
     Or,
+    Property,
+    Relation,
     prop,
     relation,
 )
 from chroma_cube.core.parse import ClueParseError, parse_clue, parse_clues
 from chroma_cube.core.render import render
-from tests.core.strategies import clues
+from tests.core.strategies import clues, color_refs
 
 
 def parse(text: str) -> Clue:
@@ -52,6 +57,37 @@ def test_parse_inverts_render(clue: Clue) -> None:
 def test_render_parse_render_is_the_identity(clue: Clue) -> None:
     text = render(canonical(clue), CLASSIC_PALETTE)
     assert render(parse(text), CLASSIC_PALETTE) == text
+
+
+@st.composite
+def either_ors(draw: st.DrawFn) -> Or:
+    """An `or` of like clauses that differ in their first color: the kind the renderer
+    shortens to "Either Teal or Black ..."."""
+    subjects = draw(st.lists(color_refs, min_size=2, max_size=3, unique=True))
+    if draw(st.booleans()):
+        kind = draw(st.sampled_from(sorted(PROPERTY_KINDS)))
+        index = draw(st.integers(0, 2)) if PROPERTY_KINDS[kind].index else None
+        return Or(tuple(Property(kind, subject, index) for subject in subjects))
+    kind = draw(st.sampled_from(sorted(k for k, v in RELATION_KINDS.items() if v.arity == 2)))
+    other = draw(color_refs)
+    return Or(tuple(Relation(kind, (subject, other)) for subject in subjects))
+
+
+@given(either_ors())
+def test_shortened_either_or_round_trips(clue: Or) -> None:
+    assert parse(render(clue, CLASSIC_PALETTE)) == clue
+    assert parse(render(Not(clue), CLASSIC_PALETTE)) == Not(clue)
+    nested = And((prop("in_corner", "black"), clue))
+    assert parse(render(nested, CLASSIC_PALETTE)) == nested
+
+
+def test_card_one_either_or_round_trips() -> None:
+    text = "Either Teal or Black is in the same row as Cobalt."
+    clue = parse(text)
+    assert clue == Or(
+        (relation("same_row", "teal", "cobalt"), relation("same_row", "black", "cobalt"))
+    )
+    assert render(clue, CLASSIC_PALETTE) + "." == text
 
 
 def test_row_names_follow_the_board() -> None:

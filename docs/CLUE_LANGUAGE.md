@@ -85,11 +85,19 @@ true if there is *some* choice of matching colors that makes it true.
 | `and`                                   | "X, Y and Z"                                            |
 | `and` of one relation from one color    | "Black knows White, Teal and Mint" (when the template ends with the second color and the shared color is named, not an initial) |
 | `or`                                    | "Either X or Y", "Either X, Y or Z"; a one-clue `or` is just that clue |
+| `or` of 2–3 like clauses, first color differs | "Either Teal or Black is in the same row as Cobalt", "Either Teal, Mint or B is in a corner" |
 | `exactly(n)` / `at_least(n)`            | "Exactly one of these is true: X; Y; Z"                 |
 | `rows_alphabetical`                     | "Every row is in alphabetical order from left to right" |
 | `columns_alphabetical`                  | "Every column is in alphabetical order from top to bottom" |
 
 A compound clue inside `and`, `or` or a count is wrapped in brackets.
+
+The short `or` form is used when every part is the same positive relation (two colors) or
+property, the parts differ only in their first color, those colors are all different, and a
+relation's second color is named rather than an initial. Colors are never swapped to make a
+clue fit, even for symmetric kinds like `next_to`, because the sentence must read back as the
+same clue. A relation whose `text` has two subjects ("{0} and {1} are in the same row") gives
+a one-subject `alternatives` template in its registry entry ("{0} is in the same row as {1}").
 
 `and` never merges when the shared color is an initial: each part picks its own B color,
 so `and(knows(B, White), knows(B, Teal))` reads "B knows White and B knows Teal", not
@@ -124,7 +132,8 @@ color  := a palette color name, any case | one capital letter (an initial)
   column", "the 7th column", "column 2". Numbers in text count from 1; indices in the AST
   from 0. A row or column off the board is an error.
 - A leaf may name alternatives as its subject: "Either Teal or Black is in the same row as
-  Cobalt" reads as `or(same_row(teal, cobalt), same_row(black, cobalt))`.
+  Cobalt" reads as `or(same_row(teal, cobalt), same_row(black, cobalt))`, in that order. This
+  is the renderer's short `or` form.
 
 ## Data format
 
