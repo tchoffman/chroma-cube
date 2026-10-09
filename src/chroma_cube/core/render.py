@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chroma_cube.core.board import CLASSIC_BOARD, Board
+from chroma_cube.core.board import CLASSIC_BOARD, Board, Cell
 from chroma_cube.core.clues import (
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
@@ -31,6 +31,11 @@ def render(clue: Clue, palette: Palette, board: Board = CLASSIC_BOARD) -> str:
     The board is only needed to name rows ("top", "middle", "bottom").
     """
     return _Renderer(palette, board).sentence(clue)
+
+
+def cell_name(cell: Cell, board: Board = CLASSIC_BOARD) -> str:
+    """A cell in words, row first: "the top row, second column"."""
+    return f"the {_row_name(cell.row, board)} row, {_ordinal(cell.col)} column"
 
 
 class _Renderer:
@@ -85,13 +90,7 @@ class _Renderer:
         return template.format(subject or self.name(clue.color), line=line)
 
     def row_name(self, index: int) -> str:
-        if index == 0:
-            return "top"
-        if index == self.board.rows - 1:
-            return "bottom"
-        if self.board.rows == 3 and index == 1:
-            return "middle"
-        return _ordinal(index)
+        return _row_name(index, self.board)
 
     def alternatives(self, clues: tuple[Clue, ...]) -> str | None:
         """Say an `or` of two or three like clauses the way the cards do:
@@ -190,6 +189,16 @@ def _lower_opener(text: str) -> str:
     if text.startswith(_OPENERS):
         return text[0].lower() + text[1:]
     return text
+
+
+def _row_name(index: int, board: Board) -> str:
+    if index == 0:
+        return "top"
+    if index == board.rows - 1:
+        return "bottom"
+    if board.rows == 3 and index == 1:
+        return "middle"
+    return _ordinal(index)
 
 
 def _ordinal(index: int) -> str:
