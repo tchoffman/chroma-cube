@@ -12,7 +12,7 @@ from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
-from chroma_cube.core import Puzzle
+from chroma_cube.core import Placement, Puzzle
 from chroma_cube.ui.play import PlayState
 from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
 
@@ -27,7 +27,7 @@ HINT = "Type a color's first letter or its number to take it, then Enter on a ce
 
 
 class CardListScreen(Screen[None]):
-    """Every card, with a tick on the ones solved this session."""
+    """Every card, with a tick on the ones ever solved."""
 
     def compose(self) -> ComposeResult:
         yield Label("Chroma Cube: choose a card", id="list-title")
@@ -42,7 +42,7 @@ class CardListScreen(Screen[None]):
         ]
 
     def _prompt(self, index: int, puzzle: Puzzle) -> str:
-        tick = "✓" if puzzle.id in self._game.solved else " "
+        tick = "✓" if self._game.is_solved(puzzle) else " "
         return f"{index + 1:>2}  {tick}  {puzzle.title}"
 
     @property
@@ -85,10 +85,10 @@ class PlayScreen(Screen[None]):
     ]
     """Below 70 columns the clues go under the tray instead of beside it."""
 
-    def __init__(self, index: int, puzzle: Puzzle) -> None:
+    def __init__(self, index: int, puzzle: Puzzle, placement: Placement | None = None) -> None:
         super().__init__()
         self.index = index
-        self.state = PlayState(puzzle)
+        self.state = PlayState(puzzle, placement)
 
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
@@ -141,6 +141,8 @@ class PlayScreen(Screen[None]):
         self.refresh_view(message)
         if self.state.solved:
             self._game.card_solved(self.index)
+        else:
+            self._game.board_changed(self.index, self.state.placement)
 
     @property
     def _game(self) -> ChromaCubeApp:

@@ -16,9 +16,10 @@ class PlayState:
     tray (picked up from a cell); it only moves when it is put down somewhere.
     """
 
-    def __init__(self, puzzle: Puzzle) -> None:
+    def __init__(self, puzzle: Puzzle, placement: Placement | None = None) -> None:
+        """Start from `placement` (a board saved earlier), or else the card's givens."""
         self.puzzle = puzzle
-        self.placement: Placement = puzzle.givens
+        self.placement: Placement = puzzle.givens if placement is None else placement
         self.held: Color | None = None
         self.cursor = Cell(0, 0)
 
