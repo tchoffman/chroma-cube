@@ -1,0 +1,31 @@
+import chroma_cube.core as core
+
+
+def test_clue_language_is_exported_from_core() -> None:
+    for name in [
+        "Clue",
+        "ColorRef",
+        "Relation",
+        "Property",
+        "BoardRule",
+        "Not",
+        "And",
+        "Or",
+        "Exactly",
+        "AtLeast",
+        "RELATION_KINDS",
+        "PROPERTY_KINDS",
+        "BOARD_RULE_KINDS",
+        "RelationKind",
+        "PropertyKind",
+        "ref",
+        "relation",
+        "prop",
+        "Truth",
+        "evaluate",
+        "render",
+        "clue_to_dict",
+        "clue_from_dict",
+    ]:
+        assert name in core.__all__
+        assert hasattr(core, name)
