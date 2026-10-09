@@ -279,3 +279,43 @@ two clues and counts the rest ("and 2 more"); every involved clue is marked in t
 anyway. The status line wraps to four lines, so a whole explanation shows at 60 and 80
 columns. We gave up deeper deductions (chains of two or more cubes) until a card needs
 them.
+
+## D32: The generator chooses clues greedily against sampled rival solutions (2026-10-08)
+`generate(seed, difficulty)` draws a random full solution and the givens, builds a pool of
+clues that are true on that solution (relations, properties, negations of false ones,
+either/or of one true and one false clue, initial-letter versions where two colors share
+a letter, counts, grouped relations, and board rules only when they hold), then adds the
+clue that rules out the most *other* solutions until the solver finds no rival, then
+drops every clue the puzzle can do without and checks uniqueness once more. "Rules out
+the most" is judged on a sample of rival solutions rather than by counting solutions
+per candidate, which would need hundreds of solver calls per step: random completions
+while the clues are loose, swaps and three-way rotations of the real solution once they
+are tight, a short local search for far-away rivals, and only then the solver. Rivals
+seen on the way also let minimisation skip most solver calls (a removal is impossible if
+a known rival satisfies the clues that are left). Clues are checked on full placements
+with compiled closures rather than the three-valued evaluator, which is far slower for
+yes/no questions. Only `random.Random(seed)` drives choices and nothing iterates a set, so
+a seed gives the same puzzle in every process. An attempt that misses its profile is
+dropped and the next attempt continues the same random stream. A clue whose colors are
+all given, or that rules out no sampled rival (so is implied by what is already chosen),
+is never picked; a clue and its negation are never both true on the solution, so never
+both in the pool. We gave up exact "cuts the most solutions" scoring and puzzles whose
+order of clues follows a teaching sequence.
+
+## D33: Difficulty profiles (2026-10-08)
+| Level  | Givens | Clues | Adds these clue features                                   | Must use one of             |
+|--------|--------|-------|------------------------------------------------------------|-----------------------------|
+| easy   | 5–7    | 3–5   | same row/column, next to, above/below/left/right, directly | –                           |
+| medium | 2–4    | 4–7   | corner, edge, center, row, column, negation, either/or     | a medium feature            |
+| hard   | 0–1    | 5–8   | knows, diagonal, between, initials, grouped relations      | knows/diagonal/between/initial |
+| expert | 0      | 3–8   | exactly/at least counts, alphabetical rows/columns         | a count or alphabetical rule |
+
+Within a puzzle each repeat of a clue family costs a factor, and so does each reuse of a
+slow or heavy feature (initials, either/or, negation, counts, between), which keeps one
+kind from crowding the card and keeps the solver fast. Two in five expert puzzles start
+from a solution whose rows or columns are alphabetical, so the board rule can appear; on
+a random solution it almost never holds. Expert was meant to have fewer clues than hard,
+but with no givens and only counts as its signature it needs seven or eight; the
+alphabetical expert puzzles do come out at about five. `rate(puzzle)` gives a simple
+score (three per cube to place plus each clue's heaviest feature weight) that rises from
+about 20 (easy) through 35 and 48 to 52 (expert).
