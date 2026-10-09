@@ -95,6 +95,37 @@ A compound clue inside `and`, `or` or a count is wrapped in brackets.
 so `and(knows(B, White), knows(B, Teal))` reads "B knows White and B knows Teal", not
 "B knows White and Teal" (which would say one B knows both).
 
+## Reading clues from text
+
+`parse_clue(text, palette, board)` reads one sentence back into a clue, and
+`parse_clues(text, ...)` reads one clue per line (blank lines and "1." / "2)" numbering are
+skipped). Every sentence `render` produces parses back to the same clue. A one-clue `and` or
+`or` renders as its only clue, so it comes back as that clue. Unreadable text raises
+`ClueParseError` with a message and the character offset of the problem.
+
+The accepted grammar, informally (keywords are case-insensitive, the final full stop is
+optional):
+
+```
+clue   := "It's not true that" clue | "Either" unit ("," | "or" | ", or") unit ...
+        | ("Exactly" | "At least") N "of these is/are true:" clue ("; " clue)*
+        | unit (("," | "and" | "but" | "or" | ", and" | ", or" | ", but") item)*
+unit   := "(" clue ")" | board rule | leaf sentence | negated leaf sentence
+item   := unit | color            (continues "Black knows White, Teal and Mint")
+        | color "is"/"isn't"/"does"/"doesn't"   (repeats the last clause: "but Mustard is")
+color  := a palette color name, any case | one capital letter (an initial)
+```
+
+- One list uses one connective: "A and B or C" is an error; bracket one side.
+- Leaf sentences are the registry templates plus variants: "is next to", "is beside";
+  "isn't" / "is not", "doesn't" / "does not"; "A is in the same row as B"; "is to the left
+  of"; "in the corner"; "on the edge"; "in the middle" (center).
+- Rows: "the top / middle / bottom row", "the third row", "row 3". Columns: "the second
+  column", "the 7th column", "column 2". Numbers in text count from 1; indices in the AST
+  from 0. A row or column off the board is an error.
+- A leaf may name alternatives as its subject: "Either Teal or Black is in the same row as
+  Cobalt" reads as `or(same_row(teal, cobalt), same_row(black, cobalt))`.
+
 ## Data format
 
 `clue_to_dict` / `clue_from_dict` convert clues to plain JSON-compatible dicts:

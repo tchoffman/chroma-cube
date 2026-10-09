@@ -138,3 +138,14 @@ everything and 60x20 still shows every cell and cube with a scrolling clue list.
 list never takes keyboard focus, so arrows always move the tray cursor; PageUp/PageDown or
 the mouse wheel scroll it. Textual's command palette is off so its "palette" does not
 collide with the game's.
+
+## D22: Clue text is parsed by a backtracking parser driven by the render templates (2026-10-08)
+`parse_clue` builds its leaf sentences from the same registry templates `render` uses, plus
+a short list of variants in the parser, so a new kind is parsed without parser changes. The
+grammar is ambiguous in places ("Black knows White and Teal and Mint are in the same row"),
+so each rule yields every way it can match and the first reading that uses the whole
+sentence wins; full clauses are tried before a bare color continues a merged list. Errors
+point at the furthest token any reading reached, or at the cause of a well-formed but
+impossible clue (a fourth row on a 3-row board). Text names rows and columns from 1. We gave
+up a parser generator (no new dependency) and linear-time parsing; real clues parse in a
+few milliseconds.
