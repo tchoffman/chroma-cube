@@ -9,6 +9,9 @@ dependencies = [
     "textual>=0.80",
 ]
 
+[project.optional-dependencies]
+web = ["textual-serve>=1.1"]
+
 [project.scripts]
 chroma-cube = "chroma_cube.__main__:main"
 
@@ -44,3 +47,7 @@ python_version = "3.11"
 strict = true
 packages = ["chroma_cube"]
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["textual_serve.*"]
+ignore_missing_imports = true
