@@ -1,0 +1,32 @@
+{
+  "id": "classic-09",
+  "title": "Either Way",
+  "difficulty": "medium",
+  "notes": "\"Either A or B\" means at least one of them is true.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [
+    {"color": "magenta", "row": 0, "col": 3},
+    {"color": "mustard", "row": 1, "col": 2}
+  ],
+  "clues": [
+    {"type": "or", "clues": [{"type": "relation", "kind": "same_row", "colors": ["cobalt", "mustard"]}, {"type": "relation", "kind": "same_row", "colors": ["magenta", "mustard"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["brown", "black"]}, {"type": "relation", "kind": "left_of", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["brown", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["coral", "emerald"]}, {"type": "relation", "kind": "above", "colors": ["coral", "white"]}]},
+    {"type": "relation", "kind": "directly_above", "colors": ["purple", "teal"]},
+    {"type": "or", "clues": [{"type": "property", "kind": "in_col", "color": "mint", "index": 0}, {"type": "property", "kind": "in_col", "color": "mustard", "index": 0}]}
+  ]
+}

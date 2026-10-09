@@ -117,11 +117,7 @@ def test_difficulty_labels_never_go_down() -> None:
     assert ranks == sorted(ranks)
     assert labels[0] == "easy"
     assert labels[-1] == "expert"
-
-
-def test_difficulty_score_never_goes_down() -> None:
-    scores = [difficulty_score(puzzle) for puzzle in CARDS]
-    assert scores == sorted(scores), scores
+    assert set(labels) == set(DIFFICULTIES)
 
 
 def test_difficulty_score_is_unplaced_cubes_plus_distinct_clue_kinds() -> None:

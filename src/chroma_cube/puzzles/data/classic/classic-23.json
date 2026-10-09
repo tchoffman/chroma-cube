@@ -1,0 +1,30 @@
+{
+  "id": "classic-23",
+  "title": "In Order, Please",
+  "difficulty": "expert",
+  "notes": "Alphabetical rows read A to Z from left to right: Black before Brown before Cobalt, and so on.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [],
+  "clues": [
+    {"type": "board_rule", "kind": "rows_alphabetical"},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["mustard", "coral"]}, {"type": "relation", "kind": "right_of", "colors": ["mustard", "emerald"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["magenta", "brown"]}, {"type": "relation", "kind": "diagonal", "colors": ["magenta", "mustard"]}, {"type": "relation", "kind": "diagonal", "colors": ["magenta", "orange"]}]},
+    {"type": "relation", "kind": "between", "colors": ["mint", "magenta", "white"]},
+    {"type": "relation", "kind": "between", "colors": ["orange", "C", "purple"]},
+    {"type": "relation", "kind": "below", "colors": ["M", "orange"]}
+  ]
+}

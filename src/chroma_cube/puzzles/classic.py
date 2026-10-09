@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 from functools import cache
-
 from importlib.resources import files
 
 from chroma_cube.core import (

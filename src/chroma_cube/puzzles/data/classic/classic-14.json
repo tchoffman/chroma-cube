@@ -1,0 +1,30 @@
+{
+  "id": "classic-14",
+  "title": "Small World",
+  "difficulty": "hard",
+  "notes": "Rows are named top, middle and bottom.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [],
+  "clues": [
+    {"type": "or", "clues": [{"type": "relation", "kind": "knows", "colors": ["mint", "teal"]}, {"type": "relation", "kind": "knows", "colors": ["orange", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["magenta", "brown"]}, {"type": "relation", "kind": "right_of", "colors": ["magenta", "mustard"]}, {"type": "relation", "kind": "right_of", "colors": ["magenta", "white"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "below", "colors": ["coral", "mint"]}, {"type": "relation", "kind": "below", "colors": ["coral", "mustard"]}]},
+    {"type": "property", "kind": "in_row", "color": "black", "index": 2},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "purple"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["coral", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["coral", "emerald"]}, {"type": "relation", "kind": "next_to", "colors": ["coral", "mustard"]}]}
+  ]
+}
