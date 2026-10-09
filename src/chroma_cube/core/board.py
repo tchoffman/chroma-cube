@@ -91,3 +91,9 @@ class Board:
 
 CLASSIC_BOARD = Board(3, 4)
 """The physical game's tray (see D3 in docs/DECISIONS.md)."""
+
+BOARD_4X4 = Board(4, 4)
+"""A square board for the sixteen-color palette."""
+
+BOARD_4X5 = Board(4, 5)
+"""Four rows of five, for the twenty-color palette."""

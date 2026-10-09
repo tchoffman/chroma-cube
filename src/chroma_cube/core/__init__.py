@@ -1,12 +1,16 @@
 """The pure game model: colors, the board, where cubes sit, and the clue language."""
 
-from chroma_cube.core.board import CLASSIC_BOARD, Board, Cell
+from chroma_cube.core.board import BOARD_4X4, BOARD_4X5, CLASSIC_BOARD, Board, Cell
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
+    REGION_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
+    AttributeKind,
     BoardRule,
     BoardRuleKind,
     Clue,
@@ -16,13 +20,31 @@ from chroma_cube.core.clues import (
     Or,
     Property,
     PropertyKind,
+    Region,
     Relation,
     RelationKind,
+    attribute,
+    attribute_clues,
     prop,
     ref,
+    regions,
     relation,
 )
-from chroma_cube.core.colors import CLASSIC_PALETTE, Color, Palette
+from chroma_cube.core.colors import (
+    CLASSIC_PALETTE,
+    EXTENDED_16,
+    EXTENDED_20,
+    FAMILIES,
+    LIGHT_LUMINANCE,
+    PALETTES,
+    QUALITIES,
+    TEMPERATURES,
+    TONES,
+    Color,
+    Palette,
+    attributes_from_hex,
+    luminance,
+)
 from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.parse import ClueParseError, parse_clue, parse_clues
 from chroma_cube.core.placement import Placement
@@ -31,6 +53,26 @@ from chroma_cube.core.render import render
 from chroma_cube.core.serialize import clue_from_dict, clue_to_dict
 
 __all__ = [
+    "ATTRIBUTE_KINDS",
+    "REGION_KINDS",
+    "AttributeClue",
+    "AttributeKind",
+    "Region",
+    "attribute",
+    "attribute_clues",
+    "regions",
+    "BOARD_4X4",
+    "BOARD_4X5",
+    "EXTENDED_16",
+    "EXTENDED_20",
+    "FAMILIES",
+    "PALETTES",
+    "QUALITIES",
+    "TEMPERATURES",
+    "TONES",
+    "attributes_from_hex",
+    "LIGHT_LUMINANCE",
+    "luminance",
     "BOARD_RULE_KINDS",
     "CLASSIC_BOARD",
     "CLASSIC_PALETTE",

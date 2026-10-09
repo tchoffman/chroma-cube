@@ -32,6 +32,19 @@ def test_clue_language_is_exported_from_core() -> None:
         "Puzzle",
         "puzzle_to_dict",
         "puzzle_from_dict",
+        "ATTRIBUTE_KINDS",
+        "AttributeClue",
+        "AttributeKind",
+        "Region",
+        "attribute",
+        "attribute_clues",
+        "regions",
+        "PALETTES",
+        "EXTENDED_16",
+        "EXTENDED_20",
+        "BOARD_4X4",
+        "BOARD_4X5",
+        "attributes_from_hex",
     ]:
         assert name in core.__all__
         assert hasattr(core, name)

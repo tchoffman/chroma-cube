@@ -161,6 +161,7 @@ reach that form, even for symmetric kinds (`next_to`, `knows`, `same_row`), beca
 when it means the same thing. A shared first color ("Either White knows Teal or White knows
 Mint") keeps the long form, as do a shared initial (each part picks its own B), negated parts
 and four or more parts. We gave up the short form for those clues.
+
 ## D24: The solver is backtracking with forward checking, on the evaluator as it is (2026-10-08)
 The search keeps, for each unplaced color, the cells it could still take: a cell survives
 while placing the color there leaves every clue that mentions the color not VIOLATED. It
@@ -356,3 +357,81 @@ in-progress board for the whole app, so the first move on a generated puzzle rep
 half-done classic card's board, as moving to another card already does; with `n` this is
 easy to hit. We accepted that rather than add one saved board per mode in this change. The daily and Infinite ·
 medium with the date's seed are the same puzzle and share that record.
+
+## D35: Color attributes, and how the classic twelve are assigned (2026-10-08)
+Each color has a temperature (warm / cool / neutral), a tone (light / dark) and a hue family
+(red, orange, yellow, green, blue, purple, pink, brown, grey). The family word for black,
+white and greys is "grey" rather than "neutral" so that no word means two attributes and a
+clue's value alone says which attribute it is about. Colors may set any of the three; the
+rest come from the hex: grey-ish (channel spread under 0.12) is neutral and grey; otherwise
+hue sets the family (dark oranges are brown, pale reds pink) and the family sets the
+temperature, so warm = red, orange, yellow, pink, brown and cool = green, blue, purple.
+Tone is light from relative luminance 0.18, the same line D19 uses for borders, so a cube
+the UI letters in black is a light color. The classic twelve are written out by hand and
+a test keeps them equal to what the hex gives:
+
+- Warm: Brown, Coral, Magenta, Mustard, Orange. Cool: Cobalt, Emerald, Mint, Purple, Teal.
+  Neutral: Black, White.
+- Light: Coral, Emerald, Magenta, Mint, Mustard, Orange, White. Dark: Black, Brown, Cobalt,
+  Purple, Teal.
+- Families: Coral is **red** (hue 5°, and the set has no other red), Magenta is **pink**,
+  Teal is **blue** (hue 180°, right on the line; blue keeps green and blue at two each),
+  Mint and Emerald are green, Black and White grey, the rest are their own names.
+
+The arguable ones: Teal could be green; Mint is a light, cool green (not a neutral pastel);
+Magenta's luminance (0.188) is just over the light line and Teal's (0.170) just under it, so
+a small hex change would flip them; Purple is cool and Magenta warm. We gave up open-ended
+family names: a family must come from the fixed list so the parser knows its words.
+
+## D36: Extended palettes add colors with new initials, kept 21 CIEDE2000 apart (2026-10-08)
+`EXTENDED_16` is the classic twelve plus Azure, Garnet, Lavender and Silver, for a 4 × 4
+board; `EXTENDED_20` adds Cyan, Denim, Forest and Indigo, for 4 × 5. New colors fill gaps
+(a deep red, light blue, light purple, mid grey, then bright cyan, mid blue, dark green,
+dark violet) and were picked by searching for hexes far from every existing color: the
+closest pair in either palette is still Cobalt/Purple at 21.0 (D10). A bright yellow was
+tried and dropped: Lemon `#fff44f` sat 13.8 from Mustard, and the space between Mustard,
+Orange, Mint and White left no yellow far enough from all four. Initials avoid the classic
+letters and Q, R and X (keyboard commands, D18), with one exception: Cyan shares C with
+Cobalt and Coral, because none of the free letters starts a common name for that color.
+Classic colors keep their place at the front of each palette, so a classic puzzle's colors
+are the first twelve of the larger ones. `PALETTES` names all three; `BOARD_4X4` and
+`BOARD_4X5` are the matching boards.
+
+## D37: Attribute clues are a new node with its own registry (2026-10-08)
+"Every cube next to Mint is a cool color" depends on which colors sit around Mint, not just
+on Mint's cell, so it cannot be a property (whose test sees one cell). `AttributeClue(kind,
+value, color | region, n)` with `ATTRIBUTE_KINDS` keeps D11's shape: each kind is one entry
+saying whether it looks at a color's neighbours or a region, which values it takes, and a
+test on (matching count, other count, n). Evaluation, rendering, parsing, serialization
+and `attribute_clues` (the generator's list) are written once for all kinds. "Next to"
+means sharing a side, like `next_to`. A kind is added only if no other clue already says
+it: "no cube next to Mint is warm" was a `neighbours_none` kind, but it is exactly "Mint
+doesn't sit next to a warm color", so it was folded into a negated `neighbours_some` and
+its sentences parse to that. The sitting-next-to sentence was the one kept because it reads
+like the cards and because "Mint sits next to a warm color, but Teal doesn't" then repeats
+with the right meaning. Families read "a shade of green" so a family named like a color
+("a shade of orange") is never taken for the Orange cube. Two pairs still overlap on full
+boards and are documented rather than merged: `next_to_family` is `neighbours_some` over
+families (one value list per kind keeps each sentence's words unambiguous), and
+`region_all` matches `region_count` with n set to the region's size (they differ on
+boards the palette does not fill). `region_count`
+has no short negation and is said "It's not true that exactly ...". Clues that hold on
+every placement ("Mint is a cool color", "Mint and Teal are the same temperature") are left
+out. Region and neighbour kinds take qualities only, and families only through
+`next_to_family`; both are one-line changes if wanted. The solver re-checks an
+attribute clue whenever any cube is placed, as for a board rule, since a cube it does not
+name can decide it. Since only counts matter, the evaluator treats the unplaced colors as
+a pool of so many with the value and so many without, rather than trying placements, which
+keeps that re-checking cheap: a 4 × 4 card with six givens and eight mixed clues proves
+unique in a few hundredths of a second. We gave up reusing the
+`Property` node, which would have needed a second kind of test inside it.
+
+## D38: Puzzle files store a color's attributes only when the hex would not give them (2026-10-08)
+Existing puzzle data lists colors as id, name and hex. Loading such data derives the
+attributes, which for the classic colors equals `CLASSIC_PALETTE`, and saving it writes
+the same three keys back, so older files round-trip unchanged. A color whose attributes
+were set by hand to something else (a green Teal) is written with all three. The risk is
+that changing the derivation rules would change what a stored attribute clue means; tests
+pin the derived attributes of every built-in color to catch that. We gave up always
+writing attributes, which would be safer against rule changes but would rewrite every
+existing puzzle file.
