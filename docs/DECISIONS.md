@@ -97,3 +97,33 @@ Each stored puzzle lists its colors (id, name, hex) and board size instead of po
 named palette, so generated puzzles on other boards or palettes need no lookup table and a
 puzzle file stays readable on its own. Givens are written in reading order so files diff
 cleanly. We gave up smaller files: the classic palette is repeated in every classic puzzle.
+
+## D17: Picking up a cube leaves it on the tray until it is put down (2026-10-08)
+Selecting a placed cube only marks it as held; it stays in its cell, so the clue markers do
+not flicker while the player decides. Putting it on an empty cell moves it, on another
+placed cube swaps the two, and on its own cell lets go. A palette cube put on a placed cube
+sends that cube back to the palette. Returning a cube (`x`) acts on the held cube, or on
+the cube under the cursor when nothing is held. All of this lives in a plain `PlayState`
+class so it is tested without Textual; the screens only draw it and forward input.
+
+## D18: Keyboard picks cubes by first letter, cycling, or by strip number (2026-10-08)
+Typing a letter takes the next palette cube whose name starts with it (`m` cycles Magenta,
+Mint, Mustard), which is faster to learn than numbers that shift as cubes leave the strip.
+The digits `1`-`9` and `0` (tenth) take a cube by its place in the strip, as a fallback.
+`q`, `r` and `x` are commands, so a color whose name starts with one of them is reachable
+only by number or mouse; no classic color does. `Escape` first lets go of a held cube and
+only leaves the card when nothing is held.
+
+## D19: Cubes are drawn with their name, a contrast-picked text color and a border (2026-10-08)
+Each cube cell is filled with its hex color and shows the color's name in black or white,
+whichever has the higher WCAG contrast, so Teal, Mint and Emerald are never confused.
+Every cube has a grey border and dark cubes (luminance below 0.18, e.g. Black, Cobalt,
+Brown) a light one, so they stay visible on a dark theme without changing the core hex
+values (see D10). Empty cells have a dashed border. Givens carry a lock; the held cube
+says "(held)" in text as well as with a double border, since no single border color is
+visible on every cube.
+
+## D20: Solving is checked after every change and remembered only for the session (2026-10-08)
+After each change, a card whose cubes are all placed and whose clues are all satisfied
+opens a win dialog with "Next card" and "Back to list", and the card gets a tick in the
+list. Solved cards are kept in memory only; persistence between runs is a separate feature.
