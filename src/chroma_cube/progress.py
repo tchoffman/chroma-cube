@@ -143,24 +143,45 @@ class Progress:
             self._board = board
             self._save()
 
-    def clear_board(self) -> None:
-        if self._board is not None:
+    def clear_board(self, puzzle_id: str) -> None:
+        """Forget the saved board if it belongs to `puzzle_id`; another card's is kept."""
+        if self._board is not None and self._board.puzzle_id == puzzle_id:
             self._board = None
             self._save()
 
     # ------------------------------------------------------------------ file
 
     def _load(self) -> None:
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return
-        if not isinstance(data, dict):
-            return
+        data = self._read()
         self._solved = _parse_solved(data.get("solved"))
         self._board = _parse_board(data.get("current"))
 
+    def _read(self) -> dict[str, Any]:
+        """The file's top-level object, or an empty one if it cannot be read."""
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, RecursionError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _merge_from_disk(self) -> None:
+        """Take in solves another running copy wrote since we loaded.
+
+        Each card keeps the higher solve count and the fewer hints. The board is not
+        merged: whoever saves last owns it.
+        """
+        for puzzle_id, theirs in _parse_solved(self._read().get("solved")).items():
+            ours = self._solved.get(puzzle_id)
+            if ours is None:
+                self._solved[puzzle_id] = theirs
+                continue
+            hints = [h for h in (ours.best_hints, theirs.best_hints) if h is not None]
+            self._solved[puzzle_id] = SolveRecord(
+                max(ours.solves, theirs.solves), min(hints) if hints else None
+            )
+
     def _save(self) -> None:
+        self._merge_from_disk()
         data: dict[str, Any] = {
             "version": FORMAT_VERSION,
             "solved": {

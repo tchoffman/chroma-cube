@@ -42,9 +42,10 @@ class ChromaCubeApp(App[None]):
         self.progress.save_board(self.puzzles[index], placement)
 
     def card_solved(self, index: int) -> None:
-        """Record the solve, forget the board, tick the card and offer the next one."""
-        self.progress.record_solve(self.puzzles[index].id)
-        self.progress.clear_board()
+        """Record the solve, forget its board, tick the card and offer the next one."""
+        puzzle_id = self.puzzles[index].id
+        self.progress.record_solve(puzzle_id)
+        self.progress.clear_board(puzzle_id)
         has_next = index + 1 < len(self.puzzles)
 
         def chosen(choice: str | None) -> None:
