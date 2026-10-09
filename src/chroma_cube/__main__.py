@@ -1,8 +1,11 @@
 """Command-line entry point."""
 
+from chroma_cube.puzzles import classic_puzzles
+from chroma_cube.ui import ChromaCubeApp
+
 
 def main() -> None:
-    print("Chroma Cube: the game UI is not built yet.")
+    ChromaCubeApp(classic_puzzles()).run()
 
 
 if __name__ == "__main__":
