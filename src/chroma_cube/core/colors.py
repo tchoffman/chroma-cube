@@ -163,7 +163,7 @@ CLASSIC_PALETTE = Palette(
 )
 """The twelve colors of the physical game, in alphabetical order.
 
-Attributes are assigned by hand (see D24 in docs/DECISIONS.md); they agree with the hex."""
+Attributes are assigned by hand (see D35 in docs/DECISIONS.md); they agree with the hex."""
 
 EXTENDED_16 = Palette(
     (
@@ -174,7 +174,7 @@ EXTENDED_16 = Palette(
         Color("silver", "Silver", "#999999", "neutral", "light", "grey"),
     )
 )
-"""The classic twelve plus four, for a 4x4 board (see D25 in docs/DECISIONS.md)."""
+"""The classic twelve plus four, for a 4x4 board (see D36 in docs/DECISIONS.md)."""
 
 EXTENDED_20 = Palette(
     (
