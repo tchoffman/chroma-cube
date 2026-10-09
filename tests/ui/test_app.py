@@ -28,7 +28,7 @@ SOLUTION = {
 
 
 def app(puzzles: Sequence[Puzzle] = (DEMO,)) -> ChromaCubeApp:
-    return ChromaCubeApp(puzzles)
+    return ChromaCubeApp(puzzles, start_on_cards=True)
 
 
 def play(pilot_app: App[None]) -> PlayScreen:

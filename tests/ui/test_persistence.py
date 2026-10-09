@@ -11,6 +11,10 @@ from chroma_cube.ui.screens import CardListScreen
 from tests.ui.test_app import DEMO, SIZE, place_solution, play
 
 
+def cards_app(data_dir: Path) -> ChromaCubeApp:
+    return ChromaCubeApp((DEMO,), Progress(data_dir), start_on_cards=True)
+
+
 def tick_shown(app: ChromaCubeApp) -> bool:
     screen = app.screen
     assert isinstance(screen, CardListScreen)
@@ -18,14 +22,14 @@ def tick_shown(app: ChromaCubeApp) -> bool:
 
 
 async def test_a_solved_card_shows_solved_after_a_restart(tmp_path: Path) -> None:
-    async with ChromaCubeApp((DEMO,), Progress(tmp_path)).run_test(size=SIZE) as pilot:
+    async with cards_app(tmp_path).run_test(size=SIZE) as pilot:
         assert not tick_shown(pilot.app)
         await pilot.press("enter")
         await place_solution(pilot)
         await pilot.pause()
         await pilot.click("#back")
         await pilot.pause()
-    async with ChromaCubeApp((DEMO,), Progress(tmp_path)).run_test(size=SIZE) as pilot:
+    async with cards_app(tmp_path).run_test(size=SIZE) as pilot:
         assert tick_shown(pilot.app)
         await pilot.press("enter")
         assert play(pilot.app).state.placement == DEMO.givens
@@ -34,13 +38,13 @@ async def test_a_solved_card_shows_solved_after_a_restart(tmp_path: Path) -> Non
 async def test_placed_cubes_come_back_after_a_restart(tmp_path: Path) -> None:
     magenta = CLASSIC_PALETTE.by_id("magenta")
     white = CLASSIC_PALETTE.by_id("white")
-    async with ChromaCubeApp((DEMO,), Progress(tmp_path)).run_test(size=SIZE) as pilot:
+    async with cards_app(tmp_path).run_test(size=SIZE) as pilot:
         await pilot.press("enter")
         await pilot.click("#chip-magenta")
         await pilot.click("#cell-2-1")
         await pilot.click("#chip-white")
         await pilot.click("#cell-0-0")
-    async with ChromaCubeApp((DEMO,), Progress(tmp_path)).run_test(size=SIZE) as pilot:
+    async with cards_app(tmp_path).run_test(size=SIZE) as pilot:
         assert not tick_shown(pilot.app)
         await pilot.press("enter")
         placement = play(pilot.app).state.placement
@@ -50,7 +54,7 @@ async def test_placed_cubes_come_back_after_a_restart(tmp_path: Path) -> None:
 
 
 async def test_reset_is_saved_too(tmp_path: Path) -> None:
-    async with ChromaCubeApp((DEMO,), Progress(tmp_path)).run_test(size=SIZE) as pilot:
+    async with cards_app(tmp_path).run_test(size=SIZE) as pilot:
         await pilot.press("enter")
         await pilot.click("#chip-magenta")
         await pilot.click("#cell-2-1")
@@ -59,7 +63,7 @@ async def test_reset_is_saved_too(tmp_path: Path) -> None:
 
 
 async def test_the_app_uses_the_default_store_without_an_argument(isolated_data_dir: Path) -> None:
-    async with ChromaCubeApp((DEMO,)).run_test(size=SIZE) as pilot:
+    async with ChromaCubeApp((DEMO,), start_on_cards=True).run_test(size=SIZE) as pilot:
         await pilot.press("enter")
         await pilot.click("#chip-magenta")
         await pilot.click("#cell-2-1")

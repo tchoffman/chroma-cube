@@ -71,7 +71,7 @@ def assert_reachable(app: App[None], widget: Widget) -> None:
 async def test_every_cell_and_palette_cube_is_reachable(
     size: tuple[int, int], puzzle: Puzzle
 ) -> None:
-    async with ChromaCubeApp((puzzle,)).run_test(size=size) as pilot:
+    async with ChromaCubeApp((puzzle,), start_on_cards=True).run_test(size=size) as pilot:
         await pilot.press("enter")
         await pilot.pause()
         for cell in pilot.app.screen.query(TrayCell):
@@ -85,7 +85,9 @@ async def test_every_cell_and_palette_cube_is_reachable(
 
 @pytest.mark.parametrize("shape", [(4, 4), (4, 5), (2, 3)])
 async def test_other_board_sizes_fit(shape: tuple[int, int]) -> None:
-    async with ChromaCubeApp((wide_puzzle(*shape),)).run_test(size=(100, 30)) as pilot:
+    async with ChromaCubeApp((wide_puzzle(*shape),), start_on_cards=True).run_test(
+        size=(100, 30)
+    ) as pilot:
         await pilot.press("enter")
         await pilot.pause()
         cells = list(pilot.app.screen.query(TrayCell))
@@ -98,7 +100,7 @@ async def test_other_board_sizes_fit(shape: tuple[int, int]) -> None:
 
 
 async def test_arrows_move_the_cursor_even_when_the_clues_overflow() -> None:
-    async with ChromaCubeApp((LONG,)).run_test(size=(80, 24)) as pilot:
+    async with ChromaCubeApp((LONG,), start_on_cards=True).run_test(size=(80, 24)) as pilot:
         await pilot.press("enter")
         screen = pilot.app.screen
         assert isinstance(screen, PlayScreen)
@@ -110,7 +112,7 @@ async def test_arrows_move_the_cursor_even_when_the_clues_overflow() -> None:
 
 
 async def test_page_down_scrolls_the_clues() -> None:
-    async with ChromaCubeApp((LONG,)).run_test(size=(80, 24)) as pilot:
+    async with ChromaCubeApp((LONG,), start_on_cards=True).run_test(size=(80, 24)) as pilot:
         await pilot.press("enter")
         clues = pilot.app.screen.query_one("#clues")
         assert clues.scroll_y == 0
@@ -131,7 +133,7 @@ async def test_page_down_scrolls_the_clues() -> None:
 async def test_a_long_hint_wraps_and_the_tray_still_fits(
     size: tuple[int, int], keys: tuple[str, ...], start: str, end: str
 ) -> None:
-    async with ChromaCubeApp((DEMO,)).run_test(size=size) as pilot:
+    async with ChromaCubeApp((DEMO,), start_on_cards=True).run_test(size=size) as pilot:
         await pilot.press("enter", *keys, "h")
         await pilot.pause()
         message = pilot.app.screen.query_one("#message", Static)
