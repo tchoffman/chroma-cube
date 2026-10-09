@@ -2,7 +2,7 @@
   "id": "classic-18",
   "title": "Initial Impressions",
   "difficulty": "hard",
-  "notes": "A single letter stands for any color with that initial: B is Black or Brown, C is Cobalt or Coral, M is Magenta, Mint or Mustard. Two letters in one clue are two different cubes.",
+  "notes": "A single letter stands for any color with that initial: B is Black or Brown, C is Cobalt or Coral, M is Magenta, Mint or Mustard. Two letters in one statement are two different cubes.",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},
@@ -19,14 +19,14 @@
     {"id": "white", "name": "White", "hex": "#f5f5f5"}
   ],
   "givens": [
-    {"color": "mint", "row": 0, "col": 1}
+    {"color": "mustard", "row": 0, "col": 1}
   ],
   "clues": [
-    {"type": "relation", "kind": "next_to", "colors": ["B", "B"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mustard", "black"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "mint"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "white"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["brown", "coral"]}, {"type": "relation", "kind": "diagonal", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "diagonal", "colors": ["brown", "white"]}]},
-    {"type": "relation", "kind": "directly_below", "colors": ["orange", "C"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["coral", "emerald"]}, {"type": "relation", "kind": "right_of", "colors": ["coral", "purple"]}]},
-    {"type": "relation", "kind": "next_to", "colors": ["coral", "M"]}
+    {"type": "relation", "kind": "next_to", "colors": ["B", "coral"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["purple", "cobalt"]}, {"type": "relation", "kind": "diagonal", "colors": ["purple", "emerald"]}, {"type": "relation", "kind": "diagonal", "colors": ["purple", "magenta"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["mint", "coral"]}, {"type": "relation", "kind": "next_to", "colors": ["mint", "orange"]}, {"type": "relation", "kind": "next_to", "colors": ["mint", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["white", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "purple"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["orange", "black"]}, {"type": "relation", "kind": "right_of", "colors": ["orange", "cobalt"]}]},
+    {"type": "property", "kind": "in_col", "color": "emerald", "index": 2}
   ]
 }

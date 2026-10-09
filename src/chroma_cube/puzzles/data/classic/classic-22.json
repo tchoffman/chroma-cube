@@ -2,7 +2,7 @@
   "id": "classic-22",
   "title": "At Least a Few",
   "difficulty": "expert",
-  "notes": "\"At least two of these are true\" means two or more of the listed statements hold.",
+  "notes": "The same letter in different statements may or may not be the same cube.",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},
@@ -20,10 +20,10 @@
   ],
   "givens": [],
   "clues": [
-    {"type": "at_least", "n": 2, "clues": [{"type": "relation", "kind": "next_to", "colors": ["C", "mustard"]}, {"type": "relation", "kind": "between", "colors": ["mint", "emerald", "purple"]}, {"type": "relation", "kind": "between", "colors": ["C", "brown", "white"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mustard", "coral"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "mint"]}]},
-    {"type": "relation", "kind": "between", "colors": ["magenta", "mint", "teal"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["black", "brown"]}, {"type": "relation", "kind": "above", "colors": ["black", "mustard"]}]},
-    {"type": "relation", "kind": "above", "colors": ["orange", "C"]}
+    {"type": "at_least", "n": 2, "clues": [{"type": "relation", "kind": "between", "colors": ["M", "mint", "white"]}, {"type": "relation", "kind": "below", "colors": ["brown", "mint"]}, {"type": "relation", "kind": "same_row", "colors": ["B", "purple"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["brown", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["purple", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["purple", "coral"]}, {"type": "relation", "kind": "next_to", "colors": ["purple", "mint"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "below", "colors": ["mustard", "teal"]}, {"type": "relation", "kind": "below", "colors": ["mustard", "white"]}]},
+    {"type": "at_least", "n": 1, "clues": [{"type": "relation", "kind": "left_of", "colors": ["cobalt", "C"]}, {"type": "relation", "kind": "below", "colors": ["teal", "B"]}]}
   ]
 }

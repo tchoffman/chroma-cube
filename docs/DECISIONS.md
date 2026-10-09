@@ -264,12 +264,17 @@ Python module because cards are content: the clue parser, a puzzle editor or the
 generator can write the same files, and a test checks every file round-trips. We gave up
 building cards with the clue factories in code, which a type checker would have checked.
 
-## D40: Classic cards climb by difficulty tier; a finer score is only information (2026-10-08)
-Each card is labelled easy, medium, hard or expert, and the labels never go down across the
-set. Card 8 starts with an empty tray, as in the physical game, while later cards bring a
-few givens back to introduce new clue kinds, so no single number such as "cubes to place"
-can climb card by card without bending the cards around it. `difficulty_score` (cubes to
-place plus distinct kinds of clue on the card, counting "not", "or", "exactly",
-"at_least" and "initial" as kinds and leaving "and" out) is reported for each card but not
-required to climb. The solver reports no branching count, so the score uses what a player
-sees. The generator can replace it with a measured rating later.
+## D40: Classic difficulty is measured by trials, and climbs by tier (2026-10-08)
+Each card is labelled easy, medium, hard or expert, and `rate_card` measures it. A player
+places a cube whenever the clues leave it one cell, or a cell one cube. When nothing is
+forced, they try each remaining option one step ahead, and every try counts; a try that
+leaves a cube or a cell with no option rules it out. The count of tries is the rating, so
+a card solved by plain deduction rates 0. Tests require each tier's median rating to be at
+least the previous tier's, and the last card to rate highest. A per-card climb is not
+required: card 8 starts with an empty tray, as in the physical game, while later cards
+bring a few givens back to introduce new clue kinds. `difficulty_score` (cubes to place
+plus distinct clue kinds) is kept as information. Clues like "X is right of A, B and C",
+which fill a whole row or column at once, are capped at one per card and left off at
+least half the hard and expert cards, so each card does not open the same way. We gave up
+a rating that matches a human solver closely; this one ignores which deductions are hard
+to spot.

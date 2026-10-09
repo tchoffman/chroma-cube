@@ -17,12 +17,11 @@ from chroma_cube.core import (
     Puzzle,
     relation,
 )
-from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.screens import PlayScreen
 from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
+from tests.ui.conftest import DEMO
 
-DEMO = classic_puzzles()[0]
 LONG = Puzzle(
     id="long",
     title="Empty tray, many clues",

@@ -21,8 +21,10 @@
   "givens": [],
   "clues": [
     {"type": "board_rule", "kind": "rows_alphabetical"},
-    {"type": "board_rule", "kind": "columns_alphabetical"},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["brown", "magenta"]}, {"type": "relation", "kind": "left_of", "colors": ["brown", "mustard"]}, {"type": "relation", "kind": "left_of", "colors": ["brown", "teal"]}]},
-    {"type": "exactly", "n": 2, "clues": [{"type": "relation", "kind": "between", "colors": ["mustard", "cobalt", "coral"]}, {"type": "relation", "kind": "above", "colors": ["B", "emerald"]}, {"type": "property", "kind": "in_corner", "color": "mint"}]}
+    {"type": "exactly", "n": 2, "clues": [{"type": "relation", "kind": "directly_right_of", "colors": ["teal", "magenta"]}, {"type": "relation", "kind": "directly_right_of", "colors": ["coral", "cobalt"]}, {"type": "relation", "kind": "right_of", "colors": ["white", "magenta"]}]},
+    {"type": "relation", "kind": "knows", "colors": ["C", "mustard"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["mint", "mustard"]}, {"type": "relation", "kind": "diagonal", "colors": ["mint", "purple"]}, {"type": "relation", "kind": "diagonal", "colors": ["mint", "teal"]}]},
+    {"type": "exactly", "n": 1, "clues": [{"type": "relation", "kind": "directly_above", "colors": ["mustard", "white"]}, {"type": "relation", "kind": "above", "colors": ["emerald", "coral"]}, {"type": "relation", "kind": "between", "colors": ["coral", "cobalt", "mustard"]}]},
+    {"type": "relation", "kind": "directly_right_of", "colors": ["M", "brown"]}
   ]
 }

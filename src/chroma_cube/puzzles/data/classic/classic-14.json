@@ -2,7 +2,7 @@
   "id": "classic-14",
   "title": "Small World",
   "difficulty": "hard",
-  "notes": "Rows are named top, middle and bottom.",
+  "notes": "",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},
@@ -18,13 +18,15 @@
     {"id": "teal", "name": "Teal", "hex": "#008080"},
     {"id": "white", "name": "White", "hex": "#f5f5f5"}
   ],
-  "givens": [],
+  "givens": [
+    {"color": "teal", "row": 1, "col": 3}
+  ],
   "clues": [
-    {"type": "or", "clues": [{"type": "relation", "kind": "knows", "colors": ["mint", "teal"]}, {"type": "relation", "kind": "knows", "colors": ["orange", "teal"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["magenta", "brown"]}, {"type": "relation", "kind": "right_of", "colors": ["magenta", "mustard"]}, {"type": "relation", "kind": "right_of", "colors": ["magenta", "white"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "below", "colors": ["coral", "mint"]}, {"type": "relation", "kind": "below", "colors": ["coral", "mustard"]}]},
-    {"type": "property", "kind": "in_row", "color": "black", "index": 2},
-    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "purple"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["coral", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["coral", "emerald"]}, {"type": "relation", "kind": "next_to", "colors": ["coral", "mustard"]}]}
+    {"type": "or", "clues": [{"type": "relation", "kind": "knows", "colors": ["cobalt", "mustard"]}, {"type": "relation", "kind": "knows", "colors": ["black", "mustard"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mint", "coral"]}, {"type": "relation", "kind": "left_of", "colors": ["mint", "teal"]}, {"type": "relation", "kind": "left_of", "colors": ["mint", "white"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["magenta", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["magenta", "brown"]}, {"type": "relation", "kind": "next_to", "colors": ["magenta", "coral"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["black", "magenta"]}, {"type": "relation", "kind": "right_of", "colors": ["black", "purple"]}]},
+    {"type": "relation", "kind": "directly_above", "colors": ["orange", "mint"]},
+    {"type": "relation", "kind": "below", "colors": ["brown", "mustard"]}
   ]
 }

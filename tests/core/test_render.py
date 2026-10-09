@@ -289,3 +289,37 @@ def test_cells_are_named_by_row_then_column() -> None:
     assert cell_name(Cell(0, 1), CLASSIC_BOARD) == "the top row, second column"
     assert cell_name(Cell(1, 3), CLASSIC_BOARD) == "the middle row, fourth column"
     assert cell_name(Cell(2, 0), Board(4, 4)) == "the third row, first column"
+
+
+@pytest.mark.parametrize(
+    ("clue", "sentence"),
+    [
+        (
+            And((Not(prop("in_corner", "white")), prop("in_corner", "mustard"))),
+            "White isn't in a corner, but Mustard is",
+        ),
+        (
+            And((prop("in_center", "teal"), Not(prop("in_center", "B")))),
+            "Teal is in the center, but B isn't",
+        ),
+        (
+            And((Not(prop("in_row", "white", 0)), prop("in_row", "mint", 0))),
+            "White isn't in the top row, but Mint is",
+        ),
+    ],
+)
+def test_a_property_and_its_negation_read_with_but(clue: Clue, sentence: str) -> None:
+    assert render(clue, CLASSIC_PALETTE) == sentence
+
+
+@pytest.mark.parametrize(
+    "clue",
+    [
+        And((Not(prop("in_row", "white", 0)), prop("in_row", "mint", 2))),
+        And((Not(prop("in_corner", "white")), prop("on_edge", "mint"))),
+        And((Not(prop("in_corner", "white")), prop("in_corner", "white"))),
+        And((prop("in_corner", "white"), prop("in_corner", "mint"))),
+    ],
+)
+def test_but_needs_the_same_property_for_another_color(clue: Clue) -> None:
+    assert ", but" not in render(clue, CLASSIC_PALETTE)
