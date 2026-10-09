@@ -342,7 +342,11 @@ date as a number (2026-10-08 is 20261008) at medium difficulty, so everyone gets
 puzzle on the same calendar day with no server, and the daily puzzle can also be replayed
 from Infinite · medium with that seed. Generation runs in a Textual worker thread behind a
 "Generating…" notice that Escape cancels; a generator error is shown as a notification.
-Like `q`, `r` and `x`, `n` and `s` are commands on generated puzzles, so a color starting
+Like `q`, `r`, `x` and `h`, `n` and `s` are commands on generated puzzles, so a color starting
 with either is reachable only by number or mouse there; no classic color does. The card
 list now sits under the home screen, and the app takes the generator and "today" as
-arguments so tests can supply their own.
+arguments so tests can supply their own. Generated puzzles use the progress store like the
+cards, under the generator's puzzle id (`gen-<difficulty>-<seed>`): a solve and its hints
+are recorded, and the one saved in-progress board comes back when the same puzzle is
+generated again, so leaving the daily and reopening it resumes it. The daily and Infinite ·
+medium with the date's seed are the same puzzle and share that record.
