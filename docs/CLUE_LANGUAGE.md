@@ -125,6 +125,11 @@ color  := a palette color name, any case | one capital letter (an initial)
 ```
 
 - One list uses one connective: "A and B or C" is an error; bracket one side.
+- A short repeat takes the first clause's verb: "Black is in a corner, but Teal is";
+  "Black knows White, but Teal doesn't".
+- Limits: a leaf names at most three alternative colors, and brackets and "It's not true
+  that" nest at most 16 deep.
+- Color names may contain spaces and punctuation ("Sky Blue", "Off-White").
 - Leaf sentences are the registry templates plus variants: "is next to", "is beside";
   "isn't" / "is not", "doesn't" / "does not"; "A is in the same row as B"; "is to the left
   of"; "in the corner"; "on the edge"; "in the middle" (center).

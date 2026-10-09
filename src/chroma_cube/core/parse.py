@@ -10,9 +10,11 @@ module.
 
 from __future__ import annotations
 
+import functools
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from typing import TypeVar
 
 from chroma_cube.core.board import CLASSIC_BOARD, Board
 from chroma_cube.core.clues import (
@@ -86,7 +88,8 @@ class _Token:
     start: int
 
 
-_TOKEN = re.compile(r"[A-Za-z0-9]+(?:['’][A-Za-z]+)?|[,;:().]|\S")
+_TOKEN = r"[A-Za-z0-9]+(?:['’][A-Za-z]+)?|[,;:().]|\S"
+_WORDS = re.compile(_TOKEN)
 _CONTRACTIONS = {
     "isn't": ("is", "not"),
     "aren't": ("are", "not"),
@@ -96,16 +99,35 @@ _CONTRACTIONS = {
 }
 
 
-def _tokenize(text: str) -> list[_Token]:
+def _tokenize(text: str, pattern: re.Pattern[str] = _WORDS) -> list[_Token]:
+    """Split text into tokens. A pattern from `_tokens_for` also reads each palette color
+    name, spaces and punctuation included, as one token."""
     tokens: list[_Token] = []
-    for match in _TOKEN.finditer(text):
+    for match in pattern.finditer(text):
         piece, start = match.group(), match.start()
+        if match.lastgroup == "name":
+            tokens.append(_Token(piece, _name_key(piece), start))
+            continue
         if not (piece[0].isalnum() or piece in ",;:()."):
             raise ClueParseError(f"unexpected character {piece!r}", start)
         word = piece.lower().replace("’", "'")
         for part in _CONTRACTIONS.get(word, (word,)):
             tokens.append(_Token(piece, part, start))
     return tokens
+
+
+def _name_key(name: str) -> str:
+    return " ".join(name.lower().split())
+
+
+@functools.cache
+def _tokens_for(palette: Palette) -> re.Pattern[str]:
+    """A token pattern that reads each color name of the palette as one token."""
+    names = sorted({_name_key(color.name) for color in palette}, key=len, reverse=True)
+    spelled = "|".join(r"\s+".join(re.escape(part) for part in name.split()) for name in names)
+    return re.compile(
+        rf"(?P<name>(?<![A-Za-z0-9])(?:{spelled})(?![A-Za-z0-9]))|{_TOKEN}", re.IGNORECASE
+    )
 
 
 def _words(template: str) -> tuple[str, ...]:
@@ -161,6 +183,13 @@ class _Template:
         """Starts with one color as its subject ("{0} is ..."), not "{0} and {1} are"."""
         return len(self.words) > 1 and self.words[0] == "{0}" and self.words[1] != "and"
 
+    @property
+    def verb(self) -> str | None:
+        """The verb a short repeat of this clause takes: "but Mustard is" / "does"."""
+        if not self.subject_first:
+            return None
+        return "is" if self.words[1] == "is" else "does"
+
 
 def _relation_builder(
     kind: str, negated: bool
@@ -208,6 +237,9 @@ def _templates() -> list[_Template]:
     return templates
 
 
+_TEMPLATES = _templates()
+"""Every leaf sentence the parser knows, built once from the registries at import."""
+
 # --------------------------------------------------------------------------- vocabulary
 
 _ORDINAL_WORDS = (
@@ -243,6 +275,10 @@ _NUMERIC_ORDINAL = re.compile(r"(\d+)(?:st|nd|rd|th)")
 _NOT_TRUE = (("it", "is", "not", "true", "that"), ("it", "is", "not", "the", "case", "that"))
 _SEPARATORS = ((",", "and"), (",", "but"), (",", "or"), ("and",), ("but",), ("or",), (",",))
 _CONNECTIVES = {"and": "and", "but": "and", "or": "or"}
+_MAX_DEPTH = 16
+"""How deeply brackets and "it's not true that" may nest."""
+_MAX_ALTERNATIVES = 3
+"""How many colors "Either A, B or C ..." may name; the renderer never writes more."""
 
 
 def _ordinal_index(word: str) -> int | None:
@@ -265,19 +301,49 @@ def _number(word: str) -> int | None:
 _Parses = Iterator[tuple[Clue, int]]
 """Every way a rule matches: the clue read and the index of the next token."""
 
+_Unit = tuple[Clue, int, str | None]
+"""A unit read: the clue, the index of the next token, and the verb a short repeat of it
+takes ("is" / "does"), or None if it cannot be repeated."""
+
+_Subjects = list[tuple[tuple[ColorRef, ...], int]]
+
+_State = TypeVar("_State")
+_ListState = tuple[tuple[Clue, ...], str | None, int, str | None]
+"""A list read so far: its items, its connective, the next token, the last item's verb."""
+_EitherState = tuple[tuple[Clue, ...], bool, int]
+"""An either/or read so far: its items, whether an "or" was seen, the next token."""
+_CountState = tuple[tuple[Clue, ...], int]
+"""A count's clues read so far and the next token."""
+
+
+def _post_order(
+    start: _State,
+    children: Callable[[_State], Iterator[_State]],
+    finish: Callable[[_State], _Parses],
+) -> _Parses:
+    """Depth-first over list states, longest list first, without deep recursion: a long
+    list ("A, B, C, ...") would otherwise nest one generator per item."""
+    stack = [(start, children(start))]
+    while stack:
+        state, pending = stack[-1]
+        child = next(pending, None)
+        if child is not None:
+            stack.append((child, children(child)))
+            continue
+        stack.pop()
+        yield from finish(state)
+
 
 class _Parser:
     def __init__(self, text: str, palette: Palette, board: Board) -> None:
         self.text = text
         self.board = board
-        self.tokens = _tokenize(text)
+        self.tokens = _tokenize(text, _tokens_for(palette))
         if self.tokens and self.tokens[-1].word == ".":
             self.tokens.pop()
-        self.templates = _templates()
-        self.names = sorted(
-            ((tuple(t.word for t in _tokenize(color.name)), color.id) for color in palette),
-            key=lambda entry: -len(entry[0]),
-        )
+        self.names = {_name_key(color.name): color.id for color in palette}
+        self.units_at: dict[int, list[_Unit]] = {}
+        self.subjects_at: dict[int, _Subjects] = {}
         self.furthest = -1
         self.expected: set[str] = set()
         self.problem: tuple[int, str, int] | None = None
@@ -289,10 +355,13 @@ class _Parser:
     def parse(self) -> Clue:
         if not self.tokens:
             raise ClueParseError("empty clue", 0)
-        for clue, end in self.expr(0):
-            if end == len(self.tokens):
-                return clue
-            self.fail(end, "the end of the clue")
+        try:
+            for clue, end in self.expr(0, 0):
+                if end == len(self.tokens):
+                    return clue
+                self.fail(end, "the end of the clue")
+        except RecursionError:
+            raise ClueParseError("clue is nested too deeply to read", 0) from None
         if self.problem and self.problem[0] >= self.furthest:
             raise ClueParseError(self.problem[1], self.problem[2])
         raise ClueParseError(self.syntax_message(), self.position(self.furthest))
@@ -325,6 +394,14 @@ class _Parser:
         )
         return f"expected {listing}, found {found}"
 
+    def deeper(self, i: int, depth: int) -> int:
+        if depth >= _MAX_DEPTH:
+            raise ClueParseError(
+                f"brackets and negations are nested more than {_MAX_DEPTH} deep",
+                self.position(i),
+            )
+        return depth + 1
+
     # ---- token helpers
 
     def word(self, i: int) -> str | None:
@@ -343,90 +420,116 @@ class _Parser:
 
     # ---- grammar
 
-    def expr(self, i: int) -> _Parses:
+    def expr(self, i: int, depth: int) -> _Parses:
         """A whole clue: a negation, an either/or, a count, or a list of units."""
         for phrase in _NOT_TRUE:
             if self.at(i, *phrase):
-                for clue, end in self.expr(i + len(phrase)):
+                inner = self.deeper(i, depth)
+                for clue, end in self.expr(i + len(phrase), inner):
                     yield Not(clue), end
         if self.at(i, "either"):
-            yield from self.either(i + 1)
-        yield from self.count(i)
-        yield from self.units(i)
+            yield from self.either(i + 1, depth)
+        yield from self.count(i, depth)
+        yield from self.units(i, depth)
         self.fail(i, "'it'")
 
-    def unit(self, i: int) -> _Parses:
-        """A bracketed clue, or one leaf sentence."""
+    def unit(self, i: int, depth: int) -> list[_Unit]:
+        """A bracketed clue, or one leaf sentence. Each position is read once."""
+        if i not in self.units_at:
+            self.units_at[i] = list(self.read_unit(i, depth))
+        return self.units_at[i]
+
+    def read_unit(self, i: int, depth: int) -> Iterator[_Unit]:
         if self.at(i, "("):
-            for clue, end in self.expr(i + 1):
+            inner = self.deeper(i, depth)
+            for clue, end in self.expr(i + 1, inner):
                 close = self.expect(end, ")")
                 if close is not None:
-                    yield clue, close
+                    yield clue, close, None
         else:
             self.fail(i, "'('")
-        for template in self.templates:
-            yield from self.leaf(template, i)
+        yield from self.leaves(i)
 
-    def units(self, i: int) -> _Parses:
-        for clue, end in self.unit(i):
-            yield from self.more_units([clue], None, end)
+    def units(self, i: int, depth: int) -> _Parses:
+        for clue, end, verb in self.unit(i, depth):
+            yield from self.unit_list(((clue,), None, end, verb), depth)
 
-    def more_units(self, items: list[Clue], connective: str | None, i: int) -> _Parses:
+    def unit_list(self, start: _ListState, depth: int) -> _Parses:
         """Continue a list "X, Y and Z" (or "or"); every connective in one list must agree."""
-        for separator in _SEPARATORS:
-            if not self.at(i, *separator):
-                continue
-            kind = _CONNECTIVES.get(separator[-1])
-            if kind and connective and kind != connective:
-                self.impossible(
-                    i + 2,
-                    f"found {separator[-1]!r} in a list joined by {connective!r}; "
-                    "bracket one part to say which is meant",
-                    i + len(separator) - 1,
-                )
-                continue
-            joined = kind or connective
-            for clue, end in self.next_unit(items[-1], i + len(separator)):
-                yield from self.more_units([*items, clue], joined, end)
-        for expected in ("','", "'and'", "'or'"):
-            self.fail(i, expected)
-        if len(items) == 1:
-            yield items[0], i
-        elif connective == "and":
-            yield And(tuple(items)), i
-        elif connective == "or":
-            yield Or(tuple(items)), i
 
-    def next_unit(self, previous: Clue, i: int) -> _Parses:
+        def children(
+            state: _ListState,
+        ) -> Iterator[_ListState]:
+            items, connective, i, verb = state
+            for separator in _SEPARATORS:
+                if not self.at(i, *separator):
+                    continue
+                kind = _CONNECTIVES.get(separator[-1])
+                if kind and connective and kind != connective:
+                    self.impossible(
+                        i + 2,
+                        f"found {separator[-1]!r} in a list joined by {connective!r}; "
+                        "bracket one part to say which is meant",
+                        i + len(separator) - 1,
+                    )
+                    continue
+                for clue, end, next_verb in self.next_unit(
+                    items[-1], verb, i + len(separator), depth
+                ):
+                    yield (*items, clue), kind or connective, end, next_verb
+
+        def finish(state: _ListState) -> _Parses:
+            items, connective, i, _ = state
+            for expected in ("','", "'and'", "'or'"):
+                self.fail(i, expected)
+            if len(items) == 1:
+                yield items[0], i
+            elif connective == "and":
+                yield And(items), i
+            elif connective == "or":
+                yield Or(items), i
+
+        yield from _post_order(start, children, finish)
+
+    def next_unit(self, previous: Clue, verb: str | None, i: int, depth: int) -> Iterator[_Unit]:
         """A list item: a unit, a bare color continuing "Black knows White, Teal", or a
-        short "but Mustard is" repeating the previous clause for another color."""
-        yield from self.unit(i)
+        short "but Mustard is" repeating the previous clause for another color with the
+        same verb."""
+        yield from self.unit(i, depth)
         for color, end in self.color(i):
             if _mergeable(previous):
                 assert isinstance(previous, Relation)
-                yield Relation(previous.kind, (previous.colors[0], color)), end
-            for verb in ("is", "does"):
-                if self.at(end, verb):
-                    negated = self.at(end + 1, "not")
-                    repeated = _repeat(previous, color, negated)
-                    if repeated is not None:
-                        yield repeated, end + (2 if negated else 1)
+                yield Relation(previous.kind, (previous.colors[0], color)), end, verb
+            if verb is not None and self.at(end, verb):
+                negated = self.at(end + 1, "not")
+                repeated = _repeat(previous, color, negated)
+                if repeated is not None:
+                    yield repeated, end + (2 if negated else 1), verb
+            elif verb is not None:
+                self.fail(end, repr(verb))
 
-    def either(self, i: int) -> _Parses:
-        for clue, end in self.unit(i):
-            yield from self.more_either([clue], False, end)
+    def either(self, i: int, depth: int) -> _Parses:
+        def children(
+            state: _EitherState,
+        ) -> Iterator[_EitherState]:
+            items, seen_or, at = state
+            for separator in ((",", "or"), ("or",), (",",)):
+                if self.at(at, *separator):
+                    for clue, end, _ in self.unit(at + len(separator), depth):
+                        yield (*items, clue), seen_or or "or" in separator, end
 
-    def more_either(self, items: list[Clue], seen_or: bool, i: int) -> _Parses:
-        for separator in ((",", "or"), ("or",), (",",)):
-            if self.at(i, *separator):
-                for clue, end in self.unit(i + len(separator)):
-                    yield from self.more_either([*items, clue], seen_or or "or" in separator, end)
-        if seen_or:
-            yield Or(tuple(items)), i
-        else:
-            self.fail(i, "'or'")
+        def finish(state: _EitherState) -> _Parses:
+            items, seen_or, at = state
+            if seen_or:
+                yield Or(items), at
+            else:
+                self.fail(at, "'or'")
 
-    def count(self, i: int) -> _Parses:
+        for clue, end, _ in self.unit(i, depth):
+            first: _EitherState = ((clue,), False, end)
+            yield from _post_order(first, children, finish)
+
+    def count(self, i: int, depth: int) -> _Parses:
         if self.at(i, "exactly"):
             build: type[Exactly] | type[AtLeast] = Exactly
             n_at = i + 1
@@ -448,41 +551,47 @@ class _Parser:
             self.fail(start, "'are'")
             return
         start = self.expect(start + 1, "true", ":")
-        if start is not None:
-            yield from self.count_items(build, n, n_at, [], start)
+        if start is None:
+            return
 
-    def count_items(
-        self,
-        build: type[Exactly] | type[AtLeast],
-        n: int,
-        n_at: int,
-        items: list[Clue],
-        i: int,
-    ) -> _Parses:
-        for clue, end in self.expr(i):
-            found = [*items, clue]
-            if self.at(end, ";"):
-                yield from self.count_items(build, n, n_at, found, end + 1)
-            self.fail(end, "';'")
-            if n > len(found):
-                self.impossible(end, f"cannot count {n} of only {len(found)} clues", n_at)
+        def children(state: _CountState) -> Iterator[_CountState]:
+            items, at = state
+            if items and not self.at(at, ";"):
+                self.fail(at, "';'")
+                return
+            for clue, end in self.expr(at + 1 if items else at, depth):
+                yield (*items, clue), end
+
+        def finish(state: _CountState) -> _Parses:
+            items, at = state
+            if not items:
+                return
+            if n > len(items):
+                self.impossible(at, f"cannot count {n} of only {len(items)} clues", n_at)
             elif build is AtLeast and n == 0:
-                self.impossible(end, "'at least zero' is always true; count from one", n_at)
+                self.impossible(at, "'at least zero' is always true; count from one", n_at)
             else:
-                yield build(n, tuple(found)), end
+                yield build(n, items), at
+
+        empty: _CountState = ((), start)
+        yield from _post_order(empty, children, finish)
 
     # ---- leaves
 
-    def leaf(self, template: _Template, i: int) -> _Parses:
-        if template.subject_first:
-            for subjects, end in self.subjects(i):
-                for clue, stop in self.slots(template, 1, end, (subjects[0],), None):
-                    if len(subjects) == 1:
-                        yield clue, stop
+    def leaves(self, i: int) -> Iterator[_Unit]:
+        """Every leaf sentence from the templates that matches at `i`."""
+        subjects = self.subjects(i)
+        for template in _TEMPLATES:
+            if not template.subject_first:
+                for clue, stop in self.slots(template, 0, i, (), None):
+                    yield clue, stop, None
+                continue
+            for found, end in subjects:
+                for clue, stop in self.slots(template, 1, end, (found[0],), None):
+                    if len(found) == 1:
+                        yield clue, stop, template.verb
                     else:
-                        yield Or(tuple(_with_subject(clue, s) for s in subjects)), stop
-        else:
-            yield from self.slots(template, 0, i, (), None)
+                        yield Or(tuple(_with_subject(clue, s) for s in found)), stop, None
 
     def slots(
         self,
@@ -510,37 +619,41 @@ class _Parser:
         else:
             self.fail(i, repr(word))
 
-    def subjects(self, i: int) -> Iterator[tuple[tuple[ColorRef, ...], int]]:
-        """One color, or "either A or B" / "A, B or C" naming alternatives."""
+    def subjects(self, i: int) -> _Subjects:
+        """One color, or "either A or B" / "A, B or C" naming up to three alternatives.
+        Each position is read once."""
+        if i in self.subjects_at:
+            return self.subjects_at[i]
+        found: _Subjects = []
         either = self.at(i, "either")
         start = i + 1 if either else i
         for first, end in self.color(start):
             if not either:
-                yield (first,), end
-            yield from self.more_subjects((first,), False, end)
-
-    def more_subjects(
-        self, found: tuple[ColorRef, ...], seen_or: bool, i: int
-    ) -> Iterator[tuple[tuple[ColorRef, ...], int]]:
-        for separator in ((",", "or"), ("or",), (",",)):
-            if self.at(i, *separator):
-                for color, end in self.color(i + len(separator)):
-                    yield from self.more_subjects(
-                        (*found, color), seen_or or "or" in separator, end
-                    )
-        if seen_or:
-            yield found, i
+                found.append(((first,), end))
+            stack: list[tuple[tuple[ColorRef, ...], bool, int]] = [((first,), False, end)]
+            while stack:
+                colors, seen_or, at = stack.pop()
+                if seen_or:
+                    found.append((colors, at))
+                if len(colors) == _MAX_ALTERNATIVES:
+                    continue
+                for separator in ((",", "or"), ("or",), (",",)):
+                    if self.at(at, *separator):
+                        for color, stop in self.color(at + len(separator)):
+                            stack.append(((*colors, color), seen_or or "or" in separator, stop))
+        found.sort(key=lambda entry: (len(entry[0]) != 1, -len(entry[0])))
+        self.subjects_at[i] = found
+        return found
 
     def color(self, i: int) -> Iterator[tuple[ColorRef, int]]:
         if i < len(self.tokens):
-            text = self.tokens[i].text
-            if len(text) == 1 and text.isalpha() and text.isupper():
-                yield ColorRef.initial(text), i + 1
+            token = self.tokens[i]
+            if len(token.text) == 1 and token.text.isalpha() and token.text.isupper():
+                yield ColorRef.initial(token.text), i + 1
                 return
-            for words, color_id in self.names:
-                if self.at(i, *words):
-                    yield ColorRef.named(color_id), i + len(words)
-                    return
+            if token.word in self.names:
+                yield ColorRef.named(self.names[token.word]), i + 1
+                return
         self.fail(i, "a color")
 
     def line(self, i: int, kind: str) -> tuple[int, int] | None:

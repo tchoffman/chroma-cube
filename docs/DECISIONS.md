@@ -146,9 +146,12 @@ grammar is ambiguous in places ("Black knows White and Teal and Mint are in the 
 so each rule yields every way it can match and the first reading that uses the whole
 sentence wins; full clauses are tried before a bare color continues a merged list. Errors
 point at the furthest token any reading reached, or at the cause of a well-formed but
-impossible clue (a fourth row on a 3-row board). Text names rows and columns from 1. We gave
-up a parser generator (no new dependency) and linear-time parsing; real clues parse in a
-few milliseconds.
+impossible clue (a fourth row on a 3-row board). Text names rows and columns from 1. To keep
+backtracking bounded, each position's units and color lists are read once and reused, long
+lists are walked with an explicit stack, "Either A, B or C" names at most three colors, and
+brackets and "it's not true that" nest at most 16 deep. Real clues parse in a few
+milliseconds; 2,000 characters of adversarial text fail in tens of milliseconds. We gave up
+a parser generator (no new dependency) and strictly linear-time parsing.
 
 ## D23: A short "either" sentence only when it reads back as the same clue (2026-10-08)
 An `or` of two or three like clauses that differ only in their first color renders the way

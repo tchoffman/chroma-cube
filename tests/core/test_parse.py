@@ -1,8 +1,11 @@
+import contextlib
+import time
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from chroma_cube.core import CLASSIC_PALETTE, Board
+from chroma_cube.core import CLASSIC_PALETTE, Board, Color, Palette
 from chroma_cube.core.clues import (
     PROPERTY_KINDS,
     RELATION_KINDS,
@@ -235,6 +238,26 @@ def test_game_examples() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Black knows White, but Teal is",
+        "Black is in a corner but Teal does",
+        "Black isn't in a corner, but Teal doesn't",
+        "Black doesn't know White, but Teal isn't",
+    ],
+)
+def test_ellipsis_verb_must_match_the_first_clause(text: str) -> None:
+    with pytest.raises(ClueParseError):
+        parse(text)
+
+
+def test_ellipsis_follows_the_verb_of_a_variant() -> None:
+    assert parse("Black is next to White, but Teal isn't") == And(
+        (relation("next_to", "black", "white"), Not(relation("next_to", "teal", "white")))
+    )
+
+
 def test_ellipsis_can_negate() -> None:
     assert parse("Black is in a corner, but White isn't") == And((CORNER_B, Not(CORNER_W)))
     assert parse("Black knows Teal but White doesn't") == And(
@@ -243,10 +266,27 @@ def test_ellipsis_can_negate() -> None:
 
 
 def test_multi_word_color_names() -> None:
-    from chroma_cube.core import Color, Palette
-
     palette = Palette((Color("sky", "Sky Blue", "#87ceeb"), Color("sea", "Sea", "#2e8b57")))
     assert parse_clue("Sky Blue sits next to Sea", palette) == relation("next_to", "sky", "sea")
+
+
+def test_color_names_with_punctuation() -> None:
+    palette = Palette(
+        (
+            Color("black", "Black", "#000000"),
+            Color("off_white", "Off-White", "#faf9f6"),
+            Color("rnb", "R&B Red", "#aa0000"),
+        )
+    )
+    assert parse_clue("Black is in a corner", palette) == prop("in_corner", "black")
+    assert parse_clue("off-white sits next to R&B Red", palette) == relation(
+        "next_to", "off_white", "rnb"
+    )
+    clue = Or((prop("in_corner", "off_white"), prop("in_corner", "rnb")))
+    assert parse_clue(render(clue, palette), palette) == clue
+    with pytest.raises(ClueParseError) as caught:
+        parse_clue("Black is in a corner & Off-White", palette)
+    assert caught.value.position == 21
 
 
 # --------------------------------------------------------------------------- many clues
@@ -304,3 +344,63 @@ def test_errors_point_at_the_problem(text: str, position: int, fragment: str) ->
 
 def test_parse_error_is_a_value_error() -> None:
     assert issubclass(ClueParseError, ValueError)
+
+
+# --------------------------------------------------------------------------- limits
+
+
+def _parse_time(text: str) -> float:
+    start = time.perf_counter()
+    with contextlib.suppress(ClueParseError):
+        parse(text)
+    return time.perf_counter() - start
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        ("Black knows White" + ", Teal" * 400)[:2000],
+        ("Black knows White" + " or Teal" * 300)[:2000],
+        ("Either Black" + ", Teal" * 400)[:2000],
+        ("Black is in a corner and " * 100)[:2000],
+        ("(Black is in a corner or " * 100)[:2000],
+        ("zq " * 700)[:2000],
+    ],
+)
+def test_long_garbage_fails_fast(text: str) -> None:
+    assert len(text) == 2000
+    assert _parse_time(text + " ???") < 0.1
+
+
+def test_a_long_valid_list_parses_fast() -> None:
+    text = "Black knows White" + ", Teal" * 38 + " and Mint"
+    start = time.perf_counter()
+    clue = parse(text)
+    assert time.perf_counter() - start < 0.1
+    assert isinstance(clue, And) and len(clue.clues) == 40
+    corners = ", ".join(["Black is in a corner"] * 39) + " and White is in a corner"
+    assert _parse_time(corners) < 0.1
+    assert len(parse(corners).clues) == 40  # type: ignore[union-attr]
+
+
+def test_alternatives_stop_at_three() -> None:
+    assert parse("Either Black, White or Teal is in a corner") == Or((CORNER_B, CORNER_W, CORNER_T))
+    with pytest.raises(ClueParseError):
+        parse("Either Black, White, Mint or Teal is in a corner")
+
+
+def test_deep_brackets_raise_a_parse_error() -> None:
+    sixteen = "(" * 16 + "Black is in a corner" + ")" * 16
+    assert parse(sixteen) == CORNER_B
+    text = "(" * 400 + "Black is in a corner" + ")" * 400
+    with pytest.raises(ClueParseError) as caught:
+        parse(text)
+    assert caught.value.position == 16
+    assert "deep" in caught.value.message
+
+
+def test_deep_negation_raises_a_parse_error() -> None:
+    text = "it's not true that " * 400 + "Black is in a corner"
+    with pytest.raises(ClueParseError) as caught:
+        parse(text)
+    assert "deep" in caught.value.message
