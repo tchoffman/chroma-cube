@@ -128,3 +128,20 @@ def test_other_boards_and_palettes() -> None:
 def test_palette_must_fill_the_board() -> None:
     with pytest.raises(ValueError, match="board"):
         generate(1, "easy", board=Board(2, 2))
+
+
+def test_generation_never_exceeds_the_solver_budget() -> None:
+    for seed in range(20, 23):
+        for level in DIFFICULTIES:
+            assert is_unique(generate(seed, level))
+
+
+def test_a_solver_that_always_gives_up_rejects_every_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import chroma_cube.generator.build as build
+
+    monkeypatch.setattr(build, "_MAX_NODES", 1)
+    monkeypatch.setattr(build, "_MAX_ATTEMPTS", 5)
+    with pytest.raises(RuntimeError, match="no hard puzzle"):
+        generate(1, "hard")
