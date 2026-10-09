@@ -10,12 +10,14 @@ they are) before changing anything.
 - `src/chroma_cube/solver/`    solution search, uniqueness, deduction steps
 - `src/chroma_cube/generator/` random puzzle generation and difficulty rating
 - `src/chroma_cube/puzzles/`   the shipped puzzle sets (data + loader)
+- `src/chroma_cube/progress.py` saved progress (solved cards, last board) as a JSON file
 - `src/chroma_cube/ui/`        the Textual app
 - `tests/`                     mirrors the package layout
 
 ## How we work
 - **TDD.** Write the failing test first, make it pass, refactor. Every PR adds tests.
-- **Pure core.** Nothing under `core/`, `solver/`, `generator/`, `puzzles/` imports Textual.
+- **Pure core.** Nothing under `core/`, `solver/`, `generator/`, `puzzles/`, nor
+  `progress.py`, imports Textual.
 - **Type-checked.** `uv run mypy` is strict and must pass. `uv run ruff check .` and
   `uv run ruff format --check .` must pass. Format only the files you touched.
 - **One issue per PR.** Branch `feat/<issue>-<slug>`, PR body starts with what it does in
