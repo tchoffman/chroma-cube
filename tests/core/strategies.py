@@ -2,7 +2,7 @@
 
 from hypothesis import strategies as st
 
-from chroma_cube.core import CLASSIC_PALETTE
+from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE
 from chroma_cube.core.clues import (
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
@@ -37,7 +37,9 @@ def relations(draw: st.DrawFn) -> Relation:
 @st.composite
 def properties(draw: st.DrawFn) -> Property:
     kind = draw(st.sampled_from(sorted(PROPERTY_KINDS)))
-    index = draw(st.integers(0, 2)) if PROPERTY_KINDS[kind].index else None
+    line = PROPERTY_KINDS[kind].index
+    count = CLASSIC_BOARD.rows if line == "row" else CLASSIC_BOARD.cols
+    index = draw(st.integers(0, count - 1)) if line else None
     return Property(kind, draw(color_refs), index)
 
 

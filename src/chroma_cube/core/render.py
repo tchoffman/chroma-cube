@@ -56,6 +56,8 @@ class _Renderer:
                 return self.merged(clues) or _join(self.parts(clues), " and ")
             case Or(clues=(only,)):
                 return self.sentence(only)
+            case Or(clues=clues) if (short := self.alternatives(clues)) is not None:
+                return short
             case Or(clues=clues):
                 return "Either " + _join(self.parts(clues), " or ")
             case Exactly(n=n, clues=clues):
@@ -72,7 +74,7 @@ class _Renderer:
     def names(self, refs: tuple[ColorRef, ...]) -> list[str]:
         return [self.name(color_ref) for color_ref in refs]
 
-    def prop(self, clue: Property, *, negated: bool) -> str:
+    def prop(self, clue: Property, *, negated: bool, subject: str | None = None) -> str:
         kind = PROPERTY_KINDS[clue.kind]
         template = kind.negated if negated else kind.text
         line = ""
@@ -80,7 +82,7 @@ class _Renderer:
             line = f"the {self.row_name(clue.index)} row"
         elif kind.index == "column" and clue.index is not None:
             line = f"the {_ordinal(clue.index)} column"
-        return template.format(self.name(clue.color), line=line)
+        return template.format(subject or self.name(clue.color), line=line)
 
     def row_name(self, index: int) -> str:
         if index == 0:
@@ -90,6 +92,48 @@ class _Renderer:
         if self.board.rows == 3 and index == 1:
             return "middle"
         return _ordinal(index)
+
+    def alternatives(self, clues: tuple[Clue, ...]) -> str | None:
+        """Say an `or` of two or three like clauses the way the cards do:
+        "Either Teal or Black is in the same row as Cobalt", "Either Teal or Mint is in a corner".
+
+        Only when every part is the same positive relation or property, differing only in
+        its first color, and those colors are all different. A relation's other color must
+        be named, not an initial, since each part would pick its own B. The colors are never
+        reordered (even for symmetric kinds) so the sentence reads back as the same clue.
+        """
+        if not 2 <= len(clues) <= 3:
+            return None
+        first = clues[0]
+        if isinstance(first, Property):
+            props = [sub for sub in clues if isinstance(sub, Property)]
+            if len(props) != len(clues) or any(
+                (p.kind, p.index) != (first.kind, first.index) for p in props
+            ):
+                return None
+            subjects = tuple(p.color for p in props)
+            if len(set(subjects)) != len(subjects):
+                return None
+            return "Either " + self.prop(first, negated=False, subject=self.either(subjects))
+        if isinstance(first, Relation) and len(first.colors) == 2:
+            relations = [sub for sub in clues if isinstance(sub, Relation)]
+            other = first.colors[1]
+            if (
+                len(relations) != len(clues)
+                or other.by_initial
+                or any((r.kind, r.colors[1]) != (first.kind, other) for r in relations)
+            ):
+                return None
+            subjects = tuple(r.colors[0] for r in relations)
+            kind = RELATION_KINDS[first.kind]
+            template = kind.alternatives or kind.text
+            if len(set(subjects)) != len(subjects) or not _single_subject(template):
+                return None
+            return "Either " + template.format(self.either(subjects), self.name(other))
+        return None
+
+    def either(self, subjects: tuple[ColorRef, ...]) -> str:
+        return _join(self.names(subjects), " or ")
 
     def parts(self, clues: tuple[Clue, ...]) -> list[str]:
         """Sub-clue sentences for a list, bracketing the ones that are themselves compound."""
@@ -122,6 +166,11 @@ class _Renderer:
             return None
         others = _join([self.name(r.colors[1]) for r in relations], " and ")
         return template.format(self.name(first.colors[0]), others)
+
+
+def _single_subject(template: str) -> bool:
+    """Starts with one color as its subject: "{0} knows {1}", not "{0} and {1} are ..."."""
+    return template.startswith("{0} ") and not template.startswith("{0} and ")
 
 
 def _is_compound(clue: Clue) -> bool:
