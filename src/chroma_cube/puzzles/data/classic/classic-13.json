@@ -1,0 +1,32 @@
+{
+  "id": "classic-13",
+  "title": "Strangers",
+  "difficulty": "hard",
+  "notes": "",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [
+    {"color": "coral", "row": 0, "col": 0}
+  ],
+  "clues": [
+    {"type": "relation", "kind": "knows", "colors": ["coral", "teal"]},
+    {"type": "not", "clue": {"type": "relation", "kind": "knows", "colors": ["magenta", "teal"]}},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["purple", "emerald"]}, {"type": "relation", "kind": "right_of", "colors": ["purple", "magenta"]}, {"type": "relation", "kind": "right_of", "colors": ["purple", "orange"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["mustard", "black"]}, {"type": "relation", "kind": "right_of", "colors": ["mustard", "mint"]}, {"type": "relation", "kind": "right_of", "colors": ["mustard", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["white", "mint"]}, {"type": "relation", "kind": "above", "colors": ["white", "orange"]}]},
+    {"type": "and", "clues": [{"type": "not", "clue": {"type": "property", "kind": "in_corner", "color": "white"}}, {"type": "property", "kind": "in_corner", "color": "brown"}]}
+  ]
+}

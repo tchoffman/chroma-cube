@@ -1,0 +1,32 @@
+{
+  "id": "classic-12",
+  "title": "Who Knows Whom",
+  "difficulty": "hard",
+  "notes": "Two cubes \"know\" each other when they touch, on a side or at a corner.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [
+    {"color": "purple", "row": 2, "col": 0},
+    {"color": "coral", "row": 2, "col": 2}
+  ],
+  "clues": [
+    {"type": "and", "clues": [{"type": "relation", "kind": "knows", "colors": ["teal", "brown"]}, {"type": "relation", "kind": "knows", "colors": ["teal", "orange"]}, {"type": "relation", "kind": "knows", "colors": ["teal", "purple"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["cobalt", "magenta"]}, {"type": "relation", "kind": "right_of", "colors": ["cobalt", "mint"]}, {"type": "relation", "kind": "right_of", "colors": ["cobalt", "mustard"]}]},
+    {"type": "relation", "kind": "same_column", "colors": ["brown", "teal"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["black", "brown"]}, {"type": "relation", "kind": "next_to", "colors": ["black", "coral"]}, {"type": "relation", "kind": "next_to", "colors": ["black", "mustard"]}]},
+    {"type": "and", "clues": [{"type": "not", "clue": {"type": "property", "kind": "in_corner", "color": "white"}}, {"type": "property", "kind": "in_corner", "color": "mint"}]}
+  ]
+}

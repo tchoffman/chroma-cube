@@ -264,11 +264,12 @@ Python module because cards are content: the future clue parser, a puzzle editor
 generator can write the same files, and a test checks every file round-trips. We gave up
 building cards with the clue factories in code, which a type checker would have checked.
 
-## D40: Classic difficulty score = cubes to place + distinct clue kinds (2026-10-08)
-`difficulty_score` counts the cubes not given plus the distinct kinds of clue on the card
-(relation, property and board-rule kinds, plus "not", "or", "exactly", "at_least" and
-"initial"; "and" only groups and does not count). The solver reports no branching count, so
-the score uses what a player sees: how much is left to place and how much vocabulary is in
-play. The set is tuned so the score never goes down from card to card. It is crude: an empty
-tray with few clue kinds scores the same as a fuller tray with more. The generator can
-replace it with a measured rating later.
+## D40: Classic cards climb by difficulty tier; a finer score is only information (2026-10-08)
+Each card is labelled easy, medium, hard or expert, and the labels never go down across the
+set. Card 8 starts with an empty tray, as in the physical game, while later cards bring a
+few givens back to introduce new clue kinds, so no single number such as "cubes to place"
+can climb card by card without bending the cards around it. `difficulty_score` (cubes to
+place plus distinct kinds of clue on the card, counting "not", "or", "exactly",
+"at_least" and "initial" as kinds and leaving "and" out) is reported for each card but not
+required to climb. The solver reports no branching count, so the score uses what a player
+sees. The generator can replace it with a measured rating later.

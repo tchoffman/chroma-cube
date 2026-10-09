@@ -1,0 +1,29 @@
+{
+  "id": "classic-22",
+  "title": "At Least a Few",
+  "difficulty": "expert",
+  "notes": "\"At least two of these are true\" means two or more of the listed statements hold.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [],
+  "clues": [
+    {"type": "at_least", "n": 2, "clues": [{"type": "relation", "kind": "directly_below", "colors": ["C", "C"]}, {"type": "relation", "kind": "between", "colors": ["mint", "emerald", "purple"]}, {"type": "relation", "kind": "between", "colors": ["C", "brown", "white"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mustard", "coral"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "mint"]}]},
+    {"type": "relation", "kind": "between", "colors": ["magenta", "mint", "teal"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["black", "brown"]}, {"type": "relation", "kind": "above", "colors": ["black", "mustard"]}]},
+    {"type": "relation", "kind": "above", "colors": ["orange", "C"]}
+  ]
+}
