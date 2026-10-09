@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+
+_HEX = re.compile(r"#[0-9a-fA-F]{6}")
 
 
 @dataclass(frozen=True)
@@ -17,6 +20,12 @@ class Color:
     id: str
     name: str
     hex: str
+
+    def __post_init__(self) -> None:
+        if not self.id or not self.name:
+            raise ValueError(f"a color needs a non-empty id and name, got {self!r}")
+        if not _HEX.fullmatch(self.hex):
+            raise ValueError(f"color hex must look like #rrggbb, got {self.hex!r}")
 
     @property
     def initial(self) -> str:
@@ -52,7 +61,12 @@ class Palette:
         raise KeyError(color_id)
 
     def by_initial(self, initial: str) -> tuple[Color, ...]:
-        """Every color whose name starts with this letter, in palette order."""
+        """Every color whose name starts with this letter, in palette order.
+
+        Raises `ValueError` unless `initial` is a single letter.
+        """
+        if len(initial) != 1 or not initial.isalpha():
+            raise ValueError(f"an initial is a single letter, got {initial!r}")
         return tuple(color for color in self.colors if color.initial == initial.upper())
 
 
@@ -65,9 +79,9 @@ CLASSIC_PALETTE = Palette(
         Color("emerald", "Emerald", "#009b4d"),
         Color("magenta", "Magenta", "#e0218a"),
         Color("mint", "Mint", "#98ffb3"),
-        Color("mustard", "Mustard", "#e1ad01"),
+        Color("mustard", "Mustard", "#ccb800"),
         Color("orange", "Orange", "#ff8c00"),
-        Color("purple", "Purple", "#7b2fbe"),
+        Color("purple", "Purple", "#9440d8"),
         Color("teal", "Teal", "#008080"),
         Color("white", "White", "#f5f5f5"),
     )
