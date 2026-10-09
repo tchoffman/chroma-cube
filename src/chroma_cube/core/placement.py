@@ -36,6 +36,9 @@ class Placement:
     def __hash__(self) -> int:
         return hash(frozenset(self.assignments.items()))
 
+    def __reduce__(self) -> tuple[type[Placement], tuple[dict[Color, Cell]]]:
+        return (Placement, (dict(self.assignments),))
+
     def cell_of(self, color: Color) -> Cell | None:
         return self.assignments.get(color)
 
