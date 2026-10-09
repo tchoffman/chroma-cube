@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from chroma_cube.core._data import as_int, as_list, as_str
 from chroma_cube.core.clues import (
     And,
     AtLeast,
@@ -60,12 +61,13 @@ def _from_dict(data: Mapping[str, Any]) -> Clue:
         raise TypeError(data)
     match data["type"]:
         case "relation":
-            return Relation(data["kind"], tuple(ref(_str(c)) for c in data["colors"]))
+            colors = as_list(data["colors"])
+            return Relation(data["kind"], tuple(ref(as_str(c)) for c in colors))
         case "property":
             index = data.get("index")
-            if index is not None and not isinstance(index, int):
-                raise TypeError(index)
-            return Property(data["kind"], ref(_str(data["color"])), index)
+            return Property(
+                data["kind"], ref(as_str(data["color"])), None if index is None else as_int(index)
+            )
         case "board_rule":
             return BoardRule(data["kind"])
         case "not":
@@ -75,23 +77,11 @@ def _from_dict(data: Mapping[str, Any]) -> Clue:
         case "or":
             return Or(_children(data))
         case "exactly":
-            return Exactly(_int(data["n"]), _children(data))
+            return Exactly(as_int(data["n"]), _children(data))
         case "at_least":
-            return AtLeast(_int(data["n"]), _children(data))
+            return AtLeast(as_int(data["n"]), _children(data))
     raise ValueError(f"unknown clue type {data['type']!r}")
 
 
 def _children(data: Mapping[str, Any]) -> tuple[Clue, ...]:
-    return tuple(_from_dict(sub) for sub in data["clues"])
-
-
-def _str(value: object) -> str:
-    if not isinstance(value, str):
-        raise TypeError(value)
-    return value
-
-
-def _int(value: object) -> int:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise TypeError(value)
-    return value
+    return tuple(_from_dict(sub) for sub in as_list(data["clues"]))

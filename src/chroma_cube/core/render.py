@@ -45,7 +45,7 @@ class _Renderer:
             case Property():
                 return self.prop(clue, negated=False)
             case BoardRule(kind=kind):
-                return BOARD_RULE_KINDS[kind][1]
+                return BOARD_RULE_KINDS[kind].text
             case Not(clue=Relation(kind=kind, colors=refs)):
                 return RELATION_KINDS[kind].negated.format(*self.names(refs))
             case Not(clue=Property() as inner):
@@ -54,6 +54,8 @@ class _Renderer:
                 return "It's not true that " + _lower_opener(self.sentence(inner))
             case And(clues=clues):
                 return self.merged(clues) or _join(self.parts(clues), " and ")
+            case Or(clues=(only,)):
+                return self.sentence(only)
             case Or(clues=clues):
                 return "Either " + _join(self.parts(clues), " or ")
             case Exactly(n=n, clues=clues):
@@ -101,7 +103,11 @@ class _Renderer:
         return "; ".join(self.parts(clues))
 
     def merged(self, clues: tuple[Clue, ...]) -> str | None:
-        """Merge relations of one kind from one color: "Black knows White, Teal and Mint"."""
+        """Merge relations of one kind from one color: "Black knows White, Teal and Mint".
+
+        Not for an initial: each part picks its own B color, so "B knows W and T" would
+        claim that one B knows both.
+        """
         if len(clues) < 2 or not all(isinstance(sub, Relation) for sub in clues):
             return None
         relations = [sub for sub in clues if isinstance(sub, Relation)]
@@ -109,6 +115,7 @@ class _Renderer:
         template = RELATION_KINDS[first.kind].text
         if (
             len(first.colors) != 2
+            or first.colors[0].by_initial
             or not template.endswith("{1}")
             or any(r.kind != first.kind or r.colors[0] != first.colors[0] for r in relations)
         ):

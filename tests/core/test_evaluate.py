@@ -4,7 +4,15 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE, Board, Color, Palette, Placement
+from chroma_cube.core import (
+    CLASSIC_BOARD,
+    CLASSIC_PALETTE,
+    Board,
+    Cell,
+    Color,
+    Palette,
+    Placement,
+)
 from chroma_cube.core.clues import (
     PROPERTY_KINDS,
     RELATION_KINDS,
@@ -210,6 +218,32 @@ def test_primitive_clues_are_unknown_only_when_completions_disagree(
     assert evaluate(clue, placement, SMALL_BOARD, SMALL_PALETTE) is _brute_force(clue, placement)
 
 
+refs_with_initials = st.one_of(ids, st.sampled_from(sorted({c.initial for c in SMALL_PALETTE})))
+
+
+@st.composite
+def primitive_clues_with_initials(draw: st.DrawFn) -> Clue:
+    if draw(st.booleans()):
+        kind = draw(st.sampled_from(sorted(RELATION_KINDS)))
+        arity = RELATION_KINDS[kind].arity
+        return relation(kind, *draw(st.lists(refs_with_initials, min_size=arity, max_size=arity)))
+    kind = draw(st.sampled_from(sorted(PROPERTY_KINDS)))
+    index = draw(st.integers(0, 2)) if PROPERTY_KINDS[kind].index else None
+    return prop(kind, draw(refs_with_initials), index)
+
+
+@given(primitive_clues_with_initials(), small_partial_placements())
+def test_clues_with_initials_are_sound(clue: Clue, placement: Placement) -> None:
+    # Initials are decided one candidate color at a time, so they may stay UNKNOWN when a
+    # joint search would decide them, but a decided answer must hold on every completion.
+    truth = evaluate(clue, placement, SMALL_BOARD, SMALL_PALETTE)
+    if truth is not UNK:
+        assert truth is _brute_force(clue, placement)
+    negated = evaluate(Not(clue), placement, SMALL_BOARD, SMALL_PALETTE)
+    if negated is not UNK:
+        assert negated is _brute_force(Not(clue), placement)
+
+
 # --------------------------------------------------------------------------- initials
 
 
@@ -228,6 +262,22 @@ def test_primitive_clues_are_unknown_only_when_completions_disagree(
 )
 def test_initials_on_a_full_board(clue: Clue, expected: Truth) -> None:
     assert ev(clue) is expected
+
+
+def test_initials_are_not_searched_jointly() -> None:
+    # Black, Brown and White go on the three free cells, two of which are corners, so some
+    # B color always lands in a corner. Each B on its own might not, so this stays open.
+    placement = FULL.without(CLASSIC_PALETTE.by_id("black"))
+    placement = placement.without(CLASSIC_PALETTE.by_id("coral"))
+    placement = placement.without(CLASSIC_PALETTE.by_id("magenta"))
+    for color_id in ("brown", "white"):
+        placement = placement.without(CLASSIC_PALETTE.by_id(color_id))
+    placement = placement.with_color(CLASSIC_PALETTE.by_id("coral"), Cell(0, 1))
+    placement = placement.with_color(CLASSIC_PALETTE.by_id("magenta"), Cell(2, 3))
+    assert placement.unplaced(CLASSIC_PALETTE) == tuple(
+        CLASSIC_PALETTE.by_id(i) for i in ("black", "brown", "white")
+    )
+    assert ev(prop("in_corner", "B"), placement) is UNK
 
 
 def test_initials_stay_unknown_while_any_candidate_is_undecided() -> None:
@@ -278,6 +328,13 @@ def test_and_or_are_kleene(a: Truth, b: Truth, conjunction: Truth, disjunction: 
 
 
 @pytest.mark.parametrize(
+    ("subs", "expected"), [((VIOL, VIOL), SAT), ((VIOL, UNK), UNK), ((SAT,), VIOL)]
+)
+def test_exactly_zero(subs: tuple[Truth, ...], expected: Truth) -> None:
+    assert ev(Exactly(0, tuple(LEAF[truth] for truth in subs)), _PARTIAL) is expected
+
+
+@pytest.mark.parametrize(
     ("n", "subs", "exactly", "at_least"),
     [
         (1, (SAT, VIOL, VIOL), SAT, SAT),
@@ -285,8 +342,6 @@ def test_and_or_are_kleene(a: Truth, b: Truth, conjunction: Truth, disjunction: 
         (1, (SAT, UNK, VIOL), UNK, SAT),
         (2, (SAT, UNK, VIOL), UNK, UNK),
         (2, (SAT, VIOL, VIOL), VIOL, VIOL),
-        (0, (VIOL, VIOL), SAT, SAT),
-        (0, (VIOL, UNK), UNK, SAT),
         (2, (UNK, UNK, UNK), UNK, UNK),
     ],
 )

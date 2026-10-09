@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from enum import Enum
 from itertools import product
 
 from chroma_cube.core.board import Board, Cell
@@ -24,14 +23,9 @@ from chroma_cube.core.clues import (
 )
 from chroma_cube.core.colors import Color, Palette
 from chroma_cube.core.placement import Placement
+from chroma_cube.core.truth import Truth
 
-
-class Truth(Enum):
-    """What a clue says about a placement: decided either way, or not yet."""
-
-    SATISFIED = "satisfied"
-    VIOLATED = "violated"
-    UNKNOWN = "unknown"
+__all__ = ["Truth", "evaluate"]
 
 
 SAT, VIOL, UNK = Truth.SATISFIED, Truth.VIOLATED, Truth.UNKNOWN
@@ -60,7 +54,7 @@ def evaluate(clue: Clue, placement: Placement, board: Board, palette: Palette) -
                 palette,
             )
         case BoardRule(kind=kind):
-            return _alphabetical(BOARD_RULE_KINDS[kind][0], placement, board, palette)
+            return BOARD_RULE_KINDS[kind].evaluate(placement, board, palette)
         case Not(clue=inner):
             return _negate(evaluate(inner, placement, board, palette))
         case And(clues=clues):
@@ -159,57 +153,3 @@ def _decide(
     if seen_true:
         return SAT
     return VIOL
-
-
-# --------------------------------------------------------------------------- board rules
-
-
-def _alphabetical(lines: str, placement: Placement, board: Board, palette: Palette) -> Truth:
-    """Every row (left to right) or column (top to bottom) is in alphabetical name order.
-
-    VIOLATED as soon as a line's placed cubes are out of order, or a run of free cells
-    in a line cannot be filled because too few unplaced colors sort between its ends.
-    SATISFIED once every line is full and in order. The lines are checked one at a time,
-    so a board whose lines compete for the same few colors can stay UNKNOWN.
-    """
-    cells_of = board.row if lines == "row" else board.column
-    count = board.rows if lines == "row" else board.cols
-    unplaced = sorted(_key(color) for color in placement.unplaced(palette))
-    full = True
-    for index in range(count):
-        names: list[str | None] = [
-            None if (color := placement.color_at(cell)) is None else _key(color)
-            for cell in cells_of(index)
-        ]
-        if None in names:
-            full = False
-        if not _line_can_be_ordered(names, unplaced):
-            return VIOL
-    return SAT if full else UNK
-
-
-def _key(color: Color) -> str:
-    return color.name.casefold()
-
-
-def _line_can_be_ordered(names: list[str | None], unplaced: list[str]) -> bool:
-    """Placed names ascend, and every run of free cells has enough names to fit in it."""
-    low: str | None = None
-    gap = 0
-    for name in names:
-        if name is None:
-            gap += 1
-            continue
-        if low is not None and name <= low:
-            return False
-        if not _enough_between(low, name, gap, unplaced):
-            return False
-        low, gap = name, 0
-    return _enough_between(low, None, gap, unplaced)
-
-
-def _enough_between(low: str | None, high: str | None, gap: int, unplaced: list[str]) -> bool:
-    fits = [
-        name for name in unplaced if (low is None or name > low) and (high is None or name < high)
-    ]
-    return len(fits) >= gap

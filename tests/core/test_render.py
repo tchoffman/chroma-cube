@@ -117,8 +117,8 @@ def test_and_of_relations_sharing_the_first_color_merges() -> None:
         )
     )
     assert render(clue, CLASSIC_PALETTE) == "Black knows White, Teal and Mint"
-    next_to = And((relation("next_to", "B", "M"), relation("next_to", "B", "teal")))
-    assert render(next_to, CLASSIC_PALETTE) == "B sits next to M and Teal"
+    next_to = And((relation("next_to", "black", "M"), relation("next_to", "black", "teal")))
+    assert render(next_to, CLASSIC_PALETTE) == "Black sits next to M and Teal"
 
 
 def test_and_does_not_merge_when_the_sentence_would_break() -> None:
@@ -191,3 +191,13 @@ def test_far_columns_use_numeric_ordinals() -> None:
         assert render(prop("in_col", "black", index), CLASSIC_PALETTE, wide) == (
             f"Black is in the {word} column"
         )
+
+
+def test_and_does_not_merge_when_the_shared_color_is_an_initial() -> None:
+    # Each part picks its own B color, so one merged sentence would claim too much.
+    clue = And((relation("knows", "B", "white"), relation("knows", "B", "teal")))
+    assert render(clue, CLASSIC_PALETTE) == "B knows White and B knows Teal"
+
+
+def test_a_one_item_or_is_just_its_clue() -> None:
+    assert render(Or((prop("in_corner", "black"),)), CLASSIC_PALETTE) == "Black is in a corner"

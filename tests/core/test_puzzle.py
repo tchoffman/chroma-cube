@@ -7,9 +7,12 @@ from hypothesis import strategies as st
 from chroma_cube.core import (
     CLASSIC_BOARD,
     CLASSIC_PALETTE,
+    And,
     Board,
     Cell,
+    Clue,
     Color,
+    Not,
     Palette,
     Placement,
     Puzzle,
@@ -63,6 +66,25 @@ def test_givens_must_be_on_the_board() -> None:
         make(givens=Placement({black: Cell(3, 0)}))
 
 
+@pytest.mark.parametrize(
+    "clue",
+    [
+        relation("next_to", "white", "gold"),
+        Not(prop("in_corner", "gold")),
+        prop("in_row", "black", 3),
+        prop("in_col", "black", 4),
+        And((prop("in_corner", "teal"), prop("in_row", "teal", 7))),
+    ],
+)
+def test_clues_must_name_palette_colors_and_on_board_lines(clue: Clue) -> None:
+    with pytest.raises(ValueError):
+        make(clues=(clue,))
+
+
+def test_clues_may_use_any_initial_and_last_row_and_column() -> None:
+    make(clues=(prop("in_row", "Z", 2), prop("in_col", "black", 3)))
+
+
 def test_puzzles_are_hashable_values() -> None:
     assert make() == make()
     assert hash(make()) == hash(make())
@@ -95,6 +117,7 @@ def test_optional_fields_may_be_missing_from_data() -> None:
         lambda d: d["givens"].append({"color": "white", "row": 9, "col": 1}),
         lambda d: d["board"].update(rows="three"),
         lambda d: d["clues"].append({"type": "teleport"}),
+        lambda d: d["givens"].append({"color": "black", "row": 1, "col": 1}),
     ],
 )
 def test_malformed_data_raises_value_error(breakage: object) -> None:

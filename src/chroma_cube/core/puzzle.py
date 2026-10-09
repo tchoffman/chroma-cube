@@ -6,8 +6,20 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from chroma_cube.core._data import as_int, as_list, as_str
 from chroma_cube.core.board import Board, Cell
-from chroma_cube.core.clues import Clue
+from chroma_cube.core.clues import (
+    PROPERTY_KINDS,
+    And,
+    AtLeast,
+    Clue,
+    ColorRef,
+    Exactly,
+    Not,
+    Or,
+    Property,
+    Relation,
+)
 from chroma_cube.core.colors import Color, Palette
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.render import render
@@ -34,9 +46,40 @@ class Puzzle:
             if cell not in self.board:
                 raise ValueError(f"given {color.name} is on {cell}, off the board")
 
+        for clue in self.clues:
+            _check_clue(clue, self.board, self.palette)
+
     def rendered_clues(self) -> tuple[str, ...]:
         """Every clue as an English sentence, in order."""
         return tuple(render(clue, self.palette, self.board) for clue in self.clues)
+
+
+def _check_clue(clue: Clue, board: Board, palette: Palette) -> None:
+    """Every named color is in the palette and every row or column index is on the board."""
+    match clue:
+        case Relation(colors=refs):
+            for color_ref in refs:
+                _check_ref(color_ref, palette)
+        case Property(kind=kind, color=color_ref, index=index):
+            _check_ref(color_ref, palette)
+            line = PROPERTY_KINDS[kind].index
+            size = board.rows if line == "row" else board.cols
+            if line is not None and index is not None and index >= size:
+                raise ValueError(f"{line} {index} is not on a {board.rows}x{board.cols} board")
+        case Not(clue=inner):
+            _check_clue(inner, board, palette)
+        case And(clues=clues) | Or(clues=clues) | Exactly(clues=clues) | AtLeast(clues=clues):
+            for sub in clues:
+                _check_clue(sub, board, palette)
+
+
+def _check_ref(color_ref: ColorRef, palette: Palette) -> None:
+    if color_ref.by_initial:
+        return
+    try:
+        palette.by_id(color_ref.key)
+    except KeyError:
+        raise ValueError(f"clue names {color_ref.key!r}, which is not in the palette") from None
 
 
 def puzzle_to_dict(puzzle: Puzzle) -> dict[str, Any]:
@@ -57,37 +100,27 @@ def puzzle_to_dict(puzzle: Puzzle) -> dict[str, Any]:
 def puzzle_from_dict(data: Mapping[str, Any]) -> Puzzle:
     """Rebuild a puzzle. Raises `ValueError` for anything that is not a well-formed puzzle."""
     try:
-        board = Board(_int(data["board"]["rows"]), _int(data["board"]["cols"]))
+        board = Board(as_int(data["board"]["rows"]), as_int(data["board"]["cols"]))
         palette = Palette(
-            tuple(Color(_str(c["id"]), _str(c["name"]), _str(c["hex"])) for c in data["palette"])
+            tuple(
+                Color(as_str(c["id"]), as_str(c["name"]), as_str(c["hex"])) for c in data["palette"]
+            )
         )
-        givens = Placement(
-            {
-                palette.by_id(_str(g["color"])): Cell(_int(g["row"]), _int(g["col"]))
-                for g in data["givens"]
-            }
-        )
+        givens: dict[Color, Cell] = {}
+        for given in as_list(data["givens"]):
+            color = palette.by_id(as_str(given["color"]))
+            if color in givens:
+                raise ValueError(f"{color.name} is given twice")
+            givens[color] = Cell(as_int(given["row"]), as_int(given["col"]))
         return Puzzle(
-            id=_str(data["id"]),
-            title=_str(data["title"]),
+            id=as_str(data["id"]),
+            title=as_str(data["title"]),
             board=board,
             palette=palette,
-            givens=givens,
+            givens=Placement(givens),
             clues=tuple(clue_from_dict(clue) for clue in data["clues"]),
-            difficulty=_str(data.get("difficulty", "")),
-            notes=_str(data.get("notes", "")),
+            difficulty=as_str(data.get("difficulty", "")),
+            notes=as_str(data.get("notes", "")),
         )
     except (KeyError, TypeError, AttributeError) as error:
         raise ValueError(f"malformed puzzle data: {error!r}") from error
-
-
-def _str(value: object) -> str:
-    if not isinstance(value, str):
-        raise TypeError(value)
-    return value
-
-
-def _int(value: object) -> int:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise TypeError(value)
-    return value

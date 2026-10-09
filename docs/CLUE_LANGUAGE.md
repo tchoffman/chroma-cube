@@ -48,9 +48,9 @@ Rows are named top / middle / bottom on a 3-row board; on other boards the first
 rows are top and bottom and the rest are ordinals ("the third row"). Columns are always
 ordinals counted from the left ("the first column").
 
-Relation and property kinds are registry entries (`RELATION_KINDS`, `PROPERTY_KINDS` in
-`chroma_cube.core.clues`) holding the predicate and the English templates. Adding a kind
-means adding one entry.
+Relation, property and board-rule kinds are registry entries (`RELATION_KINDS`,
+`PROPERTY_KINDS`, `BOARD_RULE_KINDS` in `chroma_cube.core.clues`) holding how the kind is
+decided and its English. Adding a kind means adding one entry.
 
 ## Color references
 
@@ -70,7 +70,8 @@ true if there is *some* choice of matching colors that makes it true.
 
 - `not(clue)`, `and(clues...)`, `or(clues...)`. `and` and `or` need at least one clue.
 - `exactly(n, clues...)`, `at_least(n, clues...)`: counting over sub-clues, with
-  `0 <= n <= len(clues)`.
+  `0 <= n <= len(clues)` for `exactly` and `1 <= n <= len(clues)` for `at_least`
+  ("at least zero" is always true, so it is rejected).
 - Board-wide rules: `rows_alphabetical` (every row reads in alphabetical order of color
   name, left to right) and `columns_alphabetical` (top to bottom). Names compare
   case-insensitively.
@@ -82,13 +83,17 @@ true if there is *some* choice of matching colors that makes it true.
 | `not` of a relation or property         | the negated template: "Black isn't in a corner", "Black doesn't know White" |
 | `not` of anything else                  | "It's not true that ..."                                |
 | `and`                                   | "X, Y and Z"                                            |
-| `and` of one relation from one color    | "Black knows White, Teal and Mint" (when the template ends with the second color) |
-| `or`                                    | "Either X or Y", "Either X, Y or Z"                     |
+| `and` of one relation from one color    | "Black knows White, Teal and Mint" (when the template ends with the second color and the shared color is named, not an initial) |
+| `or`                                    | "Either X or Y", "Either X, Y or Z"; a one-clue `or` is just that clue |
 | `exactly(n)` / `at_least(n)`            | "Exactly one of these is true: X; Y; Z"                 |
 | `rows_alphabetical`                     | "Every row is in alphabetical order from left to right" |
 | `columns_alphabetical`                  | "Every column is in alphabetical order from top to bottom" |
 
 A compound clue inside `and`, `or` or a count is wrapped in brackets.
+
+`and` never merges when the shared color is an initial: each part picks its own B color,
+so `and(knows(B, White), knows(B, Teal))` reads "B knows White and B knows Teal", not
+"B knows White and Teal" (which would say one B knows both).
 
 ## Data format
 
@@ -124,12 +129,17 @@ For the live checker in the UI, each clue evaluates to one of three values:
 `SATISFIED`, `VIOLATED`, or `UNKNOWN` (cannot be decided until more cubes are placed).
 The solver uses the same three-valued evaluation to prune.
 
-- **Relations and properties are exact.** They are `UNKNOWN` only if some way of putting
-  the clue's unplaced colors on the free cells makes them true and another makes them
-  false. So two placed cubes in different rows already violate `same_row`, and an
-  unplaced cube whose only free cells are corners already satisfies `in_corner`.
-- **Initials** take the three-valued "or" over every choice of distinct matching colors:
-  satisfied if any choice is satisfied, violated only if every choice is violated.
+- **Relations and properties that name colors by id are exact.** They are `UNKNOWN` only
+  if some way of putting the clue's unplaced colors on the free cells makes them true and
+  another makes them false. So two placed cubes in different rows already violate
+  `same_row`, and an unplaced cube whose only free cells are corners already satisfies
+  `in_corner`.
+- **Initials** are decided one choice of colors at a time, then combined with the
+  three-valued "or": satisfied if any choice is satisfied, violated only if every choice
+  is violated. A decided answer is always right, but the clue can stay `UNKNOWN` longer
+  than a joint search would. Example: with Black, Brown and White left for three free
+  cells, two of them corners, some B always lands in a corner, yet `in_corner(B)` stays
+  `UNKNOWN` because neither Black nor Brown is forced into one on its own.
 - **Combinators** use Kleene logic (`and` is violated by any violated part, satisfied when
   all parts are; `or` the reverse). Counts are decided from how many sub-clues are
   satisfied and how many are still unknown. This can leave a combination `UNKNOWN` even

@@ -1,6 +1,7 @@
 """The clue language: an immutable AST of clues about where colors sit.
 
-Relation and property kinds live in registries (`RELATION_KINDS`, `PROPERTY_KINDS`).
+Relation, property and board-rule kinds live in registries (`RELATION_KINDS`,
+`PROPERTY_KINDS`, `BOARD_RULE_KINDS`).
 Each entry carries everything the rest of the system needs to know about a kind: its
 arity, the predicate over cells that the evaluator uses, and the English templates the
 renderer uses. Adding a kind is one registry entry; no new node class is needed.
@@ -12,6 +13,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from chroma_cube.core.board import Board, Cell
+from chroma_cube.core.board_rules import columns_alphabetical, rows_alphabetical
+from chroma_cube.core.colors import Palette
+from chroma_cube.core.placement import Placement
+from chroma_cube.core.truth import Truth
 
 # --------------------------------------------------------------------------- color refs
 
@@ -224,11 +229,27 @@ PROPERTY_KINDS: dict[str, PropertyKind] = {
 """Every property kind, by the name used in puzzle data."""
 
 
-BOARD_RULE_KINDS: dict[str, tuple[str, str]] = {
-    "rows_alphabetical": ("row", "Every row is in alphabetical order from left to right"),
-    "columns_alphabetical": ("column", "Every column is in alphabetical order from top to bottom"),
+@dataclass(frozen=True)
+class BoardRuleKind:
+    """How a board-wide rule is decided and said.
+
+    `evaluate` decides the rule three-valued on a possibly partial placement, since a
+    whole-board rule has no small set of colors to try out like a relation does.
+    """
+
+    evaluate: Callable[[Placement, Board, Palette], Truth]
+    text: str
+
+
+BOARD_RULE_KINDS: dict[str, BoardRuleKind] = {
+    "rows_alphabetical": BoardRuleKind(
+        rows_alphabetical, "Every row is in alphabetical order from left to right"
+    ),
+    "columns_alphabetical": BoardRuleKind(
+        columns_alphabetical, "Every column is in alphabetical order from top to bottom"
+    ),
 }
-"""Every board-wide rule: the lines it constrains and its English sentence."""
+"""Every board-wide rule, by the name used in puzzle data."""
 
 
 # --------------------------------------------------------------------------- nodes
@@ -314,13 +335,15 @@ class Exactly:
 
 @dataclass(frozen=True)
 class AtLeast:
-    """At least `n` of the sub-clues hold."""
+    """At least `n` of the sub-clues hold. `n` is at least 1; "at least zero" says nothing."""
 
     n: int
     clues: tuple[Clue, ...]
 
     def __post_init__(self) -> None:
         _check_count(self.n, self.clues)
+        if self.n == 0:
+            raise ValueError("AtLeast(0, ...) is always true; use n >= 1")
 
 
 def _check_count(n: int, clues: tuple[Clue, ...]) -> None:

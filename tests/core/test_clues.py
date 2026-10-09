@@ -1,11 +1,13 @@
 import pytest
 
 from chroma_cube.core.clues import (
+    BOARD_RULE_KINDS,
     PROPERTY_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
     BoardRule,
+    BoardRuleKind,
     ColorRef,
     Exactly,
     Not,
@@ -97,6 +99,11 @@ def test_combinators_validate_their_arguments() -> None:
     with pytest.raises(ValueError):
         AtLeast(2, (a,))
     with pytest.raises(ValueError):
+        AtLeast(0, (a,))
+    with pytest.raises(ValueError):
+        Exactly(2, (a,))
+    assert Exactly(0, (a,)).n == 0
+    with pytest.raises(ValueError):
         BoardRule("diagonals_alphabetical")
 
 
@@ -117,3 +124,11 @@ def test_every_node_is_hashable_and_compares_by_value() -> None:
     assert build() == build()
     assert hash(build()) == hash(build())
     assert len({build(), build()}) == 1
+
+
+def test_board_rules_are_registry_entries() -> None:
+    assert set(BOARD_RULE_KINDS) == {"rows_alphabetical", "columns_alphabetical"}
+    for kind in BOARD_RULE_KINDS.values():
+        assert isinstance(kind, BoardRuleKind)
+        assert kind.text
+        assert callable(kind.evaluate)

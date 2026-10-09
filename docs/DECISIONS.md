@@ -56,9 +56,11 @@ Mustard moved to `#ccb800` and Purple to `#9440d8`, lifting the closest pair to 
 Black is near-invisible on a dark background; the UI should give cubes a border or a light
 tray rather than change the core value. The UI may adjust these values for display.
 
-## D11: Relation and property kinds are registry entries, not classes (2026-10-08)
-One `Relation(kind, colors)` node and one `Property(kind, color, index)` node, with a
-registry entry per kind that holds its arity, predicate and English templates. The ternary
+## D11: Relation, property and board-rule kinds are registry entries, not classes (2026-10-08)
+One `Relation(kind, colors)` node, one `Property(kind, color, index)` node and one
+`BoardRule(kind)` node, with a registry entry per kind that holds how it is decided and its
+English. Board rules are decided by a three-valued function in their entry, since they
+have no small set of colors to try out. The ternary
 `between` is a relation with arity 3. Adding a kind (color-attribute clues are planned) is
 one entry and touches no evaluator, renderer or serializer code. We gave up per-kind
 classes that a type checker could tell apart; kinds are validated when a node is built.
@@ -69,12 +71,16 @@ with no valid choice (no Z colors, or "T knows T" with one T color) is false. `n
 to an initial clue means no choice works, which is how the sentence reads ("B isn't in a
 corner"). The alternative, "some B color isn't in a corner", reads wrongly in English.
 
-## D13: Partial evaluation is exact for leaves, Kleene for combinators (2026-10-08)
-A relation or property tries every placement of its own unplaced colors on the free cells,
-which is at most a few hundred cases, and so is exact. Combinators combine their parts'
-three values with Kleene logic instead of searching completions, which keeps evaluation
-cheap and local but can leave a combination UNKNOWN that a search would decide. Alphabetical
-rules check each line on its own for the same reason. The solver does the global search.
+## D13: Partial evaluation is exact for named leaves, Kleene elsewhere (2026-10-08)
+A relation or property naming its colors by id tries every placement of its own unplaced
+colors on the free cells, which is at most a few hundred cases, and so is exact. With
+initials, each choice of matching colors is decided on its own and the answers are
+combined with a three-valued "or"; combinators combine their parts with Kleene logic; and
+alphabetical rules check each line on its own. All three are sound (a decided answer holds
+on every completion) but can stay UNKNOWN where a joint search would decide. That keeps
+evaluation cheap and local (about a millisecond at worst on the classic board); the
+solver does the global search. We gave up an exact live checker for initials and
+combinations: it may show a clue as open a little longer than strictly needed.
 
 ## D14: Color references are bare strings in data (2026-10-08)
 A reference is written `"black"` (an id) or `"B"` (an initial), so hand-written puzzle data

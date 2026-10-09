@@ -78,6 +78,10 @@ def test_every_generated_clue_renders(clue: Clue) -> None:
         {"type": "exactly", "n": 3, "clues": [{"type": "board_rule", "kind": "rows_alphabetical"}]},
         {"type": "not", "clue": "black"},
         "black",
+        {"type": "relation", "kind": "next_to", "colors": "BM"},
+        {"type": "property", "kind": "in_row", "color": "black", "index": True},
+        {"type": "property", "kind": "in_row", "color": "black", "index": "1"},
+        {"type": "property", "kind": "in_row", "color": "black", "index": 1.0},
     ],
 )
 def test_malformed_data_raises_value_error(bad: object) -> None:
