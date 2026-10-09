@@ -30,7 +30,7 @@ def color_refs(palette: Palette) -> st.SearchStrategy[ColorRef]:
     )
 
 
-def clues(palette: Palette) -> st.SearchStrategy[Clue]:
+def clues(palette: Palette, board: Board) -> st.SearchStrategy[Clue]:
     refs = color_refs(palette)
 
     @st.composite
@@ -42,7 +42,9 @@ def clues(palette: Palette) -> st.SearchStrategy[Clue]:
     @st.composite
     def properties(draw: st.DrawFn) -> Property:
         kind = draw(st.sampled_from(sorted(PROPERTY_KINDS)))
-        index = draw(st.integers(0, 2)) if PROPERTY_KINDS[kind].index else None
+        line = PROPERTY_KINDS[kind].index
+        top = board.rows if line == "row" else board.cols
+        index = draw(st.integers(0, top - 1)) if line else None
         return Property(kind, draw(refs), index)
 
     def compounds(children: st.SearchStrategy[Clue]) -> st.SearchStrategy[Clue]:
@@ -52,7 +54,7 @@ def clues(palette: Palette) -> st.SearchStrategy[Clue]:
             lists.map(And),
             lists.map(Or),
             lists.flatmap(lambda cs: st.integers(0, len(cs)).map(lambda n: Exactly(n, cs))),
-            lists.flatmap(lambda cs: st.integers(0, len(cs)).map(lambda n: AtLeast(n, cs))),
+            lists.flatmap(lambda cs: st.integers(1, len(cs)).map(lambda n: AtLeast(n, cs))),
         )
 
     leaves = st.one_of(
@@ -68,7 +70,7 @@ def clues(palette: Palette) -> st.SearchStrategy[Clue]:
 def small_puzzles(draw: st.DrawFn) -> Puzzle:
     board = draw(st.sampled_from([Board(2, 2), Board(2, 3), Board(3, 2)]))
     palette = small_palette(len(board))
-    clue_list = draw(st.lists(clues(palette), max_size=4))
+    clue_list = draw(st.lists(clues(palette, board), max_size=4))
     given_colors = draw(st.lists(st.sampled_from(palette.colors), max_size=2, unique=True))
     given_cells = draw(
         st.lists(
