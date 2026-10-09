@@ -105,6 +105,19 @@ A compound clue inside `and`, `or` or a count is wrapped in brackets.
 
 `index` is only present for `in_row` and `in_col`. Malformed data raises `ValueError`.
 
+A whole puzzle (`Puzzle`, `puzzle_to_dict` / `puzzle_from_dict` in `chroma_cube.core.puzzle`)
+is stored as:
+
+```json
+{"id": "classic-01", "title": "...", "difficulty": "", "notes": "",
+ "board": {"rows": 3, "cols": 4},
+ "palette": [{"id": "black", "name": "Black", "hex": "#1c1c1c"}, ...],
+ "givens": [{"color": "black", "row": 0, "col": 0}],
+ "clues": [...]}
+```
+
+`difficulty` and `notes` may be left out. Givens must use palette colors and on-board cells.
+
 ## Evaluation on a partial board
 
 For the live checker in the UI, each clue evaluates to one of three values:

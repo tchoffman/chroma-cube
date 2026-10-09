@@ -24,6 +24,7 @@ from chroma_cube.core.clues import (
 from chroma_cube.core.colors import CLASSIC_PALETTE, Color, Palette
 from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.placement import Placement
+from chroma_cube.core.puzzle import Puzzle, puzzle_from_dict, puzzle_to_dict
 from chroma_cube.core.render import render
 from chroma_cube.core.serialize import clue_from_dict, clue_to_dict
 
@@ -47,6 +48,7 @@ __all__ = [
     "Palette",
     "Placement",
     "Property",
+    "Puzzle",
     "PropertyKind",
     "Relation",
     "RelationKind",
@@ -55,6 +57,8 @@ __all__ = [
     "clue_to_dict",
     "evaluate",
     "prop",
+    "puzzle_from_dict",
+    "puzzle_to_dict",
     "ref",
     "relation",
     "render",

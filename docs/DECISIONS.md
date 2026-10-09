@@ -85,3 +85,9 @@ We gave up a fully explicit `{"id": ...}` / `{"initial": ...}` form.
 "Top / middle / bottom row" needs the row count, so `render(clue, palette, board)` takes
 an optional board. Compound clues nested in `and`, `or` or a count are bracketed so the
 sentence cannot be misread; the price is some brackets in deeply nested generated clues.
+
+## D16: A puzzle carries its own palette and board (2026-10-08)
+Each stored puzzle lists its colors (id, name, hex) and board size instead of pointing at a
+named palette, so generated puzzles on other boards or palettes need no lookup table and a
+puzzle file stays readable on its own. Givens are written in reading order so files diff
+cleanly. We gave up smaller files: the classic palette is repeated in every classic puzzle.
