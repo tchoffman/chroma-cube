@@ -30,6 +30,13 @@ Place all 12 cubes so that every clue on the card is true.
 - Whole-board rules: "the cubes in each row are in alphabetical order from left to right."
 - A few clues rely on outside knowledge (the colors of the Irish flag).
 
+## Card 1 walkthrough
+
+The Timberdoodle review solves card 1 in this order: Coral and Magenta together first, then
+Black, then Teal ("to the right of Cobalt"), and Mint last. Our card 1 has Black as a given,
+so its clue places Magenta instead. The hint test (`tests/solver/test_hints.py`) checks that
+hints follow the same order: Magenta, Coral, White, Teal, Mint.
+
 ## Sources
 
 - The Board Game Family review: https://www.theboardgamefamily.com/2018/12/chroma-cube-is-a-colorful-puzzle-game/
