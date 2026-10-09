@@ -9,6 +9,7 @@ from textual.screen import Screen
 from textual.widgets import Label, OptionList, Static
 
 from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE, Cell, Puzzle, Truth
+from chroma_cube.progress import SolveRecord
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.screens import CardListScreen, PlayScreen, WinScreen
@@ -220,3 +221,4 @@ async def test_the_win_dialog_counts_the_hints() -> None:
         assert isinstance(pilot.app.screen, WinScreen)
         text = str(pilot.app.screen.query_one("#win-hints", Label).render())
         assert text == "Solved with 2 hints."
+        assert pilot.app.progress.record(DEMO.id) == SolveRecord(solves=1, best_hints=2)
