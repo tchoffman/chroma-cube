@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from itertools import product
 
 from chroma_cube.core.board import Board, Cell
@@ -21,6 +23,7 @@ from chroma_cube.core.clues import (
     Not,
     Or,
     Property,
+    Region,
     Relation,
 )
 from chroma_cube.core.colors import Color, Palette
@@ -162,50 +165,83 @@ def _decide(
 # --------------------------------------------------------------------------- attributes
 
 
+@dataclass(frozen=True)
+class _Pool:
+    """What is left to place: how many free cells, and how many unplaced colors have the
+    clue's value (`matching`) or not (`others`). Every unplaced color takes one free cell."""
+
+    free: int
+    matching: int
+    others: int
+
+    def without(self, matches: bool) -> _Pool:
+        """The pool once one more color (matching the value or not) has taken a cell."""
+        return _Pool(self.free - 1, self.matching - matches, self.others - (not matches))
+
+
 def _attribute(clue: AttributeClue, placement: Placement, board: Board, palette: Palette) -> Truth:
     """Count matching cubes next to the clue's color or in its region, over every completion.
 
-    A region is decided directly. A color clue tries its color on every free cell when it
-    is not placed yet; initials try each matching color and combine with Kleene "or".
+    Only counts matter, so the unplaced colors are a pool of so many matching and so many
+    other colors rather than placements to try. A region is decided from its cells. A
+    color clue whose color is not placed yet tries that color on every free cell; initials
+    try each matching color and combine with Kleene "or".
     """
     kind = ATTRIBUTE_KINDS[clue.kind]
+    value, n = clue.value, clue.n
 
-    def decide(cells: tuple[Cell, ...], trial: Placement) -> tuple[bool, bool]:
-        free_cells = sum(1 for cell in board if trial.color_at(cell) is None)
-        return _counts(
-            cells, trial, palette, free_cells, clue.value, lambda m, o: kind.holds(m, o, clue.n)
-        )
+    def holds(matching: int, others: int) -> bool:
+        return kind.holds(matching, others, n)
+
+    unplaced = placement.unplaced(palette)
+    matching = sum(1 for color in unplaced if color.has(value))
+    free = tuple(cell for cell in board if placement.color_at(cell) is None)
+    pool = _Pool(len(free), matching, len(unplaced) - matching)
 
     if clue.region is not None:
-        return _truth(*decide(clue.region.cells(board), placement))
+        return _truth(*_split(_region_cells(clue.region, board), placement, pool, value, holds))
     assert clue.color is not None
-    free = [cell for cell in board if placement.color_at(cell) is None]
     truths = []
     for color in _candidates(clue.color, palette):
-        placed = placement.cell_of(color)
+        cell = placement.cell_of(color)
+        if cell is not None:
+            cells = _neighbours(board, cell)
+            truths.append(_truth(*_split(cells, placement, pool, value, holds)))
+            continue
+        rest = pool.without(color.has(value))
         seen_true = seen_false = False
-        for spot in (placed,) if placed is not None else tuple(free):
-            trial = placement if placed is not None else placement.with_color(color, spot)
-            can_true, can_false = decide(board.orthogonal_neighbours(spot), trial)
+        for spot in free:
+            can_true, can_false = _split(_neighbours(board, spot), placement, rest, value, holds)
             seen_true, seen_false = seen_true or can_true, seen_false or can_false
+            if seen_true and seen_false:
+                break
         truths.append(_truth(seen_true, seen_false))
     return _any(truths)
 
 
-def _counts(
+@functools.cache
+def _neighbours(board: Board, cell: Cell) -> tuple[Cell, ...]:
+    return board.orthogonal_neighbours(cell)
+
+
+@functools.cache
+def _region_cells(region: Region, board: Board) -> tuple[Cell, ...]:
+    return region.cells(board)
+
+
+def _split(
     cells: tuple[Cell, ...],
     placement: Placement,
-    palette: Palette,
-    free_cells: int,
+    pool: _Pool,
     value: str,
     holds: Callable[[int, int], bool],
 ) -> tuple[bool, bool]:
     """Whether some completion makes `holds(matching, others)` true over `cells`, and
     whether some makes it false.
 
-    Placed cubes in the cells are counted as they are. Each unplaced color lands on one
-    free cell, so what can vary is how many matching (`a`) and other (`b`) unplaced colors
-    land in the empty cells here; any split is possible as long as the rest fit elsewhere.
+    Placed cubes in the cells are counted as they are. What can vary is how many matching
+    (`a`) and other (`b`) colors from the pool land on the empty cells here. Any split is
+    possible as long as the rest of the pool fits on the free cells elsewhere.
     """
     matching = others = empty = 0
     for cell in cells:
@@ -216,19 +252,18 @@ def _counts(
             matching += 1
         else:
             others += 1
-    unplaced = placement.unplaced(palette)
-    free_matching = sum(1 for color in unplaced if color.has(value))
-    free_others = len(unplaced) - free_matching
-    elsewhere = free_cells - empty
+    if pool.matching + pool.others > pool.free:
+        return False, False
+    must_land = pool.matching + pool.others - (pool.free - empty)
     can_true = can_false = False
-    for a in range(min(free_matching, empty) + 1):
-        for b in range(min(free_others, empty - a) + 1):
-            if (free_matching - a) + (free_others - b) > elsewhere:
-                continue
+    for a in range(min(pool.matching, empty) + 1):
+        for b in range(max(0, must_land - a), min(pool.others, empty - a) + 1):
             if holds(matching + a, others + b):
                 can_true = True
             else:
                 can_false = True
+            if can_true and can_false:
+                return True, True
     return can_true, can_false
 
 
