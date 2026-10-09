@@ -89,7 +89,7 @@ class GeneratingScreen(ModalScreen[Puzzle | None]):
         spec = self.spec
         try:
             puzzle = self.generate(spec.seed, spec.difficulty)
-        except (RuntimeError, ValueError) as error:
+        except Exception as error:  # report anything; a silent worker would hang the notice
             self.app.call_from_thread(self.failed, error)
             return
         self.app.call_from_thread(self.finish, puzzle)
