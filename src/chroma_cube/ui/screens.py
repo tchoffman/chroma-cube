@@ -75,6 +75,7 @@ class PlayScreen(Screen[None]):
         Binding("enter,space", "activate", "Place", key_display="⏎"),
         Binding("x,backspace,delete", "return_cube", "Return", priority=True),
         Binding("r", "reset", "Reset", priority=True),
+        Binding("h", "hint", "Hint", priority=True),
         Binding("escape", "back", "Back"),
         Binding("pageup", "scroll_clues(-1)", "Clues", show=False),
         Binding("pagedown", "scroll_clues(1)", "Clues", key_display="PgDn"),
@@ -85,10 +86,12 @@ class PlayScreen(Screen[None]):
     ]
     """Below 70 columns the clues go under the tray instead of beside it."""
 
-    def __init__(self, index: int, puzzle: Puzzle, placement: Placement | None = None) -> None:
+    def __init__(
+        self, index: int, puzzle: Puzzle, placement: Placement | None = None, hints: int = 0
+    ) -> None:
         super().__init__()
         self.index = index
-        self.state = PlayState(puzzle, placement)
+        self.state = PlayState(puzzle, placement, hints)
 
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
@@ -121,6 +124,7 @@ class PlayScreen(Screen[None]):
 
     def refresh_view(self, message: str | None = None) -> None:
         state = self.state
+        hint = state.hint
         for widget in self.query(TrayCell):
             color = state.placement.color_at(widget.cell)
             widget.show(
@@ -128,21 +132,31 @@ class PlayScreen(Screen[None]):
                 given=color is not None and state.is_given(color),
                 cursor=widget.cell == state.cursor,
                 held=color is not None and color == state.held,
+                hinted=hint is not None and widget.cell == hint.cell,
             )
         slots = {color: slot for slot, color in enumerate(state.palette_cubes(), start=1)}
         for chip in self.query(PaletteChip):
-            chip.show(slots.get(chip.color), held=chip.color == state.held)
-        for row, truth in zip(self.query(ClueRow), state.statuses(), strict=True):
-            row.show(truth)
+            chip.show(
+                slots.get(chip.color),
+                held=chip.color == state.held,
+                hinted=hint is not None and chip.color == hint.color,
+            )
+        hinted_clues = set(hint.clues) if hint is not None else set()
+        rows = zip(self.query(ClueRow), state.statuses(), strict=True)
+        for index, (row, truth) in enumerate(rows):
+            row.show(truth, hinted=index in hinted_clues)
         if message is not None:
             self.query_one("#message", Static).update(message)
 
     def _after_change(self, message: str) -> None:
         self.refresh_view(message)
         if self.state.solved:
-            self._game.card_solved(self.index)
+            self._game.card_solved(self.index, self.state.hints_used)
         else:
-            self._game.board_changed(self.index, self.state.placement)
+            self._save_board()
+
+    def _save_board(self) -> None:
+        self._game.board_changed(self.index, self.state.placement, self.state.hints_used)
 
     @property
     def _game(self) -> ChromaCubeApp:
@@ -171,6 +185,10 @@ class PlayScreen(Screen[None]):
     def action_return_cube(self) -> None:
         returned = self.state.return_held()
         self._after_change("Back in the palette." if returned else "Nothing to return there.")
+
+    def action_hint(self) -> None:
+        self.refresh_view(self.state.take_hint())
+        self._save_board()
 
     def action_reset(self) -> None:
         self.state.reset()
@@ -220,15 +238,17 @@ class WinScreen(ModalScreen[str]):
 
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss('back')", "Back")]
 
-    def __init__(self, title: str, has_next: bool) -> None:
+    def __init__(self, title: str, has_next: bool, hints: int = 0) -> None:
         super().__init__()
         self.card_title = title
         self.has_next = has_next
+        self.hints = hints
 
     def compose(self) -> ComposeResult:
         with Vertical(id="win"):
             yield Label(f"Solved! {self.card_title}", id="win-title")
             yield Label("Every cube is placed and every clue holds.")
+            yield Label(_hint_count(self.hints), id="win-hints")
             with Horizontal(id="win-buttons"):
                 yield Button("Next card", id="next", variant="success", disabled=not self.has_next)
                 yield Button("Back to list", id="back")
@@ -239,3 +259,9 @@ class WinScreen(ModalScreen[str]):
     @on(Button.Pressed)
     def choose(self, event: Button.Pressed) -> None:
         self.dismiss(event.button.id)
+
+
+def _hint_count(hints: int) -> str:
+    if hints == 0:
+        return "Solved without hints."
+    return f"Solved with {hints} hint{'' if hints == 1 else 's'}."

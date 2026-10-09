@@ -59,6 +59,10 @@ TrayCell.given.dark {
     border: thick $warning;
 }
 
+#tray TrayCell.hinted {
+    border: thick $success;
+}
+
 #tray TrayCell.cursor {
     border: heavy $accent;
 }
@@ -92,6 +96,10 @@ PaletteChip.held {
     text-style: bold underline;
 }
 
+PaletteChip.hinted {
+    text-style: bold reverse;
+}
+
 #clues {
     width: 2fr;
     height: 1fr;
@@ -114,11 +122,17 @@ ClueRow.unknown {
     color: $text-muted;
 }
 
+ClueRow.hinted {
+    text-style: bold;
+    background: $success 15%;
+}
+
+/* Hint explanations run long, so the status line wraps onto up to four lines. */
 #message {
-    height: 1;
+    height: auto;
+    max-height: 4;
     padding: 0 1;
     color: $text-muted;
-    text-wrap: nowrap;
     text-overflow: ellipsis;
 }
 
