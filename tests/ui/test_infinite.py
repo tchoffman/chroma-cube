@@ -19,9 +19,9 @@ from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.home import DifficultyScreen, HomeScreen
 from chroma_cube.ui.infinite import GeneratedPlayScreen, GeneratingScreen, SeedScreen
 from chroma_cube.ui.screens import CardListScreen, WinScreen
+from tests.conftest import DEMO
 
 SIZE = (120, 40)
-DEMO = classic_puzzles()[0]
 TODAY = date(2026, 10, 8)
 
 

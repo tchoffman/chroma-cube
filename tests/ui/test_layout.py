@@ -20,7 +20,7 @@ from chroma_cube.core import (
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.screens import PlayScreen
 from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
-from tests.ui.conftest import DEMO
+from tests.conftest import DEMO
 
 LONG = Puzzle(
     id="long",
