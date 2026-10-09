@@ -1,0 +1,183 @@
+/* Sizes come from the space available: the tray's rows and columns are set from the
+   board in code, every track here is a fraction, and narrow screens stack the clues
+   under the tray. */
+
+#list-title, #card-title {
+    padding: 0 1;
+    text-style: bold;
+}
+
+#cards {
+    height: 1fr;
+}
+
+#play {
+    height: 1fr;
+}
+
+#left {
+    width: 3fr;
+    height: 1fr;
+    padding: 0 1;
+}
+
+#tray {
+    height: 1fr;
+    grid-columns: 1fr;
+    grid-rows: 1fr;
+    grid-gutter: 0;
+}
+
+TrayCell {
+    width: 1fr;
+    height: 1fr;
+    border: round #808080;
+    content-align: center middle;
+    text-align: center;
+    text-style: bold;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+TrayCell.empty {
+    border: dashed $foreground 30%;
+}
+
+TrayCell.dark {
+    border: round #d0d0d0;
+}
+
+TrayCell.given {
+    border: double #808080;
+}
+
+TrayCell.given.dark {
+    border: double #d0d0d0;
+}
+
+#tray TrayCell.held {
+    border: thick $warning;
+}
+
+#tray TrayCell.cursor {
+    border: heavy $accent;
+}
+
+#tray TrayCell.held.cursor {
+    border: thick $accent;
+}
+
+.heading {
+    padding: 1 0 0 0;
+    text-style: bold;
+}
+
+#palette {
+    height: auto;
+    grid-columns: 1fr;
+    grid-rows: 1;
+    grid-gutter: 0 1;
+}
+
+PaletteChip {
+    width: 1fr;
+    height: 1;
+    content-align: center middle;
+    text-style: bold;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+PaletteChip.held {
+    text-style: bold underline;
+}
+
+#clues {
+    width: 2fr;
+    height: 1fr;
+    padding: 0 1;
+}
+
+ClueRow {
+    padding: 0 0 1 0;
+}
+
+ClueRow.satisfied {
+    color: $success;
+}
+
+ClueRow.violated {
+    color: $error;
+}
+
+ClueRow.unknown {
+    color: $text-muted;
+}
+
+#message {
+    height: 1;
+    padding: 0 1;
+    color: $text-muted;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Narrow screens: tray and palette on top at their smallest, clues scroll below. */
+
+PlayScreen.-narrow #play {
+    layout: vertical;
+}
+
+PlayScreen.-narrow #left {
+    width: 1fr;
+    height: auto;
+}
+
+PlayScreen.-narrow #tray {
+    height: auto;
+    grid-rows: 3;
+}
+
+PlayScreen.-narrow TrayCell {
+    height: 3;
+}
+
+PlayScreen.-narrow .heading {
+    padding: 0;
+}
+
+PlayScreen.-narrow #clues {
+    width: 1fr;
+    min-height: 3;
+}
+
+PlayScreen.-narrow ClueRow {
+    padding: 0;
+}
+
+WinScreen {
+    align: center middle;
+}
+
+#win {
+    width: 50;
+    max-width: 100%;
+    height: auto;
+    padding: 1 2;
+    border: thick $success;
+    background: $surface;
+}
+
+#win-title {
+    text-style: bold;
+    color: $success;
+}
+
+#win-buttons {
+    height: auto;
+    padding: 1 0 0 0;
+}
+
+#win-buttons Button {
+    margin: 0 1 0 0;
+}
