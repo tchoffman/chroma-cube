@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from textual import events, on
 from textual.app import ComposeResult
@@ -22,6 +23,16 @@ if TYPE_CHECKING:
 CELL_MIN_HEIGHT = 3
 """A border and one line for the name."""
 CELL_MAX_HEIGHT = 5
+
+
+def game(screen: Screen[Any]) -> ChromaCubeApp:
+    """The running app, typed as ours."""
+    from chroma_cube.ui.app import ChromaCubeApp
+
+    app = screen.app
+    assert isinstance(app, ChromaCubeApp)
+    return app
+
 
 HINT = "Type a color's first letter or its number to take it, then Enter on a cell."
 
@@ -47,11 +58,7 @@ class CardListScreen(Screen[None]):
 
     @property
     def _game(self) -> ChromaCubeApp:
-        from chroma_cube.ui.app import ChromaCubeApp
-
-        app = self.app
-        assert isinstance(app, ChromaCubeApp)
-        return app
+        return game(self)
 
     def on_screen_resume(self) -> None:
         cards = self.query_one(OptionList)
@@ -96,7 +103,7 @@ class PlayScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
         board = puzzle.board
-        yield Label(f"Card {self.index + 1}: {puzzle.title}", id="card-title")
+        yield Label(self.heading(), id="card-title")
         with Horizontal(id="play"):
             with Vertical(id="left"):
                 tray = Grid(*(TrayCell(cell) for cell in board), id="tray")
@@ -116,6 +123,9 @@ class PlayScreen(Screen[None]):
                 yield from (ClueRow(sentence) for sentence in puzzle.rendered_clues())
         yield Static(HINT, id="message", markup=False)
         yield Footer()
+
+    def heading(self) -> str:
+        return f"Card {self.index + 1}: {self.state.puzzle.title}"
 
     def on_mount(self) -> None:
         self.refresh_view()
@@ -151,20 +161,19 @@ class PlayScreen(Screen[None]):
     def _after_change(self, message: str) -> None:
         self.refresh_view(message)
         if self.state.solved:
-            self._game.card_solved(self.index, self.state.hints_used)
+            self.won()
         else:
             self._save_board()
+
+    def won(self) -> None:
+        self._game.card_solved(self.index, self.state.hints_used)
 
     def _save_board(self) -> None:
         self._game.board_changed(self.index, self.state.placement, self.state.hints_used)
 
     @property
     def _game(self) -> ChromaCubeApp:
-        from chroma_cube.ui.app import ChromaCubeApp
-
-        app = self.app
-        assert isinstance(app, ChromaCubeApp)
-        return app
+        return game(self)
 
     # ------------------------------------------------------------------ input
 
@@ -250,8 +259,12 @@ class WinScreen(ModalScreen[str]):
             yield Label("Every cube is placed and every clue holds.")
             yield Label(_hint_count(self.hints), id="win-hints")
             with Horizontal(id="win-buttons"):
-                yield Button("Next card", id="next", variant="success", disabled=not self.has_next)
-                yield Button("Back to list", id="back")
+                yield from self.buttons()
+
+    def buttons(self) -> Iterable[Button]:
+        """The choices under the message; each button's id is what the dialog dismisses with."""
+        yield Button("Next card", id="next", variant="success", disabled=not self.has_next)
+        yield Button("Back to list", id="back")
 
     def on_mount(self) -> None:
         self.query_one("#next" if self.has_next else "#back", Button).focus()
