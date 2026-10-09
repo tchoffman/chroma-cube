@@ -266,3 +266,25 @@ async def test_a_generated_board_comes_back_when_the_puzzle_is_reopened(tmp_path
         await pilot.press("down", "down", "enter")
         await settle(pilot)
         assert playing(pilot).state.placement.cell_of(magenta) == Cell(2, 1)
+
+
+async def test_any_generator_error_is_reported() -> None:
+    def broken(seed: int, difficulty: str) -> Puzzle:
+        raise TypeError("unexpected argument")
+
+    async with app(broken).run_test(size=SIZE) as pilot:
+        await pilot.press("down", "enter", "enter")
+        await settle(pilot)
+        assert isinstance(pilot.app.screen, DifficultyScreen)
+        assert any("unexpected argument" in str(n.message) for n in pilot.app._notifications)
+
+
+async def test_home_counts_the_classic_cards_in_words() -> None:
+    one = ChromaCubeApp((DEMO,), generate=FakeGenerator(), today=lambda: TODAY)
+    async with one.run_test(size=SIZE) as pilot:
+        prompt = str(pilot.app.screen.query_one(OptionList).get_option_at_index(0).prompt)
+        assert "the 1 hand-made card" in prompt and "hand-made cards" not in prompt
+    two = ChromaCubeApp((DEMO, DEMO), generate=FakeGenerator(), today=lambda: TODAY)
+    async with two.run_test(size=SIZE) as pilot:
+        prompt = str(pilot.app.screen.query_one(OptionList).get_option_at_index(0).prompt)
+        assert "the 2 hand-made cards" in prompt

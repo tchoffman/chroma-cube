@@ -35,7 +35,10 @@ class HomeScreen(Screen[None]):
         cards = len(_game(self).puzzles)
         yield Label("Chroma Cube", id="list-title")
         yield OptionList(
-            Option(f"Classic cards    the {cards} hand-made cards", id="classic"),
+            Option(
+                f"Classic cards    the {cards} hand-made card{'' if cards == 1 else 's'}",
+                id="classic",
+            ),
             Option("Infinite         a fresh puzzle at the difficulty you pick", id="infinite"),
             Option(
                 f"Daily            today's {DAILY_DIFFICULTY} puzzle, the same for everyone",

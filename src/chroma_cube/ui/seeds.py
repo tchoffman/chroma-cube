@@ -23,8 +23,11 @@ def daily_seed(day: date) -> int:
 
 
 def parse_seed(text: str) -> int:
-    """A seed typed by the player: a whole number of at most 18 digits, spaces ignored."""
-    digits = text.strip().replace("_", "")
+    """A seed typed by the player: a whole number of at most 18 digits.
+
+    Spaces and underscores anywhere are ignored, so "48 213" and "48_213" both read 48213.
+    """
+    digits = "".join(text.split()).replace("_", "")
     if not digits.isascii() or not digits.isdigit():
         raise ValueError("A seed is a whole number, like 48213.")
     if len(digits) > MAX_SEED_DIGITS:
