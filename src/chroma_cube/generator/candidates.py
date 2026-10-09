@@ -8,7 +8,7 @@ yes or no (`holds`), which is much cheaper than the three-valued evaluator.
 from __future__ import annotations
 
 import random
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from itertools import combinations, product
 from typing import Literal
 
@@ -76,44 +76,76 @@ def random_solution(
 # --------------------------------------------------------------------------- truth
 
 
+Check = Callable[[Sequence[Cell]], bool]
+"""A compiled clue: takes every palette color's cell, in palette order."""
+
+
 def holds(clue: Clue, placement: Placement, board: Board, palette: Palette) -> bool:
     """Whether `clue` is true on a complete `placement`."""
+    return compile_clue(clue, board, palette)(cells_of(placement, palette))
+
+
+def cells_of(placement: Placement, palette: Palette) -> tuple[Cell, ...]:
+    """The cell of every palette color, in palette order. The placement must be complete."""
+    cells = tuple(placement.cell_of(color) for color in palette)
+    if any(cell is None for cell in cells):
+        raise ValueError("the placement is not complete")
+    return tuple(cell for cell in cells if cell is not None)
+
+
+def compile_clue(clue: Clue, board: Board, palette: Palette) -> Check:
+    """A fast yes/no test of `clue` on complete placements given as `cells_of` tuples."""
     match clue:
         case Relation(kind=kind, colors=refs):
             test = RELATION_KINDS[kind].holds
-            return any(test(cells) for cells in _choices(refs, placement, palette))
+            choices = _choices(refs, palette)
+            if len(choices) == 1 and len(choices[0]) == 2:
+                i, j = choices[0]
+                return lambda cells: test((cells[i], cells[j]))
+            return lambda cells: any(test(tuple(cells[i] for i in c)) for c in choices)
         case Property(kind=kind, color=color_ref, index=index):
             prop_test = PROPERTY_KINDS[kind].holds
-            return any(
-                prop_test(board, cells[0], index)
-                for cells in _choices((color_ref,), placement, palette)
-            )
+            spots = [c[0] for c in _choices((color_ref,), palette)]
+            return lambda cells: any(prop_test(board, cells[i], index) for i in spots)
         case BoardRule(kind=kind):
-            return BOARD_RULE_KINDS[kind].evaluate(placement, board, palette) is Truth.SATISFIED
+            return _board_rule(kind, board, palette)
         case Not(clue=inner):
-            return not holds(inner, placement, board, palette)
+            check = compile_clue(inner, board, palette)
+            return lambda cells: not check(cells)
         case And(clues=subs):
-            return all(holds(sub, placement, board, palette) for sub in subs)
+            checks = [compile_clue(sub, board, palette) for sub in subs]
+            return lambda cells: all(check(cells) for check in checks)
         case Or(clues=subs):
-            return any(holds(sub, placement, board, palette) for sub in subs)
+            checks = [compile_clue(sub, board, palette) for sub in subs]
+            return lambda cells: any(check(cells) for check in checks)
         case Exactly(n=n, clues=subs):
-            return sum(holds(sub, placement, board, palette) for sub in subs) == n
+            checks = [compile_clue(sub, board, palette) for sub in subs]
+            return lambda cells: sum(check(cells) for check in checks) == n
         case AtLeast(n=n, clues=subs):
-            return sum(holds(sub, placement, board, palette) for sub in subs) >= n
+            checks = [compile_clue(sub, board, palette) for sub in subs]
+            return lambda cells: sum(check(cells) for check in checks) >= n
     raise TypeError(f"not a clue: {clue!r}")
 
 
-def _choices(
-    refs: tuple[ColorRef, ...], placement: Placement, palette: Palette
-) -> Iterable[tuple[Cell, ...]]:
-    """The cells of every choice of distinct colors the references can stand for."""
-    options = [palette.by_initial(r.key) if r.by_initial else (palette.by_id(r.key),) for r in refs]
-    for colors in product(*options):
-        if len(set(colors)) != len(colors):
-            continue
-        cells = tuple(placement.cell_of(color) for color in colors)
-        if all(cell is not None for cell in cells):
-            yield tuple(cell for cell in cells if cell is not None)
+def _choices(refs: tuple[ColorRef, ...], palette: Palette) -> list[tuple[int, ...]]:
+    """Palette positions of every choice of distinct colors the references can stand for."""
+    position = {color.id: i for i, color in enumerate(palette)}
+    options = [
+        [position[c.id] for c in palette.by_initial(r.key)] if r.by_initial else [position[r.key]]
+        for r in refs
+    ]
+    return [c for c in product(*options) if len(set(c)) == len(c)]
+
+
+def _board_rule(kind: str, board: Board, palette: Palette) -> Check:
+    rule = BOARD_RULE_KINDS[kind].evaluate
+    colors = tuple(palette)
+
+    def check(cells: Sequence[Cell]) -> bool:
+        placement = Placement(dict(zip(colors, cells, strict=True)))
+        return rule(placement, board, palette) is Truth.SATISFIED
+
+    return check
 
 
 # --------------------------------------------------------------------------- features
@@ -147,6 +179,28 @@ def _initial(refs: Iterable[ColorRef]) -> frozenset[str]:
 
 def _combined(name: str, subs: Iterable[Clue]) -> frozenset[str]:
     return frozenset({name}).union(*(clue_features(sub) for sub in subs))
+
+
+def clue_colors(clue: Clue, palette: Palette) -> tuple[Color, ...]:
+    """Every palette color the clue could be about, in palette order; none for board rules."""
+    found = _referenced(clue)
+    return tuple(color for color in palette if color.id in found or (color.initial in found))
+
+
+def _referenced(clue: Clue) -> set[str]:
+    """Color ids and initials named anywhere in the clue."""
+    match clue:
+        case Relation(colors=refs):
+            return {r.key for r in refs}
+        case Property(color=color_ref):
+            return {color_ref.key}
+        case BoardRule():
+            return set()
+        case Not(clue=inner):
+            return _referenced(inner)
+        case And(clues=subs) | Or(clues=subs) | Exactly(clues=subs) | AtLeast(clues=subs):
+            return set().union(*(_referenced(sub) for sub in subs))
+    raise TypeError(f"not a clue: {clue!r}")
 
 
 # --------------------------------------------------------------------------- pool
@@ -264,12 +318,22 @@ class _PoolBuilder:
         ]
         return props + _sample(self.rng, relations, _NOT_RELATION_SAMPLES)
 
+    @staticmethod
+    def parts(leaves: list[Clue]) -> list[Clue]:
+        """Leaves fit to sit inside an either/or or a count.
+
+        `between` is left out: three loose colors make it slow to decide on a partial
+        board, and nested inside another clue it is hard to read.
+        """
+        return [c for c in leaves if not (isinstance(c, Relation) and c.kind == "between")]
+
     def either_ors(self) -> list[Clue]:
-        if "or" not in self.features or not self.true_leaves or not self.false_leaves:
+        true, false = self.parts(self.true_leaves), self.parts(self.false_leaves)
+        if "or" not in self.features or not true or not false:
             return []
         found: list[Clue] = []
         for _ in range(_OR_SAMPLES):
-            pair = [self.rng.choice(self.true_leaves), self.rng.choice(self.false_leaves)]
+            pair = [self.rng.choice(true), self.rng.choice(false)]
             self.rng.shuffle(pair)
             found.append(Or(tuple(pair)))
         return found
@@ -293,14 +357,13 @@ class _PoolBuilder:
 
     def counts(self) -> list[Clue]:
         kinds = self.allowed("exactly", "at_least")
-        if not kinds or len(self.true_leaves) < 2 or len(self.false_leaves) < 2:
+        true, false = self.parts(self.true_leaves), self.parts(self.false_leaves)
+        if not kinds or len(true) < 2 or len(false) < 2:
             return []
         found: list[Clue] = []
         for _ in range(_COUNT_SAMPLES):
             true_count = self.rng.choice((1, 2))
-            subs = self.rng.sample(self.true_leaves, true_count) + self.rng.sample(
-                self.false_leaves, 3 - true_count
-            )
+            subs = self.rng.sample(true, true_count) + self.rng.sample(false, 3 - true_count)
             self.rng.shuffle(subs)
             kind = self.rng.choice(kinds)
             if kind == "exactly":
