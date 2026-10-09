@@ -1,6 +1,6 @@
 """The pure game model: colors, the board, where cubes sit, and the clue language."""
 
-from chroma_cube.core.board import CLASSIC_BOARD, Board, Cell
+from chroma_cube.core.board import BOARD_4X4, BOARD_4X5, CLASSIC_BOARD, Board, Cell
 from chroma_cube.core.clues import (
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
@@ -22,7 +22,19 @@ from chroma_cube.core.clues import (
     ref,
     relation,
 )
-from chroma_cube.core.colors import CLASSIC_PALETTE, Color, Palette
+from chroma_cube.core.colors import (
+    CLASSIC_PALETTE,
+    EXTENDED_16,
+    EXTENDED_20,
+    FAMILIES,
+    PALETTES,
+    QUALITIES,
+    TEMPERATURES,
+    TONES,
+    Color,
+    Palette,
+    attributes_from_hex,
+)
 from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.parse import ClueParseError, parse_clue, parse_clues
 from chroma_cube.core.placement import Placement
@@ -31,6 +43,16 @@ from chroma_cube.core.render import render
 from chroma_cube.core.serialize import clue_from_dict, clue_to_dict
 
 __all__ = [
+    "BOARD_4X4",
+    "BOARD_4X5",
+    "EXTENDED_16",
+    "EXTENDED_20",
+    "FAMILIES",
+    "PALETTES",
+    "QUALITIES",
+    "TEMPERATURES",
+    "TONES",
+    "attributes_from_hex",
     "BOARD_RULE_KINDS",
     "CLASSIC_BOARD",
     "CLASSIC_PALETTE",

@@ -91,7 +91,7 @@ def puzzle_to_dict(puzzle: Puzzle) -> dict[str, Any]:
         "difficulty": puzzle.difficulty,
         "notes": puzzle.notes,
         "board": {"rows": puzzle.board.rows, "cols": puzzle.board.cols},
-        "palette": [{"id": c.id, "name": c.name, "hex": c.hex} for c in puzzle.palette],
+        "palette": [_color_to_dict(color) for color in puzzle.palette],
         "givens": [{"color": c.id, "row": cell.row, "col": cell.col} for c, cell in givens],
         "clues": [clue_to_dict(clue) for clue in puzzle.clues],
     }
@@ -101,11 +101,7 @@ def puzzle_from_dict(data: Mapping[str, Any]) -> Puzzle:
     """Rebuild a puzzle. Raises `ValueError` for anything that is not a well-formed puzzle."""
     try:
         board = Board(as_int(data["board"]["rows"]), as_int(data["board"]["cols"]))
-        palette = Palette(
-            tuple(
-                Color(as_str(c["id"]), as_str(c["name"]), as_str(c["hex"])) for c in data["palette"]
-            )
-        )
+        palette = Palette(tuple(_color_from_dict(entry) for entry in as_list(data["palette"])))
         givens: dict[Color, Cell] = {}
         for given in as_list(data["givens"]):
             color = palette.by_id(as_str(given["color"]))
@@ -124,3 +120,20 @@ def puzzle_from_dict(data: Mapping[str, Any]) -> Puzzle:
         )
     except (KeyError, TypeError, AttributeError) as error:
         raise ValueError(f"malformed puzzle data: {error!r}") from error
+
+
+_ATTRIBUTES = ("temperature", "tone", "family")
+
+
+def _color_to_dict(color: Color) -> dict[str, str]:
+    """A color's id, name and hex, plus its attributes only if they differ from the hex's."""
+    data = {"id": color.id, "name": color.name, "hex": color.hex}
+    if not color.derived:
+        data.update({field: getattr(color, field) for field in _ATTRIBUTES})
+    return data
+
+
+def _color_from_dict(data: Mapping[str, Any]) -> Color:
+    """A color; attributes left out (as in older data) are derived from the hex."""
+    attributes = {field: as_str(data[field]) for field in _ATTRIBUTES if field in data}
+    return Color(as_str(data["id"]), as_str(data["name"]), as_str(data["hex"]), **attributes)
