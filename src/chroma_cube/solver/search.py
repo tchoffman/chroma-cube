@@ -23,6 +23,7 @@ from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.clues import (
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -244,13 +245,15 @@ class _Search:
 
 
 def colors_in(clue: Clue, palette: Palette) -> set[Color]:
-    """Every palette color the clue could be about; a board rule is about all of them."""
+    """Every palette color the clue could be about. A board rule is about all of them, and
+    so is an attribute clue: whether it holds depends on whichever cubes land next to its
+    color or in its region, not only on the colors it names."""
     match clue:
         case Relation(colors=refs):
             return _resolve(refs, palette)
         case Property(color=color_ref):
             return _resolve((color_ref,), palette)
-        case BoardRule():
+        case BoardRule() | AttributeClue():
             return set(palette)
         case Not(clue=inner):
             return colors_in(inner, palette)
