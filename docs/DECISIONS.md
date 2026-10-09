@@ -342,6 +342,9 @@ date as a number (2026-10-08 is 20261008) at medium difficulty, so everyone gets
 puzzle on the same calendar day with no server, and the daily puzzle can also be replayed
 from Infinite · medium with that seed. Generation runs in a Textual worker thread behind a
 "Generating…" notice that Escape cancels; a generator error is shown as a notification.
+The notice closes when the worker reports that it has finished, not from inside the thread:
+closing a screen cancels its workers, so closing it from the thread could cancel the worker
+while it was still handing over the puzzle.
 Like `q`, `r`, `x` and `h`, `n` and `s` are commands on generated puzzles, so a color starting
 with either is reachable only by number or mouse there; no classic color does. The card
 list now sits under the home screen, and the app takes the generator and "today" as
