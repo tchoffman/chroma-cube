@@ -78,6 +78,9 @@ class RelationKind:
     holds: Callable[[tuple[Cell, ...]], bool]
     text: str
     negated: str
+    alternatives: str | None = None
+    """The sentence with one color as its subject, for "Either Teal or Black ... {1}".
+    Needed only when `text` does not start with "{0}" alone; defaults to `text`."""
 
 
 @dataclass(frozen=True)
@@ -114,12 +117,14 @@ RELATION_KINDS: dict[str, RelationKind] = {
         _binary(lambda a, b: a.row == b.row),
         "{0} and {1} are in the same row",
         "{0} and {1} aren't in the same row",
+        alternatives="{0} is in the same row as {1}",
     ),
     "same_column": RelationKind(
         2,
         _binary(lambda a, b: a.col == b.col),
         "{0} and {1} are in the same column",
         "{0} and {1} aren't in the same column",
+        alternatives="{0} is in the same column as {1}",
     ),
     "next_to": RelationKind(
         2,

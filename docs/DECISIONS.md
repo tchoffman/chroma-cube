@@ -139,7 +139,29 @@ list never takes keyboard focus, so arrows always move the tray cursor; PageUp/P
 the mouse wheel scroll it. Textual's command palette is off so its "palette" does not
 collide with the game's.
 
-## D22: The solver is backtracking with forward checking, on the evaluator as it is (2026-10-08)
+## D22: Clue text is parsed by a backtracking parser driven by the render templates (2026-10-08)
+`parse_clue` builds its leaf sentences from the same registry templates `render` uses, plus
+a short list of variants in the parser, so a new kind is parsed without parser changes. The
+grammar is ambiguous in places ("Black knows White and Teal and Mint are in the same row"),
+so each rule yields every way it can match and the first reading that uses the whole
+sentence wins; full clauses are tried before a bare color continues a merged list. Errors
+point at the furthest token any reading reached, or at the cause of a well-formed but
+impossible clue (a fourth row on a 3-row board). Text names rows and columns from 1. To keep
+backtracking bounded, each position's units and color lists are read once and reused, long
+lists are walked with an explicit stack, "Either A, B or C" names at most three colors, and
+brackets and "it's not true that" nest at most 16 deep. Real clues parse in a few
+milliseconds; 2,000 characters of adversarial text fail in tens of milliseconds. We gave up
+a parser generator (no new dependency) and strictly linear-time parsing.
+
+## D23: A short "either" sentence only when it reads back as the same clue (2026-10-08)
+An `or` of two or three like clauses that differ only in their first color renders the way
+the cards do: "Either Teal or Black is in the same row as Cobalt". We never swap colors to
+reach that form, even for symmetric kinds (`next_to`, `knows`, `same_row`), because
+`parse(render(clue))` must return the same clue, and a swapped clue is a different AST even
+when it means the same thing. A shared first color ("Either White knows Teal or White knows
+Mint") keeps the long form, as do a shared initial (each part picks its own B), negated parts
+and four or more parts. We gave up the short form for those clues.
+## D24: The solver is backtracking with forward checking, on the evaluator as it is (2026-10-08)
 The search keeps, for each unplaced color, the cells it could still take: a cell survives
 while placing the color there leaves every clue that mentions the color not VIOLATED. It
 places the color with the fewest candidates first and re-narrows the rest after every
@@ -154,22 +176,22 @@ Correction after review: the first version of this entry said the worst of about
 random clue sets took 0.25 s. That held for clues true in a known solution, not for random
 clue sets with nested negations: of 400 sets from the test suite's clue strategy, 10 took
 over a second, 6 over ten, and 2 were still running after 30 s. The slowest one profiled
-hid a contradiction that the evaluator only sees on a full board. D25 and D26 deal with
+hid a contradiction that the evaluator only sees on a full board. D27 and D28 deal with
 that. The machine was heavily loaded during these measurements, so absolute times may be
 high; the before/after comparison ran on the same machine and sets.
 
-## D23: `limit` counts solutions, and the solver looks one further (2026-10-08)
+## D25: `limit` counts solutions, and the solver looks one further (2026-10-08)
 `solve(puzzle, limit=n)` returns up to `n` solutions and sets `truncated` when an `n + 1`th
 exists, so one call can say "unique", "N solutions" or "more than N". The default limit is
 1, which answers both "solvable?" and "unique?" with one search. `count_solutions(puzzle,
 cap)` returns at most `cap`, so `cap` there means "at least `cap`".
 
-## D24: The palette must fill the board exactly (2026-10-08)
+## D26: The palette must fill the board exactly (2026-10-08)
 A solution places every color and leaves no cell empty, matching the physical game. The
 solver raises `ValueError` when the palette size differs from the cell count rather than
 guessing what an empty cell means for the alphabetical rules.
 
-## D25: Clues are simplified before the search, using the fact that they all hold (2026-10-08)
+## D27: Clues are simplified before the search, using the fact that they all hold (2026-10-08)
 Every clue on a card must be true, so the solver first splits each clue into the separate
 facts it asserts ("not (A or B)" becomes "not A" and "not B", "not not A" becomes "A",
 single-item and all-or-none counts unwrap), then reads any copy of a fact found inside
@@ -182,7 +204,7 @@ column is alphabetical" next to "not every column is alphabetical", which took 1
 two batches of 400 random clue sets, none now take over a second (worst 0.6 s). We gave
 up catching contradictions that need real reasoning rather than matching equal clues.
 
-## D26: The search has a budget, and yes/no helpers refuse to guess (2026-10-08)
+## D28: The search has a budget, and yes/no helpers refuse to guess (2026-10-08)
 `solve` takes `max_nodes` (default 200,000, None for no limit), counting every trial
 placement of a color on a cell. When it runs out the result has `gave_up=True`: the
 solutions listed are real but there may be more, so `truncated` stays False.

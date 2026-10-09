@@ -85,15 +85,60 @@ true if there is *some* choice of matching colors that makes it true.
 | `and`                                   | "X, Y and Z"                                            |
 | `and` of one relation from one color    | "Black knows White, Teal and Mint" (when the template ends with the second color and the shared color is named, not an initial) |
 | `or`                                    | "Either X or Y", "Either X, Y or Z"; a one-clue `or` is just that clue |
+| `or` of 2–3 like clauses, first color differs | "Either Teal or Black is in the same row as Cobalt", "Either Teal, Mint or B is in a corner" |
 | `exactly(n)` / `at_least(n)`            | "Exactly one of these is true: X; Y; Z"                 |
 | `rows_alphabetical`                     | "Every row is in alphabetical order from left to right" |
 | `columns_alphabetical`                  | "Every column is in alphabetical order from top to bottom" |
 
 A compound clue inside `and`, `or` or a count is wrapped in brackets.
 
+The short `or` form is used when every part is the same positive relation (two colors) or
+property, the parts differ only in their first color, those colors are all different, and a
+relation's second color is named rather than an initial. Colors are never swapped to make a
+clue fit, even for symmetric kinds like `next_to`, because the sentence must read back as the
+same clue. A relation whose `text` has two subjects ("{0} and {1} are in the same row") gives
+a one-subject `alternatives` template in its registry entry ("{0} is in the same row as {1}").
+
 `and` never merges when the shared color is an initial: each part picks its own B color,
 so `and(knows(B, White), knows(B, Teal))` reads "B knows White and B knows Teal", not
 "B knows White and Teal" (which would say one B knows both).
+
+## Reading clues from text
+
+`parse_clue(text, palette, board)` reads one sentence back into a clue, and
+`parse_clues(text, ...)` reads one clue per line (blank lines and "1." / "2)" numbering are
+skipped). Every sentence `render` produces parses back to the same clue. A one-clue `and` or
+`or` renders as its only clue, so it comes back as that clue. Unreadable text raises
+`ClueParseError` with a message and the character offset of the problem.
+
+The accepted grammar, informally (keywords are case-insensitive, the final full stop is
+optional):
+
+```
+clue   := "It's not true that" clue | "Either" unit ("," | "or" | ", or") unit ...
+        | ("Exactly" | "At least") N "of these is/are true:" clue ("; " clue)*
+        | unit (("," | "and" | "but" | "or" | ", and" | ", or" | ", but") item)*
+unit   := "(" clue ")" | board rule | leaf sentence | negated leaf sentence
+item   := unit | color            (continues "Black knows White, Teal and Mint")
+        | color "is"/"isn't"/"does"/"doesn't"   (repeats the last clause: "but Mustard is")
+color  := a palette color name, any case | one capital letter (an initial)
+```
+
+- One list uses one connective: "A and B or C" is an error; bracket one side.
+- A short repeat takes the first clause's verb: "Black is in a corner, but Teal is";
+  "Black knows White, but Teal doesn't".
+- Limits: a leaf names at most three alternative colors, and brackets and "It's not true
+  that" nest at most 16 deep.
+- Color names may contain spaces and punctuation ("Sky Blue", "Off-White").
+- Leaf sentences are the registry templates plus variants: "is next to", "is beside";
+  "isn't" / "is not", "doesn't" / "does not"; "A is in the same row as B"; "is to the left
+  of"; "in the corner"; "on the edge"; "in the middle" (center).
+- Rows: "the top / middle / bottom row", "the third row", "row 3". Columns: "the second
+  column", "the 7th column", "column 2". Numbers in text count from 1; indices in the AST
+  from 0. A row or column off the board is an error.
+- A leaf may name alternatives as its subject: "Either Teal or Black is in the same row as
+  Cobalt" reads as `or(same_row(teal, cobalt), same_row(black, cobalt))`, in that order. This
+  is the renderer's short `or` form.
 
 ## Data format
 

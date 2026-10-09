@@ -24,6 +24,7 @@ from chroma_cube.core.clues import (
 )
 from chroma_cube.core.colors import CLASSIC_PALETTE, Color, Palette
 from chroma_cube.core.evaluate import Truth, evaluate
+from chroma_cube.core.parse import ClueParseError, parse_clue, parse_clues
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.puzzle import Puzzle, puzzle_from_dict, puzzle_to_dict
 from chroma_cube.core.render import render
@@ -42,6 +43,7 @@ __all__ = [
     "BoardRuleKind",
     "Cell",
     "Clue",
+    "ClueParseError",
     "Color",
     "ColorRef",
     "Exactly",
@@ -58,6 +60,8 @@ __all__ = [
     "clue_from_dict",
     "clue_to_dict",
     "evaluate",
+    "parse_clue",
+    "parse_clues",
     "prop",
     "puzzle_from_dict",
     "puzzle_to_dict",
