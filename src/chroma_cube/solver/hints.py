@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 
 from chroma_cube.core.board import Cell
 from chroma_cube.core.colors import Color
@@ -27,7 +28,7 @@ from chroma_cube.core.puzzle import Puzzle
 from chroma_cube.core.render import cell_name
 from chroma_cube.solver.search import colors_in, solve
 
-__all__ = ["HINT_MAX_NODES", "Hint", "HintReason", "explain", "next_hint"]
+__all__ = ["HINT_MAX_NODES", "Hint", "HintReason", "clear_solution_cache", "explain", "next_hint"]
 
 
 class HintReason(Enum):
@@ -126,17 +127,19 @@ class _Hinter:
             if self.puzzle.givens.cell_of(color) is None
         ]
         movable.sort(key=lambda item: self._order(item[0]))
+        solution = self.solution()
+        if solution is not None:
+            # A known solution says which cubes are wrong; clues only explain why.
+            movable = [(color, cell) for color, cell in movable if solution.cell_of(color) != cell]
         violated = self._violated_now
         if violated:
             for color, cell in movable:
                 fixed = violated - self._violated(self.placement.without(color))
                 if fixed:
                     return Hint(color, cell, HintReason.MISPLACED, tuple(sorted(fixed)))
-        solution = self.solution()
-        if solution is not None:
-            for color, cell in movable:
-                if solution.cell_of(color) != cell:
-                    return Hint(color, cell, HintReason.MISPLACED)
+        if solution is not None and movable:
+            color, cell = movable[0]
+            return Hint(color, cell, HintReason.MISPLACED)
         return None
 
     def only_cell(self) -> Hint | None:
@@ -180,9 +183,7 @@ class _Hinter:
         A search that runs out of budget counts as "not known to be unique".
         """
         if not self._solved:
-            result = solve(self.puzzle, limit=1, max_nodes=self.max_nodes)
-            if result.count == 1 and not result.truncated and not result.gave_up:
-                self._solution = result.solutions[0]
+            self._solution = _unique_solution(self.puzzle, self.max_nodes)
             self._solved = True
         return self._solution
 
@@ -234,9 +235,32 @@ class _Hinter:
         return tuple(sorted(set().union(*groups)))
 
 
+@lru_cache(maxsize=32)
+def _unique_solution(puzzle: Puzzle, max_nodes: int | None) -> Placement | None:
+    """The card's solution if the search shows it has exactly one; cached per card.
+
+    The answer depends only on the card, so repeated hints on one card search once.
+    """
+    result = solve(puzzle, limit=1, max_nodes=max_nodes)
+    if result.count == 1 and not result.truncated and not result.gave_up:
+        return result.solutions[0]
+    return None
+
+
+def clear_solution_cache() -> None:
+    """Forget the cached solutions, so the next hint on each card searches again."""
+    _unique_solution.cache_clear()
+
+
+QUOTED_CLUES = 2
+"""Clues quoted in an explanation; the rest are counted, and all are marked on screen."""
+
+
 def _quote(puzzle: Puzzle, indices: tuple[int, ...]) -> str:
     sentences = puzzle.rendered_clues()
-    quoted = [f"'{sentences[index]}'" for index in indices]
+    quoted = [f"'{sentences[index]}'" for index in indices[:QUOTED_CLUES]]
+    if len(indices) > QUOTED_CLUES:
+        quoted.append(f"{len(indices) - QUOTED_CLUES} more")
     if len(quoted) <= 1:
         return "".join(quoted)
     return ", ".join(quoted[:-1]) + " and " + quoted[-1]

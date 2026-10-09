@@ -1,7 +1,12 @@
 """The hint engine: forced moves first, a cube from the solution as a last resort."""
 
+from typing import Any
+
+import pytest
+
 from chroma_cube.core import Board, Cell, Not, Placement, Puzzle, prop, relation
 from chroma_cube.puzzles import classic_puzzles
+from chroma_cube.solver import hints
 from chroma_cube.solver.hints import Hint, HintReason, explain, next_hint
 from tests.solver.helpers import puzzle, small_palette
 
@@ -98,6 +103,39 @@ def test_a_cube_off_the_unique_solution_is_pointed_out_even_if_no_clue_breaks() 
     assert explain(hint, CARD_1) == (
         "Mint does not belong in the top row, first column: the solution has it elsewhere"
     )
+
+
+def test_a_correct_cube_is_not_blamed_for_a_clue_a_wrong_one_breaks() -> None:
+    placement = card_1_with(coral=Cell(0, 1), magenta=Cell(0, 0))
+    hint = next_hint(CARD_1, placement)
+    assert hint == Hint(PALETTE.by_id("magenta"), Cell(0, 0), HintReason.MISPLACED, (0, 1, 3))
+    assert explain(hint, CARD_1) == (
+        "Magenta does not belong in the top row, first column: it breaks "
+        "'Coral and Magenta are in the same column', 'Black sits next to Magenta' and 1 more"
+    )
+
+
+def test_without_a_known_solution_the_first_cube_that_breaks_a_clue_is_blamed() -> None:
+    placement = card_1_with(coral=Cell(0, 1), magenta=Cell(0, 0))
+    hint = next_hint(CARD_1, placement, max_nodes=1)
+    assert hint is not None
+    assert (hint.color.id, hint.reason) == ("coral", HintReason.MISPLACED)
+
+
+def test_the_solution_is_searched_once_per_card(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    real_solve = hints.solve
+
+    def counting_solve(*args: Any, **kwargs: Any) -> Any:
+        calls.append(1)
+        return real_solve(*args, **kwargs)
+
+    monkeypatch.setattr(hints, "solve", counting_solve)
+    hints.clear_solution_cache()
+    next_hint(CARD_1, card_1_with(mint=Cell(0, 0)))
+    next_hint(CARD_1, card_1_with(mint=Cell(0, 0)))
+    next_hint(CARD_1, card_1_with(teal=Cell(0, 0)))
+    assert len(calls) == 1
 
 
 def test_givens_are_never_blamed() -> None:
