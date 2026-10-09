@@ -235,3 +235,15 @@ merged and whoever saves last owns it. The board is saved on every change, which
 small write per move. Tests point `CHROMA_CUBE_DATA_DIR` at a temporary directory through an
 autouse fixture, so no test touches real saves. We gave up any warning when saves are lost,
 per-card boards, and exact solve counts when two copies solve the same card at once.
+
+## D30: Shipped as a git-installable tool and a GitHub release, browser play optional (2026-10-08)
+Players install with `uv tool install` (or run once with `uvx`) straight from the repo, and
+each `v*` tag builds a wheel and sdist and attaches them to a GitHub release with generated
+notes, after the same checks CI runs and a check that the tag matches the package version.
+We do not publish to PyPI yet: it needs a name claim and a token, and nobody has asked for
+`pip install chroma-cube`. Browser play uses `textual-serve` behind `chroma-cube --serve`,
+which starts one copy of the game per browser tab. It is an optional `web` extra, imported
+only when `--serve` is used, so the terminal game does not pull in a web server; without it
+`--serve` prints the install command and exits. `--serve` defaults to `127.0.0.1` because
+the server has no login. The README screenshot is an SVG exported from a game driven by Textual's test pilot at
+100x32, so it is sharp at any size and needs no real terminal to retake.
