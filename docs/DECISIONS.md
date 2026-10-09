@@ -119,11 +119,22 @@ Each cube cell is filled with its hex color and shows the color's name in black 
 whichever has the higher WCAG contrast, so Teal, Mint and Emerald are never confused.
 Every cube has a grey border and dark cubes (luminance below 0.18, e.g. Black, Cobalt,
 Brown) a light one, so they stay visible on a dark theme without changing the core hex
-values (see D10). Empty cells have a dashed border. Givens carry a lock; the held cube
-says "(held)" in text as well as with a double border, since no single border color is
-visible on every cube.
+values (see D10). Empty cells have a dashed border. Givens get a double border and a `▪`
+before the name, and the held cube a thick border and a `▸`, both in the cube's own text
+color: an emoji lock was hard to see on yellow and orange and its width varies by terminal.
+Markers are text as well as border, since no single border color shows on every cube.
 
 ## D20: Solving is checked after every change and remembered only for the session (2026-10-08)
 After each change, a card whose cubes are all placed and whose clues are all satisfied
 opens a win dialog with "Next card" and "Back to list", and the card gets a tick in the
 list. Solved cards are kept in memory only; persistence between runs is a separate feature.
+
+## D21: The play screen sizes itself from the board and the terminal (2026-10-08)
+The tray's rows and columns come from the puzzle's board, and every track is a fraction of
+the space, so a 4x5 generated board fits as well as the classic 3x4. The palette strip has
+as many columns as the board, one line per row of cubes. From 70 columns up the clues sit
+beside the tray; below that they stack underneath with smaller cells, so 80x24 shows
+everything and 60x20 still shows every cell and cube with a scrolling clue list. The clue
+list never takes keyboard focus, so arrows always move the tray cursor; PageUp/PageDown or
+the mouse wheel scroll it. Textual's command palette is off so its "palette" does not
+collide with the game's.
