@@ -9,8 +9,9 @@ import random
 from dataclasses import dataclass, replace
 from datetime import date
 
-DIFFICULTIES = ("easy", "medium", "hard", "expert")
-DAILY_DIFFICULTY = "medium"
+from chroma_cube.generator import Difficulty
+
+DAILY_DIFFICULTY: Difficulty = "medium"
 MAX_SEED_DIGITS = 18
 RANDOM_SEEDS = 100_000
 """Fresh seeds stay under six digits so they are easy to read out and type back."""
@@ -43,13 +44,13 @@ def random_seed(rng: random.Random, avoid: int | None = None) -> int:
 class GameSpec:
     """Everything needed to generate one puzzle again, and how to name it."""
 
-    difficulty: str
+    difficulty: Difficulty
     seed: int
     day: date | None = None
     """Set for the daily puzzle, whose seed comes from this date."""
 
     @classmethod
-    def infinite(cls, difficulty: str, seed: int) -> GameSpec:
+    def infinite(cls, difficulty: Difficulty, seed: int) -> GameSpec:
         return cls(difficulty, seed)
 
     @classmethod
