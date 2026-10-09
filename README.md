@@ -55,13 +55,28 @@ Install with the `web` extra and pass `--serve`:
 
 ```bash
 uv tool install 'chroma-cube[web] @ git+https://github.com/tchoffman/chroma-cube'
-chroma-cube --serve                 # http://127.0.0.1:8000
-chroma-cube --serve --host 0.0.0.0 --port 9000
+chroma-cube --serve                 # this machine only: http://127.0.0.1:8000
 ```
 
 Every browser tab gets its own game. In a checkout, `uv sync --extra web` then
-`uv run chroma-cube --serve` does the same. The server has no login, so only bind to
-`0.0.0.0` on a network you trust.
+`uv run chroma-cube --serve` does the same.
+
+To play from another device, bind to this machine's address on your network (here
+`192.168.1.20`) and open that address on the other device:
+
+```bash
+chroma-cube --serve --host 192.168.1.20 --port 9000   # http://192.168.1.20:9000
+```
+
+The page connects back to the server at the address it was served on, so `--host 0.0.0.0`
+alone gives a page that never connects. If you must bind to every interface (or sit behind
+a proxy), also give the address browsers use:
+
+```bash
+chroma-cube --serve --host 0.0.0.0 --port 9000 --public-url http://192.168.1.20:9000
+```
+
+The server has no login, so only open it on a network you trust.
 
 ## How it works
 
