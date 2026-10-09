@@ -148,3 +148,48 @@ def puzzles(draw: st.DrawFn) -> Puzzle:
 @given(puzzles())
 def test_round_trip_through_json(puzzle: Puzzle) -> None:
     assert puzzle_from_dict(json.loads(json.dumps(puzzle_to_dict(puzzle)))) == puzzle
+
+
+# --------------------------------------------------------------------------- color attributes
+
+
+def test_old_palette_dicts_without_attributes_load_the_classic_palette() -> None:
+    data = puzzle_to_dict(make())
+    data["palette"] = [{"id": c.id, "name": c.name, "hex": c.hex} for c in CLASSIC_PALETTE]
+    assert puzzle_from_dict(data).palette == CLASSIC_PALETTE
+
+
+def test_attributes_the_hex_implies_are_left_out() -> None:
+    data = puzzle_to_dict(make())
+    assert all(set(entry) == {"id", "name", "hex"} for entry in data["palette"])
+
+
+def test_overridden_attributes_are_written_and_read_back() -> None:
+    teal = Color("teal", "Teal", "#008080", family="green")
+    palette = Palette((black, white, teal))
+    puzzle = make(palette=palette, clues=())
+    data = puzzle_to_dict(puzzle)
+    assert data["palette"][2] == {
+        "id": "teal",
+        "name": "Teal",
+        "hex": "#008080",
+        "temperature": "cool",
+        "tone": "dark",
+        "family": "green",
+    }
+    assert puzzle_from_dict(json.loads(json.dumps(data))) == puzzle
+
+
+def test_a_partial_attribute_override_loads() -> None:
+    data = puzzle_to_dict(make())
+    data["palette"][10] = {"id": "teal", "name": "Teal", "hex": "#008080", "family": "green"}
+    teal = puzzle_from_dict(data).palette.by_id("teal")
+    assert (teal.temperature, teal.tone, teal.family) == ("cool", "dark", "green")
+
+
+@pytest.mark.parametrize("bad", [{"family": "teal"}, {"tone": 3}])
+def test_bad_attributes_in_data_raise_value_error(bad: dict[str, object]) -> None:
+    data = puzzle_to_dict(make())
+    data["palette"][10].update(bad)
+    with pytest.raises(ValueError):
+        puzzle_from_dict(data)
