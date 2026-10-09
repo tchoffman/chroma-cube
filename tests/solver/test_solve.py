@@ -124,3 +124,14 @@ def test_solve_clues_takes_the_parts_of_a_puzzle() -> None:
     assert result.count == 1
     assert not result.truncated
     assert solve_clues(TINY, FOUR, []).count == 1
+
+
+def test_solve_clues_rejects_givens_off_the_board() -> None:
+    with pytest.raises(ValueError):
+        solve_clues(TINY, FOUR, [], givens=Placement({black: Cell(5, 5)}))
+
+
+def test_solve_clues_rejects_givens_outside_the_palette() -> None:
+    teal = CLASSIC_PALETTE.by_id("teal")
+    with pytest.raises(ValueError):
+        solve_clues(TINY, FOUR, [], givens=Placement({teal: Cell(0, 0)}))

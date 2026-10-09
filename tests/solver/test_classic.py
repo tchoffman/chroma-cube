@@ -77,5 +77,5 @@ def test_benchmark_five_givens_is_well_under_a_second() -> None:
     assert _seconds_to_prove_unique(FIVE_GIVENS) < 1.0
 
 
-def test_benchmark_empty_tray_is_under_two_seconds() -> None:
-    assert _seconds_to_prove_unique(EMPTY_TRAY) < 2.0
+def test_benchmark_empty_tray_is_under_a_second() -> None:
+    assert _seconds_to_prove_unique(EMPTY_TRAY) < 1.0
