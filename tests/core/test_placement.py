@@ -107,3 +107,13 @@ def test_equal_placements_are_equal_and_hash_alike() -> None:
     assert a == b
     assert hash(a) == hash(b)
     assert a != Placement({coral: Cell(0, 1)})
+
+
+def test_placement_survives_pickle_and_deepcopy() -> None:
+    import copy
+    import pickle
+
+    placement = Placement({coral: Cell(0, 1), orange: Cell(1, 1)})
+    for clone in (pickle.loads(pickle.dumps(placement)), copy.deepcopy(placement)):
+        assert clone == placement
+        assert clone.color_at(Cell(1, 1)) == orange
