@@ -6,7 +6,6 @@ import subprocess
 import sys
 from collections import Counter
 from dataclasses import replace
-from functools import cache
 
 import pytest
 
@@ -15,22 +14,15 @@ from chroma_cube.generator import DIFFICULTIES, PROFILES, Difficulty, clue_featu
 from chroma_cube.generator.build import primary_kind
 from chroma_cube.generator.candidates import clue_colors
 from chroma_cube.solver import is_unique
-
-SAMPLE_SEEDS = range(7)
-"""Seeds generated for every difficulty: 28 puzzles shared by the tests below."""
-
-
-@cache
-def _generated(seed: int, difficulty: Difficulty) -> Puzzle:
-    return generate(seed, difficulty)
+from tests.generator.helpers import SAMPLE_SEEDS, generated
 
 
 def _sample() -> list[Puzzle]:
-    return [_generated(seed, level) for level in DIFFICULTIES for seed in SAMPLE_SEEDS]
+    return [generated(seed, level) for level in DIFFICULTIES for seed in SAMPLE_SEEDS]
 
 
 def test_same_seed_gives_the_same_puzzle() -> None:
-    assert generate(7, "medium") == _generated(7, "medium")
+    assert generate(7, "medium") == generated(7, "medium")
 
 
 def test_same_seed_in_another_process_gives_the_same_puzzle() -> None:
@@ -47,24 +39,24 @@ def test_same_seed_in_another_process_gives_the_same_puzzle() -> None:
         )
         outputs.add(run.stdout)
     assert len(outputs) == 1
-    assert json.loads(outputs.pop()) == puzzle_to_dict(_generated(3, "hard"))
+    assert json.loads(outputs.pop()) == puzzle_to_dict(generated(3, "hard"))
 
 
 def test_different_seeds_give_different_puzzles() -> None:
     for level in DIFFICULTIES:
-        puzzles = [_generated(seed, level) for seed in SAMPLE_SEEDS]
+        puzzles = [generated(seed, level) for seed in SAMPLE_SEEDS]
         assert len({(p.givens, p.clues) for p in puzzles}) == len(puzzles)
 
 
 def test_puzzle_identity() -> None:
-    puzzle = _generated(5, "easy")
+    puzzle = generated(5, "easy")
     assert puzzle.id == "gen-easy-5"
     assert puzzle.difficulty == "easy"
     assert puzzle.title
 
 
 def test_default_difficulty_is_medium() -> None:
-    assert generate(2) == _generated(2, "medium")
+    assert generate(2) == generated(2, "medium")
 
 
 def test_unknown_difficulty_is_rejected() -> None:
@@ -75,13 +67,13 @@ def test_unknown_difficulty_is_rejected() -> None:
 @pytest.mark.parametrize("difficulty", DIFFICULTIES)
 def test_every_generated_puzzle_is_unique(difficulty: Difficulty) -> None:
     for seed in SAMPLE_SEEDS:
-        assert is_unique(_generated(seed, difficulty))
+        assert is_unique(generated(seed, difficulty))
 
 
 @pytest.mark.parametrize("difficulty", DIFFICULTIES)
 def test_no_clue_is_redundant(difficulty: Difficulty) -> None:
     for seed in SAMPLE_SEEDS[:2]:
-        puzzle = _generated(seed, difficulty)
+        puzzle = generated(seed, difficulty)
         for i in range(len(puzzle.clues)):
             fewer = replace(puzzle, clues=puzzle.clues[:i] + puzzle.clues[i + 1 :])
             assert not is_unique(fewer), (seed, puzzle.rendered_clues()[i])
@@ -91,7 +83,7 @@ def test_no_clue_is_redundant(difficulty: Difficulty) -> None:
 def test_difficulty_profile_is_honoured(difficulty: Difficulty) -> None:
     profile = PROFILES[difficulty]
     for seed in SAMPLE_SEEDS:
-        puzzle = _generated(seed, difficulty)
+        puzzle = generated(seed, difficulty)
         low, high = profile.givens
         assert low <= len(puzzle.givens.assignments) <= high
         low, high = profile.clues
