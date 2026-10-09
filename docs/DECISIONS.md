@@ -147,7 +147,7 @@ placement. Clues are indexed by the colors they can name (an initial counts as e
 matching color, a board rule as all of them), so only those clues are re-checked. Ruling a
 cell out is safe because VIOLATED means no completion can satisfy the clue. The evaluator
 in `core/` is unchanged: measured on the classic tray, a five-given puzzle proves unique in
-about 3 ms, a ten-clue empty tray in about 25 ms, and the worst of roughly 1,800 random
+about 2 ms, a ten-clue empty tray in about 25 ms, and the worst of roughly 1,800 random
 clue sets took 0.25 s. We gave up cleverer propagation (all-different reasoning, clue
 compilation) until a measurement asks for it.
 
