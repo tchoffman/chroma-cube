@@ -255,183 +255,20 @@ the page never learns. The game command the server runs is quoted for cmd.exe on
 and for a POSIX shell elsewhere; only macOS and Linux have been tried. The README screenshot is an SVG exported from a game driven by
 Textual's test pilot at 100x32, so it is sharp at any size and needs no terminal to retake.
 
-## D31: Hints look one cube ahead and prefer what a player would spot (2026-10-08)
-A hint is, in order: a cube the player put in the wrong place (it breaks a clue, or the
-card has one solution and it is elsewhere in it; when the solution is known only cubes off
-it are ever blamed, so a right cube is never called wrong because a wrong neighbour breaks
-a clue they share); a cube with one cell left where no clue breaks; a cell that only one
-cube left can take; and, only on a card with one solution, a cube from that solution, the
-one that settles the most clues. "Breaks" is the same VIOLATED the clue list shows, tested
-one cube at a time, so every forced hint can be explained by quoting clues the player can
-see. When several cubes are forced, the hint picks the one whose forcing clues all name it
-(a clue about Teal placing Teal beats the same clue crowding Mint out of its last other
-cell), then the one resting on fewest clues, then palette order; on card 1 this gives
-Magenta, Coral, White, Teal, Mint. A card with several solutions and nothing forced gets
-no hint rather than a guess, and a wrong cube that breaks nothing on such a card is not
-flagged. The uniqueness check runs with a budget of 50,000 trial placements, a quarter of
-the solver's default, so a key press answers quickly; a search that runs out counts as
-"not known to be unique" (see D28). The solution is searched once per card and cached, so
-pressing h again costs no search. Asking twice without moving counts once; the count
-survives a reset, shows in the win dialog, and is saved with the in-progress board (an
-optional `hints` field in the board's entry, read as 0 when missing or malformed, so older
-progress files still load), so quitting and resuming does not reset it. A board with hints
-taken is kept even when its cubes are back at the givens. An explanation quotes at most
-two clues and counts the rest ("and 2 more"); every involved clue is marked in the list
-anyway. The status line wraps to four lines, so a whole explanation shows at 60 and 80
-columns. We gave up deeper deductions (chains of two or more cubes) until a card needs
-them.
+## D39: Classic cards are one JSON file each, in the `puzzle_to_dict` format (2026-10-08)
+The 25 classic cards live in `chroma_cube/puzzles/data/classic/classic-NN.json` and load
+through `importlib.resources`, so they ship inside the wheel and need no path handling. Each
+file is exactly what `puzzle_to_dict` writes (palette and board included, per D16), with one
+line per color, given and clue so a card reads and diffs as a unit. Data rather than a
+Python module because cards are content: the future clue parser, a puzzle editor or the
+generator can write the same files, and a test checks every file round-trips. We gave up
+building cards with the clue factories in code, which a type checker would have checked.
 
-## D32: The generator chooses clues greedily against sampled rival solutions (2026-10-08)
-`generate(seed, difficulty)` draws a random full solution and the givens, builds a pool of
-clues that are true on that solution (relations, properties, negations of false ones,
-either/or of one true and one false clue, initial-letter versions where two colors share
-a letter, counts, grouped relations, and board rules only when they hold), then adds the
-clue that rules out the most *other* solutions until the solver finds no rival, then
-drops every clue the puzzle can do without and checks uniqueness once more. "Rules out
-the most" is judged on a sample of rival solutions rather than by counting solutions
-per candidate, which would need hundreds of solver calls per step: random completions
-while the clues are loose, swaps and three-way rotations of the real solution once they
-are tight, a short local search for far-away rivals, and only then the solver. Rivals
-seen on the way also let minimisation skip most solver calls (a removal is impossible if
-a known rival satisfies the clues that are left). Clues are checked on full placements
-with compiled closures rather than the three-valued evaluator, which is far slower for
-yes/no questions. The random stream is seeded from a SHA-256 of the level, the seed, the
-board size and the palette ids, so the same seed gives a different answer at each level,
-and nothing that drives a choice iterates a set, so a seed gives the same puzzle in every
-process. An attempt that misses its profile, or whose clues the solver cannot settle
-within its 20,000-node budget, is dropped and the next attempt continues the same random
-stream. A clue whose colors are all given is never in the pool, and neither is an
-either/or, count or group with a part only about given cubes (that part is already
-settled, so the clue is a plainer clue in disguise). A clue that rules out no sampled
-rival (so is implied by what is already chosen) is never picked, nor is a row clue for a
-cube that already has a column clue (together they are a given). A clue and its negation
-are never both true on the solution, so never both in the pool. We gave up exact "cuts the most solutions" scoring and puzzles whose
-order of clues follows a teaching sequence.
-
-## D33: Difficulty profiles (2026-10-08)
-| Level  | Givens | Clues | Adds these clue features                                   | Must use one of             |
-|--------|--------|-------|------------------------------------------------------------|-----------------------------|
-| easy   | 5–7    | 3–5   | same row/column, next to, above/below/left/right, directly | –                           |
-| medium | 2–4    | 4–7   | corner, edge, center, row, column, negation, either/or     | a medium feature            |
-| hard   | 0–1    | 5–8   | knows, diagonal, between, initials, grouped relations      | knows/diagonal/between/initial |
-| expert | 0      | 3–8   | exactly/at least counts, alphabetical rows/columns         | a count or alphabetical rule |
-
-Each attempt keeps every positional family and each other family with probability 0.4
-(at least one signature feature always survives). Without that, the strongest families
-("between", grouped "sits next to") landed on every hard card; now about a third of hard
-cards have no "between". Within a puzzle each repeat of a clue family costs a factor, and so does each reuse of a
-slow or heavy feature (initials, either/or, negation, counts, between), which keeps one
-kind from crowding the card and keeps the solver fast. Two in five expert puzzles start
-from a solution whose rows or columns are alphabetical, so the board rule can appear; on
-a random solution it almost never holds. Expert was meant to have fewer clues than hard,
-but with no givens and only counts as its signature it needs seven or eight; the
-alphabetical expert puzzles do come out at about five. `rate(puzzle)` gives a simple
-score (three per cube to place plus each clue's heaviest feature weight) that rises from
-about 20 (easy) through 35 and 48 to 52 (expert).
-
-The ranges are tuned for the classic 12 cells. On another board the given and clue
-ranges scale with the cell count; boards under 4 or over 16 cells are refused with
-`ValueError`, as is a non-classic board where 30 attempts all miss the profile.
-
-## D34: Generated puzzles are named by difficulty and seed; the daily seed is the date (2026-10-08)
-The app opens on a home screen: Classic cards, Infinite and Daily. An infinite puzzle is
-fully identified by its difficulty and seed, so the title shows both ("Infinite · hard ·
-seed 48213") and typing the seed back (`s`) at the same difficulty rebuilds the identical
-puzzle; `n` draws a fresh seed. Fresh seeds are 1 to 99999 so they are easy to read out;
-typed seeds may be any whole number up to 18 digits. The daily seed is the player's local
-date as a number (2026-10-08 is 20261008) at medium difficulty, so everyone gets the same
-puzzle on the same calendar day with no server, and the daily puzzle can also be replayed
-from Infinite · medium with that seed. Generation runs in a Textual worker thread behind a
-"Generating…" notice that Escape cancels; a generator error is shown as a notification.
-The notice closes when the worker reports that it has finished, not from inside the thread:
-closing a screen cancels its workers, so closing it from the thread could cancel the worker
-while it was still handing over the puzzle.
-Like `q`, `r`, `x` and `h`, `n` and `s` are commands on generated puzzles, so a color starting
-with either is reachable only by number or mouse there; no classic color does. The card
-list now sits under the home screen, and the app takes the generator and "today" as
-arguments so tests can supply their own. Generated puzzles use the progress store like the
-cards, under the generator's puzzle id (`gen-<difficulty>-<seed>`): a solve and its hints
-are recorded, and the one saved in-progress board comes back when the same puzzle is
-generated again, so leaving the daily and reopening it resumes it. The store keeps one
-in-progress board for the whole app, so the first move on a generated puzzle replaces a
-half-done classic card's board, as moving to another card already does; with `n` this is
-easy to hit. We accepted that rather than add one saved board per mode in this change. The daily and Infinite ·
-medium with the date's seed are the same puzzle and share that record.
-
-## D35: Color attributes, and how the classic twelve are assigned (2026-10-08)
-Each color has a temperature (warm / cool / neutral), a tone (light / dark) and a hue family
-(red, orange, yellow, green, blue, purple, pink, brown, grey). The family word for black,
-white and greys is "grey" rather than "neutral" so that no word means two attributes and a
-clue's value alone says which attribute it is about. Colors may set any of the three; the
-rest come from the hex: grey-ish (channel spread under 0.12) is neutral and grey; otherwise
-hue sets the family (dark oranges are brown, pale reds pink) and the family sets the
-temperature, so warm = red, orange, yellow, pink, brown and cool = green, blue, purple.
-Tone is light from relative luminance 0.18, the same line D19 uses for borders, so a cube
-the UI letters in black is a light color. The classic twelve are written out by hand and
-a test keeps them equal to what the hex gives:
-
-- Warm: Brown, Coral, Magenta, Mustard, Orange. Cool: Cobalt, Emerald, Mint, Purple, Teal.
-  Neutral: Black, White.
-- Light: Coral, Emerald, Magenta, Mint, Mustard, Orange, White. Dark: Black, Brown, Cobalt,
-  Purple, Teal.
-- Families: Coral is **red** (hue 5°, and the set has no other red), Magenta is **pink**,
-  Teal is **blue** (hue 180°, right on the line; blue keeps green and blue at two each),
-  Mint and Emerald are green, Black and White grey, the rest are their own names.
-
-The arguable ones: Teal could be green; Mint is a light, cool green (not a neutral pastel);
-Magenta's luminance (0.188) is just over the light line and Teal's (0.170) just under it, so
-a small hex change would flip them; Purple is cool and Magenta warm. We gave up open-ended
-family names: a family must come from the fixed list so the parser knows its words.
-
-## D36: Extended palettes add colors with new initials, kept 21 CIEDE2000 apart (2026-10-08)
-`EXTENDED_16` is the classic twelve plus Azure, Garnet, Lavender and Silver, for a 4 × 4
-board; `EXTENDED_20` adds Cyan, Denim, Forest and Indigo, for 4 × 5. New colors fill gaps
-(a deep red, light blue, light purple, mid grey, then bright cyan, mid blue, dark green,
-dark violet) and were picked by searching for hexes far from every existing color: the
-closest pair in either palette is still Cobalt/Purple at 21.0 (D10). A bright yellow was
-tried and dropped: Lemon `#fff44f` sat 13.8 from Mustard, and the space between Mustard,
-Orange, Mint and White left no yellow far enough from all four. Initials avoid the classic
-letters and Q, R and X (keyboard commands, D18), with one exception: Cyan shares C with
-Cobalt and Coral, because none of the free letters starts a common name for that color.
-Classic colors keep their place at the front of each palette, so a classic puzzle's colors
-are the first twelve of the larger ones. `PALETTES` names all three; `BOARD_4X4` and
-`BOARD_4X5` are the matching boards.
-
-## D37: Attribute clues are a new node with its own registry (2026-10-08)
-"Every cube next to Mint is a cool color" depends on which colors sit around Mint, not just
-on Mint's cell, so it cannot be a property (whose test sees one cell). `AttributeClue(kind,
-value, color | region, n)` with `ATTRIBUTE_KINDS` keeps D11's shape: each kind is one entry
-saying whether it looks at a color's neighbours or a region, which values it takes, and a
-test on (matching count, other count, n). Evaluation, rendering, parsing, serialization
-and `attribute_clues` (the generator's list) are written once for all kinds. "Next to"
-means sharing a side, like `next_to`. A kind is added only if no other clue already says
-it: "no cube next to Mint is warm" was a `neighbours_none` kind, but it is exactly "Mint
-doesn't sit next to a warm color", so it was folded into a negated `neighbours_some` and
-its sentences parse to that. The sitting-next-to sentence was the one kept because it reads
-like the cards and because "Mint sits next to a warm color, but Teal doesn't" then repeats
-with the right meaning. Families read "a shade of green" so a family named like a color
-("a shade of orange") is never taken for the Orange cube. Two pairs still overlap on full
-boards and are documented rather than merged: `next_to_family` is `neighbours_some` over
-families (one value list per kind keeps each sentence's words unambiguous), and
-`region_all` matches `region_count` with n set to the region's size (they differ on
-boards the palette does not fill). `region_count`
-has no short negation and is said "It's not true that exactly ...". Clues that hold on
-every placement ("Mint is a cool color", "Mint and Teal are the same temperature") are left
-out. Region and neighbour kinds take qualities only, and families only through
-`next_to_family`; both are one-line changes if wanted. The solver re-checks an
-attribute clue whenever any cube is placed, as for a board rule, since a cube it does not
-name can decide it. Since only counts matter, the evaluator treats the unplaced colors as
-a pool of so many with the value and so many without, rather than trying placements, which
-keeps that re-checking cheap: a 4 × 4 card with six givens and eight mixed clues proves
-unique in a few hundredths of a second. We gave up reusing the
-`Property` node, which would have needed a second kind of test inside it.
-
-## D38: Puzzle files store a color's attributes only when the hex would not give them (2026-10-08)
-Existing puzzle data lists colors as id, name and hex. Loading such data derives the
-attributes, which for the classic colors equals `CLASSIC_PALETTE`, and saving it writes
-the same three keys back, so older files round-trip unchanged. A color whose attributes
-were set by hand to something else (a green Teal) is written with all three. The risk is
-that changing the derivation rules would change what a stored attribute clue means; tests
-pin the derived attributes of every built-in color to catch that. We gave up always
-writing attributes, which would be safer against rule changes but would rewrite every
-existing puzzle file.
+## D40: Classic difficulty score = cubes to place + distinct clue kinds (2026-10-08)
+`difficulty_score` counts the cubes not given plus the distinct kinds of clue on the card
+(relation, property and board-rule kinds, plus "not", "or", "exactly", "at_least" and
+"initial"; "and" only groups and does not count). The solver reports no branching count, so
+the score uses what a player sees: how much is left to place and how much vocabulary is in
+play. The set is tuned so the score never goes down from card to card. It is crude: an empty
+tray with few clue kinds scores the same as a fuller tray with more. The generator can
+replace it with a measured rating later.
