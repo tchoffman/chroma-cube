@@ -66,11 +66,30 @@ def clues(palette: Palette, board: Board) -> st.SearchStrategy[Clue]:
     return st.recursive(leaves, compounds, max_leaves=4)
 
 
+def echoes(earlier: list[Clue], fresh: st.SearchStrategy[Clue]) -> st.SearchStrategy[Clue]:
+    """A clue that repeats, negates or wraps one of the earlier clues."""
+    old = st.sampled_from(earlier)
+    pair = st.tuples(old, fresh)
+    return st.one_of(
+        old,
+        old.map(Not),
+        pair.map(lambda p: Or(p)),
+        pair.map(lambda p: Not(Or(p))),
+        pair.map(lambda p: And(p)),
+        pair.map(lambda p: Not(And(p))),
+        pair.flatmap(lambda p: st.integers(0, 2).map(lambda n: Exactly(n, p))),
+        pair.flatmap(lambda p: st.integers(1, 2).map(lambda n: AtLeast(n, p))),
+    )
+
+
 @st.composite
 def small_puzzles(draw: st.DrawFn) -> Puzzle:
     board = draw(st.sampled_from([Board(2, 2), Board(2, 3), Board(3, 2)]))
     palette = small_palette(len(board))
-    clue_list = draw(st.lists(clues(palette, board), max_size=4))
+    clue_list: list[Clue] = draw(st.lists(clues(palette, board), max_size=4))
+    echo: bool = draw(st.booleans())
+    if clue_list and echo:
+        clue_list.append(draw(echoes(clue_list, clues(palette, board))))
     given_colors = draw(st.lists(st.sampled_from(palette.colors), max_size=2, unique=True))
     given_cells = draw(
         st.lists(
@@ -84,7 +103,7 @@ def small_puzzles(draw: st.DrawFn) -> Puzzle:
     return puzzle(board, palette, clue_list, givens)
 
 
-@settings(max_examples=150, deadline=None)
+@settings(max_examples=200, deadline=None)
 @given(small_puzzles())
 def test_the_solver_agrees_with_brute_force(p: Puzzle) -> None:
     expected = brute_force(p)
