@@ -133,7 +133,7 @@ async def test_page_down_scrolls_the_clues() -> None:
 async def test_a_long_hint_wraps_and_the_tray_still_fits(
     size: tuple[int, int], keys: tuple[str, ...], start: str, end: str
 ) -> None:
-    async with ChromaCubeApp((DEMO,)).run_test(size=size) as pilot:
+    async with ChromaCubeApp((DEMO,), start_on_cards=True).run_test(size=size) as pilot:
         await pilot.press("enter", *keys, "h")
         await pilot.pause()
         message = pilot.app.screen.query_one("#message", Static)

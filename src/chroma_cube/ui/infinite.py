@@ -13,9 +13,9 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
-from chroma_cube.core import Puzzle
+from chroma_cube.core import Placement, Puzzle
 from chroma_cube.generator import Difficulty
-from chroma_cube.ui.screens import PlayScreen, WinScreen
+from chroma_cube.ui.screens import PlayScreen, WinScreen, _hint_count
 from chroma_cube.ui.seeds import GameSpec, parse_seed
 
 if TYPE_CHECKING:
@@ -54,7 +54,9 @@ def play_generated(app: ChromaCubeApp, spec: GameSpec, *, replace: bool = False)
     def ready(puzzle: Puzzle | None) -> None:
         if puzzle is None:
             return
-        screen = GeneratedPlayScreen(spec, puzzle)
+        saved = app.progress.saved_board(puzzle)
+        hints = 0 if saved is None else app.progress.saved_hints(puzzle.id)
+        screen = GeneratedPlayScreen(spec, puzzle, saved, hints)
         if replace:
             app.switch_screen(screen)
         else:
@@ -114,8 +116,10 @@ class GeneratedPlayScreen(PlayScreen):
         Binding("s", "enter_seed", "Seed", priority=True),
     ]
 
-    def __init__(self, spec: GameSpec, puzzle: Puzzle) -> None:
-        super().__init__(0, puzzle)
+    def __init__(
+        self, spec: GameSpec, puzzle: Puzzle, placement: Placement | None = None, hints: int = 0
+    ) -> None:
+        super().__init__(0, puzzle, placement, hints)
         self.spec = spec
 
     def heading(self) -> str:
@@ -124,7 +128,7 @@ class GeneratedPlayScreen(PlayScreen):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action in ("another", "enter_seed"):
             return not self.spec.is_daily
-        return True
+        return super().check_action(action, parameters)
 
     def action_another(self) -> None:
         play_generated(self._game, self.spec.another(RNG), replace=True)
@@ -136,7 +140,16 @@ class GeneratedPlayScreen(PlayScreen):
 
         self.app.push_screen(SeedScreen(self.spec.difficulty), chosen)
 
+    def _save_board(self) -> None:
+        state = self.state
+        self._game.progress.save_board(state.puzzle, state.placement, state.hints_used)
+
     def won(self) -> None:
+        state = self.state
+        progress = self._game.progress
+        progress.record_solve(state.puzzle.id, hints=state.hints_used)
+        progress.clear_board(state.puzzle.id)
+
         def chosen(choice: str | None) -> None:
             if choice == "next":
                 play_generated(self._game, self.spec.another(RNG), replace=True)
@@ -144,7 +157,8 @@ class GeneratedPlayScreen(PlayScreen):
                 self.app.pop_screen()
 
         offer_another = not self.spec.is_daily
-        self.app.push_screen(GeneratedWinScreen(self.spec.title, offer_another), chosen)
+        win = GeneratedWinScreen(self.spec.title, offer_another, state.hints_used)
+        self.app.push_screen(win, chosen)
 
 
 class SeedScreen(ModalScreen[int | None]):
@@ -180,6 +194,7 @@ class GeneratedWinScreen(WinScreen):
         with Vertical(id="win"):
             yield Label(f"Solved! {self.card_title}", id="win-title")
             yield Label("Every cube is placed and every clue holds.")
+            yield Label(_hint_count(self.hints), id="win-hints")
             with Horizontal(id="win-buttons"):
                 if self.has_next:
                     yield Button("Another", id="next", variant="success")

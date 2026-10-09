@@ -3,12 +3,14 @@
 import threading
 from dataclasses import replace
 from datetime import date
+from pathlib import Path
 
 from textual.pilot import Pilot
 from textual.widgets import Input, Label, OptionList
 
-from chroma_cube.core import Placement, Puzzle
+from chroma_cube.core import CLASSIC_PALETTE, Cell, Placement, Puzzle
 from chroma_cube.generator import generate
+from chroma_cube.progress import Progress
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.solver import first_solution
 from chroma_cube.ui import ChromaCubeApp
@@ -32,9 +34,10 @@ class FakeGenerator:
         return replace(DEMO, id=f"gen-{difficulty}-{seed}", title=f"Puzzle {seed}")
 
 
-def app(generate: object = None) -> ChromaCubeApp:
+def app(generate: object = None, progress: Progress | None = None) -> ChromaCubeApp:
     return ChromaCubeApp(
         classic_puzzles(),
+        progress,
         generate=generate if generate is not None else FakeGenerator(),  # type: ignore[arg-type]
         today=lambda: TODAY,
     )
@@ -238,3 +241,28 @@ async def test_a_generated_easy_puzzle_plays_to_a_win() -> None:
         assert solution is not None
         await solve(pilot, puzzle, solution)
         assert isinstance(pilot.app.screen, WinScreen)
+
+
+async def test_a_generated_solve_and_its_hints_are_recorded(tmp_path: Path) -> None:
+    async with app(progress=Progress(tmp_path)).run_test(size=SIZE) as pilot:
+        await pilot.press("down", "down", "enter")
+        await settle(pilot)
+        await pilot.press("h")
+        await solve(pilot, playing(pilot).state.puzzle, _demo_solution())
+        assert isinstance(pilot.app.screen, WinScreen)
+        assert "1 hint" in str(pilot.app.screen.query_one("#win-hints", Label).content)
+    record = Progress(tmp_path).record("gen-medium-20261008")
+    assert record is not None and record.best_hints == 1
+
+
+async def test_a_generated_board_comes_back_when_the_puzzle_is_reopened(tmp_path: Path) -> None:
+    magenta = CLASSIC_PALETTE.by_id("magenta")
+    async with app(progress=Progress(tmp_path)).run_test(size=SIZE) as pilot:
+        await pilot.press("down", "down", "enter")
+        await settle(pilot)
+        await pilot.click("#chip-magenta")
+        await pilot.click("#cell-2-1")
+    async with app(progress=Progress(tmp_path)).run_test(size=SIZE) as pilot:
+        await pilot.press("down", "down", "enter")
+        await settle(pilot)
+        assert playing(pilot).state.placement.cell_of(magenta) == Cell(2, 1)
