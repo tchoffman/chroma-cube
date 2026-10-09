@@ -348,5 +348,8 @@ list now sits under the home screen, and the app takes the generator and "today"
 arguments so tests can supply their own. Generated puzzles use the progress store like the
 cards, under the generator's puzzle id (`gen-<difficulty>-<seed>`): a solve and its hints
 are recorded, and the one saved in-progress board comes back when the same puzzle is
-generated again, so leaving the daily and reopening it resumes it. The daily and Infinite ·
+generated again, so leaving the daily and reopening it resumes it. The store keeps one
+in-progress board for the whole app, so the first move on a generated puzzle replaces a
+half-done classic card's board, as moving to another card already does; with `n` this is
+easy to hit. We accepted that rather than add one saved board per mode in this change. The daily and Infinite ·
 medium with the date's seed are the same puzzle and share that record.
