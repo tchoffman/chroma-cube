@@ -1,0 +1,34 @@
+{
+  "id": "classic-03",
+  "title": "Up and Down",
+  "difficulty": "easy",
+  "notes": "\"Above\" means higher in the same column, any distance; \"directly above\" means the cell right on top.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [
+    {"color": "coral", "row": 0, "col": 1},
+    {"color": "black", "row": 1, "col": 0},
+    {"color": "brown", "row": 1, "col": 2},
+    {"color": "emerald", "row": 2, "col": 0},
+    {"color": "mint", "row": 2, "col": 2}
+  ],
+  "clues": [
+    {"type": "relation", "kind": "directly_above", "colors": ["teal", "white"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["mint", "mustard"]}, {"type": "relation", "kind": "next_to", "colors": ["mint", "orange"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["coral", "cobalt"]}, {"type": "relation", "kind": "above", "colors": ["coral", "mustard"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["black", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["black", "purple"]}]}
+  ]
+}

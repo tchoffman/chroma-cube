@@ -266,7 +266,7 @@ one cube at a time, so every forced hint can be explained by quoting clues the p
 see. When several cubes are forced, the hint picks the one whose forcing clues all name it
 (a clue about Teal placing Teal beats the same clue crowding Mint out of its last other
 cell), then the one resting on fewest clues, then palette order; on card 1 this gives
-Magenta, Coral, White, Teal, Mint. A card with several solutions and nothing forced gets
+Coral, Black, Magenta, Teal, Mint. A card with several solutions and nothing forced gets
 no hint rather than a guess, and a wrong cube that breaks nothing on such a card is not
 flagged. The uniqueness check runs with a budget of 50,000 trial placements, a quarter of
 the solver's default, so a key press answers quickly; a search that runs out counts as
@@ -435,3 +435,27 @@ that changing the derivation rules would change what a stored attribute clue mea
 pin the derived attributes of every built-in color to catch that. We gave up always
 writing attributes, which would be safer against rule changes but would rewrite every
 existing puzzle file.
+
+## D39: Classic cards are one JSON file each, in the `puzzle_to_dict` format (2026-10-08)
+The 25 classic cards live in `chroma_cube/puzzles/data/classic/classic-NN.json` and load
+through `importlib.resources`, so they ship inside the wheel and need no path handling. Each
+file is exactly what `puzzle_to_dict` writes (palette and board included, per D16), with one
+line per color, given and clue so a card reads and diffs as a unit. Data rather than a
+Python module because cards are content: the clue parser, a puzzle editor or the
+generator can write the same files, and a test checks every file round-trips. We gave up
+building cards with the clue factories in code, which a type checker would have checked.
+
+## D40: Classic difficulty is measured by trials, and climbs by tier (2026-10-08)
+Each card is labelled easy, medium, hard or expert, and `rate_card` measures it. A player
+places a cube whenever the clues leave it one cell, or a cell one cube. When nothing is
+forced, they try each remaining option one step ahead, and every try counts; a try that
+leaves a cube or a cell with no option rules it out. The count of tries is the rating, so
+a card solved by plain deduction rates 0. Tests require each tier's median rating to be at
+least the previous tier's, and the last card to rate highest. A per-card climb is not
+required: card 8 starts with an empty tray, as in the physical game, while later cards
+bring a few givens back to introduce new clue kinds. `difficulty_score` (cubes to place
+plus distinct clue kinds) is kept as information. Clues like "X is right of A, B and C",
+which fill a whole row or column at once, are capped at one per card and left off at
+least half the hard and expert cards, so each card does not open the same way. We gave up
+a rating that matches a human solver closely; this one ignores which deductions are hard
+to spot.

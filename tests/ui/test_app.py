@@ -10,13 +10,12 @@ from textual.widgets import Label, OptionList, Static
 
 from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE, Cell, Puzzle, Truth
 from chroma_cube.progress import SolveRecord
-from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.screens import CardListScreen, PlayScreen, WinScreen
 from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
+from tests.conftest import DEMO
 
 SIZE = (120, 40)
-DEMO = classic_puzzles()[0]
 SOLUTION = {
     "white": Cell(0, 0),
     "coral": Cell(0, 1),

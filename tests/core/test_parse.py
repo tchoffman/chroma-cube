@@ -404,3 +404,17 @@ def test_deep_negation_raises_a_parse_error() -> None:
     with pytest.raises(ClueParseError) as caught:
         parse(text)
     assert "deep" in caught.value.message
+
+
+@pytest.mark.parametrize(
+    "clue",
+    [
+        And((Not(prop("in_corner", "white")), prop("in_corner", "mustard"))),
+        And((prop("in_col", "teal", 1), Not(prop("in_col", "M", 1)))),
+        Or((And((Not(prop("on_edge", "white")), prop("on_edge", "mint"))), CORNER_B)),
+    ],
+)
+def test_but_sentences_round_trip(clue: Clue) -> None:
+    text = render(clue, CLASSIC_PALETTE)
+    assert ", but " in text
+    assert parse(text) == clue

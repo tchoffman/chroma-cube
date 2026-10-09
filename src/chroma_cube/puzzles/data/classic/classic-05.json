@@ -1,0 +1,35 @@
+{
+  "id": "classic-05",
+  "title": "Corner Office",
+  "difficulty": "medium",
+  "notes": "The tray has four corners. \"Isn't\" turns a clue around: that cube is anywhere but there.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [
+    {"color": "magenta", "row": 0, "col": 1},
+    {"color": "orange", "row": 0, "col": 2},
+    {"color": "emerald", "row": 2, "col": 0},
+    {"color": "brown", "row": 2, "col": 3}
+  ],
+  "clues": [
+    {"type": "property", "kind": "in_corner", "color": "mustard"},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["orange", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "magenta"]}]},
+    {"type": "relation", "kind": "directly_above", "colors": ["coral", "purple"]},
+    {"type": "relation", "kind": "next_to", "colors": ["cobalt", "white"]},
+    {"type": "and", "clues": [{"type": "not", "clue": {"type": "property", "kind": "in_corner", "color": "mint"}}, {"type": "property", "kind": "in_corner", "color": "black"}]},
+    {"type": "relation", "kind": "next_to", "colors": ["black", "teal"]}
+  ]
+}

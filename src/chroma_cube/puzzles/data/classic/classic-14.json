@@ -1,0 +1,32 @@
+{
+  "id": "classic-14",
+  "title": "Small World",
+  "difficulty": "hard",
+  "notes": "",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [
+    {"color": "teal", "row": 1, "col": 3}
+  ],
+  "clues": [
+    {"type": "or", "clues": [{"type": "relation", "kind": "knows", "colors": ["cobalt", "mustard"]}, {"type": "relation", "kind": "knows", "colors": ["black", "mustard"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mint", "coral"]}, {"type": "relation", "kind": "left_of", "colors": ["mint", "teal"]}, {"type": "relation", "kind": "left_of", "colors": ["mint", "white"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["magenta", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["magenta", "brown"]}, {"type": "relation", "kind": "next_to", "colors": ["magenta", "coral"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["black", "magenta"]}, {"type": "relation", "kind": "right_of", "colors": ["black", "purple"]}]},
+    {"type": "relation", "kind": "directly_above", "colors": ["orange", "mint"]},
+    {"type": "relation", "kind": "below", "colors": ["brown", "mustard"]}
+  ]
+}

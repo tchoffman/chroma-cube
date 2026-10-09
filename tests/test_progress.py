@@ -7,9 +7,8 @@ import pytest
 
 from chroma_cube.core import Cell, Color, Placement, Puzzle
 from chroma_cube.progress import Progress, SolveRecord, default_data_dir
-from chroma_cube.puzzles import classic_puzzles
+from tests.conftest import DEMO
 
-DEMO = classic_puzzles()[0]
 OTHER = Puzzle(
     id="other",
     title="Other",

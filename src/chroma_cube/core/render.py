@@ -65,7 +65,9 @@ class _Renderer:
             case Not(clue=inner):
                 return "It's not true that " + _lower_opener(self.sentence(inner))
             case And(clues=clues):
-                return self.merged(clues) or _join(self.parts(clues), " and ")
+                return (
+                    self.merged(clues) or self.contrast(clues) or _join(self.parts(clues), " and ")
+                )
             case Or(clues=(only,)):
                 return self.sentence(only)
             case Or(clues=clues) if (short := self.alternatives(clues)) is not None:
@@ -192,6 +194,26 @@ class _Renderer:
 
     def listing(self, clues: tuple[Clue, ...]) -> str:
         return "; ".join(self.parts(clues))
+
+    def contrast(self, clues: tuple[Clue, ...]) -> str | None:
+        """A property and its negation for another color: "White isn't in a corner, but
+        Mustard is". Only for two parts with the same property, row or column."""
+        match clues:
+            case (Not(clue=Property() as first), Property() as second):
+                ending = "is"
+            case (Property() as first, Not(clue=Property() as second)):
+                ending = "isn't"
+            case _:
+                return None
+        kind = PROPERTY_KINDS[first.kind]
+        if (
+            (first.kind, first.index) != (second.kind, second.index)
+            or first.color == second.color
+            or not kind.text.startswith("{0} is ")
+            or not kind.negated.startswith("{0} isn't ")
+        ):
+            return None
+        return f"{self.sentence(clues[0])}, but {self.name(second.color)} {ending}"
 
     def merged(self, clues: tuple[Clue, ...]) -> str | None:
         """Merge relations of one kind from one color: "Black knows White, Teal and Mint".
