@@ -331,3 +331,18 @@ about 20 (easy) through 35 and 48 to 52 (expert).
 The ranges are tuned for the classic 12 cells. On another board the given and clue
 ranges scale with the cell count; boards under 4 or over 16 cells are refused with
 `ValueError`, as is a non-classic board where 30 attempts all miss the profile.
+
+## D34: Generated puzzles are named by difficulty and seed; the daily seed is the date (2026-10-08)
+The app opens on a home screen: Classic cards, Infinite and Daily. An infinite puzzle is
+fully identified by its difficulty and seed, so the title shows both ("Infinite · hard ·
+seed 48213") and typing the seed back (`s`) at the same difficulty rebuilds the identical
+puzzle; `n` draws a fresh seed. Fresh seeds are 1 to 99999 so they are easy to read out;
+typed seeds may be any whole number up to 18 digits. The daily seed is the player's local
+date as a number (2026-10-08 is 20261008) at medium difficulty, so everyone gets the same
+puzzle on the same calendar day with no server, and the daily puzzle can also be replayed
+from Infinite · medium with that seed. Generation runs in a Textual worker thread behind a
+"Generating…" notice that Escape cancels; a generator error is shown as a notification.
+Like `q`, `r` and `x`, `n` and `s` are commands on generated puzzles, so a color starting
+with either is reachable only by number or mouse there; no classic color does. The card
+list now sits under the home screen, and the app takes the generator and "today" as
+arguments so tests can supply their own.
