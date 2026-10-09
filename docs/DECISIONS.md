@@ -55,3 +55,33 @@ with CIEDE2000; the two weakest pairs were Mustard/Orange (17.4) and Cobalt/Purp
 Mustard moved to `#ccb800` and Purple to `#9440d8`, lifting the closest pair to about 21.
 Black is near-invisible on a dark background; the UI should give cubes a border or a light
 tray rather than change the core value. The UI may adjust these values for display.
+
+## D11: Relation and property kinds are registry entries, not classes (2026-10-08)
+One `Relation(kind, colors)` node and one `Property(kind, color, index)` node, with a
+registry entry per kind that holds its arity, predicate and English templates. The ternary
+`between` is a relation with arity 3. Adding a kind (color-attribute clues are planned) is
+one entry and touches no evaluator, renderer or serializer code. We gave up per-kind
+classes that a type checker could tell apart; kinds are validated when a node is built.
+
+## D12: Initials pick distinct colors, and `not` negates the whole choice (2026-10-08)
+"B knows B" asks about two different B colors; a cube cannot be related to itself. A clue
+with no valid choice (no Z colors, or "T knows T" with one T color) is false. `not` applied
+to an initial clue means no choice works, which is how the sentence reads ("B isn't in a
+corner"). The alternative, "some B color isn't in a corner", reads wrongly in English.
+
+## D13: Partial evaluation is exact for leaves, Kleene for combinators (2026-10-08)
+A relation or property tries every placement of its own unplaced colors on the free cells,
+which is at most a few hundred cases, and so is exact. Combinators combine their parts'
+three values with Kleene logic instead of searching completions, which keeps evaluation
+cheap and local but can leave a combination UNKNOWN that a search would decide. Alphabetical
+rules check each line on its own for the same reason. The solver does the global search.
+
+## D14: Color references are bare strings in data (2026-10-08)
+A reference is written `"black"` (an id) or `"B"` (an initial), so hand-written puzzle data
+stays short. A single capital letter is always an initial, so a color id may never be one.
+We gave up a fully explicit `{"id": ...}` / `{"initial": ...}` form.
+
+## D15: The renderer takes the board, defaulting to the classic tray (2026-10-08)
+"Top / middle / bottom row" needs the row count, so `render(clue, palette, board)` takes
+an optional board. Compound clues nested in `and`, `or` or a count are bracketed so the
+sentence cannot be misread; the price is some brackets in deeply nested generated clues.
