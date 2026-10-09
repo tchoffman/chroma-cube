@@ -163,3 +163,14 @@ def test_hints_finish_a_puzzle_that_needs_a_reveal() -> None:
     hints, final = play_hints(p)
     assert hints[0].reason is HintReason.REVEAL
     assert final.is_complete(p.palette)
+
+
+def test_a_search_that_runs_out_of_budget_means_no_reveal() -> None:
+    p = needs_a_reveal()
+    assert next_hint(p, p.givens, max_nodes=1) is None
+
+
+def test_running_out_of_budget_never_flags_a_cube_off_the_solution() -> None:
+    hint = next_hint(CARD_1, card_1_with(mint=Cell(0, 0)), max_nodes=1)
+    assert hint is not None
+    assert hint.reason is not HintReason.MISPLACED

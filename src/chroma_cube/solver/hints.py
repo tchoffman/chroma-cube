@@ -25,9 +25,9 @@ from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.puzzle import Puzzle
 from chroma_cube.core.render import cell_name
-from chroma_cube.solver.search import _colors_in, solve
+from chroma_cube.solver.search import colors_in, solve
 
-__all__ = ["Hint", "HintReason", "explain", "next_hint"]
+__all__ = ["HINT_MAX_NODES", "Hint", "HintReason", "explain", "next_hint"]
 
 
 class HintReason(Enum):
@@ -57,13 +57,19 @@ class Hint:
     clues: tuple[int, ...] = ()
 
 
-def next_hint(puzzle: Puzzle, placement: Placement) -> Hint | None:
+HINT_MAX_NODES = 50_000
+"""The search budget for checking uniqueness; a hint must answer at the press of a key."""
+
+
+def next_hint(
+    puzzle: Puzzle, placement: Placement, *, max_nodes: int | None = HINT_MAX_NODES
+) -> Hint | None:
     """The most useful sure move from `placement`, or None if there is none to give.
 
-    None means the tray is complete, or the card has several solutions and no move is
-    forced yet.
+    None means the tray is complete, or no move is forced yet and the card is not known
+    to have exactly one solution (it has several, or the search ran out of `max_nodes`).
     """
-    hinter = _Hinter(puzzle, placement)
+    hinter = _Hinter(puzzle, placement, max_nodes)
     return hinter.misplaced() or hinter.only_cell() or hinter.only_color() or hinter.reveal()
 
 
@@ -99,8 +105,9 @@ def explain(hint: Hint, puzzle: Puzzle) -> str:
 
 
 class _Hinter:
-    def __init__(self, puzzle: Puzzle, placement: Placement) -> None:
+    def __init__(self, puzzle: Puzzle, placement: Placement, max_nodes: int | None) -> None:
         self.puzzle = puzzle
+        self.max_nodes = max_nodes
         self.placement = placement
         self.free = tuple(cell for cell in puzzle.board if placement.color_at(cell) is None)
         self.unplaced = placement.unplaced(puzzle.palette)
@@ -108,7 +115,7 @@ class _Hinter:
         self._solved = False
         self._breaks: dict[tuple[Color, Cell], tuple[int, ...]] = {}
         self._violated_now = self._violated(placement)
-        self._named = [_colors_in(clue, puzzle.palette) for clue in puzzle.clues]
+        self._named = [colors_in(clue, puzzle.palette) for clue in puzzle.clues]
 
     # ------------------------------------------------------------------ levels
 
@@ -168,10 +175,13 @@ class _Hinter:
     # ------------------------------------------------------------------ helpers
 
     def solution(self) -> Placement | None:
-        """The card's solution when it has exactly one, else None."""
+        """The card's solution when it is known to have exactly one, else None.
+
+        A search that runs out of budget counts as "not known to be unique".
+        """
         if not self._solved:
-            result = solve(self.puzzle, limit=1)
-            if result.count == 1 and not result.truncated:
+            result = solve(self.puzzle, limit=1, max_nodes=self.max_nodes)
+            if result.count == 1 and not result.truncated and not result.gave_up:
                 self._solution = result.solutions[0]
             self._solved = True
         return self._solution
