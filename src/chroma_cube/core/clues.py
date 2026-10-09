@@ -325,13 +325,6 @@ ATTRIBUTE_KINDS: dict[str, AttributeKind] = {
         "Every cube next to {0} is a {value} color",
         "Not every cube next to {0} is a {value} color",
     ),
-    "neighbours_none": AttributeKind(
-        "color",
-        QUALITIES,
-        lambda matching, others, _: matching == 0,
-        "No cube next to {0} is a {value} color",
-        "Some cube next to {0} is a {value} color",
-    ),
     "neighbours_some": AttributeKind(
         "color",
         QUALITIES,
@@ -361,7 +354,10 @@ ATTRIBUTE_KINDS: dict[str, AttributeKind] = {
         counted=True,
     ),
 }
-"""Every attribute kind, by the name used in puzzle data. "Next to" means sharing a side."""
+"""Every attribute kind, by the name used in puzzle data. "Next to" means sharing a side.
+
+There is no "none" kind: "No cube next to Mint is a warm color" is
+`Not(neighbours_some(mint, warm))`, said "Mint doesn't sit next to a warm color"."""
 
 
 # --------------------------------------------------------------------------- nodes
@@ -540,7 +536,9 @@ def attribute_clues(board: Board, palette: Palette) -> tuple[AttributeClue, ...]
     """Every attribute clue that names palette colors by id and fits the board.
 
     Values no palette color has are left out, since a clue about them says nothing a
-    player could use. Counts run from zero to the region's size. This is the list a
+    player could use. Counts run from zero to the region's size. On a full board,
+    `region_all(value, region)` holds exactly when `region_count(value, region, n=size)`
+    does, so a generator can skip one of each such pair. This is the list a
     puzzle generator draws attribute clues from, so a new kind in `ATTRIBUTE_KINDS` shows
     up here without changes.
     """

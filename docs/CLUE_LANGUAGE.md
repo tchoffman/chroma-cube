@@ -99,16 +99,19 @@ temperature or tone (`warm`, `cool`, `neutral`, `light`, `dark`); a *family* is 
 | Kind              | Takes                    | True when                                  | English |
 |-------------------|--------------------------|--------------------------------------------|---------|
 | `neighbours_all`  | color, quality           | every cube next to the color has it        | "Every cube next to Mint is a cool color" |
-| `neighbours_none` | color, quality           | no cube next to the color has it           | "No cube next to Mint is a warm color" |
 | `neighbours_some` | color, quality           | at least one cube next to the color has it | "Coral sits next to a dark color" |
 | `next_to_family`  | color, family            | at least one cube next to it is in the family | "Coral sits next to a shade of green" |
 | `region_all`      | region, quality          | every cube in the region has it            | "Every cube in the corners is a warm color" |
 | `region_count`    | region, quality, count n | exactly n cubes in the region have it      | "Exactly two light colors are in the top row" |
 
-Negated: "Not every cube next to Mint is a cool color", "Some cube next to Mint is a warm
-color" (not `neighbours_none`), "Coral doesn't sit next to a dark color" / "a shade of
-green", "Not every cube in the corners is a warm color". A negated `region_count` is "It's
-not true that exactly two light colors are in the top row".
+Negated: "Not every cube next to Mint is a cool color", "Coral doesn't sit next to a dark
+color" / "a shade of green", "Not every cube in the corners is a warm color". A negated
+`region_count` is "It's not true that exactly two light colors are in the top row". There is
+no "none" kind: "no cube next to Mint is warm" is the negated `neighbours_some`, and the
+parser reads it that way.
+
+On a board the palette fills, `region_all(value, region)` and `region_count(value, region, n = the region's
+size)` always agree, so a generator offering both offers the same information twice.
 
 Regions are `corners` ("in the corners"), `edge` ("on the edge"), `center` ("in the
 center"), `row` and `column` with an index ("in the top row", "in the second column"). A
@@ -206,7 +209,9 @@ color  := a palette color name, any case | one capital letter (an initial)
 - Rows: "the top / middle / bottom row", "the third row", "row 3". Columns: "the second
   column", "the 7th column", "column 2". Numbers in text count from 1; indices in the AST
   from 0. A row or column off the board is an error.
-- Attribute clues: "in the middle" for the center region; any number word or digits for
+- Attribute clues: "Some cube next to Mint is a cool color" / "No cube next to Mint is a
+  cool color" (and "... a shade of green") as other ways of saying `neighbours_some` /
+  `next_to_family` and their negations; "in the middle" for the center region; any number word or digits for
   a count; "color" / "colors" and "is" / "are" in either form ("Exactly one light colors
   is in column 2" reads fine). A family that is also a color name ("a shade of orange")
   reads as the family.
