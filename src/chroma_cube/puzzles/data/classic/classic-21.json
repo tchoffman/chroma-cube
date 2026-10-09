@@ -1,0 +1,29 @@
+{
+  "id": "classic-21",
+  "title": "Exactly So",
+  "difficulty": "expert",
+  "notes": "\"Exactly two of these are true\" means two of the listed statements hold and the rest are false; \"at least one\" means one or more of them hold.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [],
+  "clues": [
+    {"type": "exactly", "n": 2, "clues": [{"type": "relation", "kind": "directly_below", "colors": ["teal", "magenta"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "brown"]}, {"type": "relation", "kind": "between", "colors": ["mustard", "cobalt", "mint"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["white", "brown"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "orange"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["coral", "brown"]}, {"type": "relation", "kind": "diagonal", "colors": ["coral", "cobalt"]}, {"type": "relation", "kind": "diagonal", "colors": ["coral", "orange"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["cobalt", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["cobalt", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["cobalt", "mustard"]}]},
+    {"type": "at_least", "n": 1, "clues": [{"type": "relation", "kind": "same_column", "colors": ["orange", "purple"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "C"]}]}
+  ]
+}

@@ -10,8 +10,8 @@ from chroma_cube.core import (
     Truth,
     relation,
 )
-from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui.play import PlayState
+from tests.conftest import DEMO
 
 P = CLASSIC_PALETTE
 BLACK, BROWN, CORAL, MAGENTA, MINT, MUSTARD, ORANGE, TEAL = (
@@ -217,7 +217,7 @@ def test_solved_needs_every_cube_placed_and_every_clue_satisfied() -> None:
 
 # ------------------------------------------------------------------ hints
 
-CARD_1 = classic_puzzles()[0]
+CARD_1 = DEMO
 
 
 def test_a_hint_is_remembered_explained_and_counted() -> None:

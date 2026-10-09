@@ -1,0 +1,32 @@
+{
+  "id": "classic-09",
+  "title": "Either Way",
+  "difficulty": "medium",
+  "notes": "\"Either A or B\" means at least one of them is true.",
+  "board": {"rows": 3, "cols": 4},
+  "palette": [
+    {"id": "black", "name": "Black", "hex": "#1c1c1c"},
+    {"id": "brown", "name": "Brown", "hex": "#8b5a2b"},
+    {"id": "cobalt", "name": "Cobalt", "hex": "#0047ab"},
+    {"id": "coral", "name": "Coral", "hex": "#ff6f61"},
+    {"id": "emerald", "name": "Emerald", "hex": "#009b4d"},
+    {"id": "magenta", "name": "Magenta", "hex": "#e0218a"},
+    {"id": "mint", "name": "Mint", "hex": "#98ffb3"},
+    {"id": "mustard", "name": "Mustard", "hex": "#ccb800"},
+    {"id": "orange", "name": "Orange", "hex": "#ff8c00"},
+    {"id": "purple", "name": "Purple", "hex": "#9440d8"},
+    {"id": "teal", "name": "Teal", "hex": "#008080"},
+    {"id": "white", "name": "White", "hex": "#f5f5f5"}
+  ],
+  "givens": [
+    {"color": "coral", "row": 1, "col": 3},
+    {"color": "teal", "row": 2, "col": 0}
+  ],
+  "clues": [
+    {"type": "or", "clues": [{"type": "relation", "kind": "same_row", "colors": ["coral", "teal"]}, {"type": "relation", "kind": "same_row", "colors": ["purple", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["orange", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "mint"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["white", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "coral"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "emerald"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "right_of", "colors": ["brown", "magenta"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["mustard", "mint"]}, {"type": "relation", "kind": "next_to", "colors": ["mustard", "teal"]}]}
+  ]
+}
