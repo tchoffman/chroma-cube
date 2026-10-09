@@ -20,7 +20,7 @@
   ],
   "givens": [],
   "clues": [
-    {"type": "at_least", "n": 2, "clues": [{"type": "relation", "kind": "directly_below", "colors": ["C", "C"]}, {"type": "relation", "kind": "between", "colors": ["mint", "emerald", "purple"]}, {"type": "relation", "kind": "between", "colors": ["C", "brown", "white"]}]},
+    {"type": "at_least", "n": 2, "clues": [{"type": "relation", "kind": "next_to", "colors": ["C", "mustard"]}, {"type": "relation", "kind": "between", "colors": ["mint", "emerald", "purple"]}, {"type": "relation", "kind": "between", "colors": ["C", "brown", "white"]}]},
     {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mustard", "coral"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "mint"]}]},
     {"type": "relation", "kind": "between", "colors": ["magenta", "mint", "teal"]},
     {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["black", "brown"]}, {"type": "relation", "kind": "above", "colors": ["black", "mustard"]}]},

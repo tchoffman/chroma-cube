@@ -260,7 +260,7 @@ The 25 classic cards live in `chroma_cube/puzzles/data/classic/classic-NN.json` 
 through `importlib.resources`, so they ship inside the wheel and need no path handling. Each
 file is exactly what `puzzle_to_dict` writes (palette and board included, per D16), with one
 line per color, given and clue so a card reads and diffs as a unit. Data rather than a
-Python module because cards are content: the future clue parser, a puzzle editor or the
+Python module because cards are content: the clue parser, a puzzle editor or the
 generator can write the same files, and a test checks every file round-trips. We gave up
 building cards with the clue factories in code, which a type checker would have checked.
 
