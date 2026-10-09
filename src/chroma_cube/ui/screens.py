@@ -96,7 +96,7 @@ class PlayScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
         board = puzzle.board
-        yield Label(f"Card {self.index + 1}: {puzzle.title}", id="card-title")
+        yield Label(self.heading(), id="card-title")
         with Horizontal(id="play"):
             with Vertical(id="left"):
                 tray = Grid(*(TrayCell(cell) for cell in board), id="tray")
@@ -116,6 +116,9 @@ class PlayScreen(Screen[None]):
                 yield from (ClueRow(sentence) for sentence in puzzle.rendered_clues())
         yield Static(HINT, id="message", markup=False)
         yield Footer()
+
+    def heading(self) -> str:
+        return f"Card {self.index + 1}: {self.state.puzzle.title}"
 
     def on_mount(self) -> None:
         self.refresh_view()
@@ -151,9 +154,12 @@ class PlayScreen(Screen[None]):
     def _after_change(self, message: str) -> None:
         self.refresh_view(message)
         if self.state.solved:
-            self._game.card_solved(self.index, self.state.hints_used)
+            self.won()
         else:
             self._save_board()
+
+    def won(self) -> None:
+        self._game.card_solved(self.index, self.state.hints_used)
 
     def _save_board(self) -> None:
         self._game.board_changed(self.index, self.state.placement, self.state.hints_used)
