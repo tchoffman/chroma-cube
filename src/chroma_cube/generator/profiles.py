@@ -65,7 +65,7 @@ PROFILES: dict[Difficulty, Profile] = {
     ),
     "expert": Profile(
         givens=(0, 0),
-        clues=(3, 7),
+        clues=(3, 8),
         features=_POSITIONS | _REGIONS_AND_LOGIC | _CRYPTIC | _COUNTING_AND_RULES,
         signature=_COUNTING_AND_RULES,
     ),
