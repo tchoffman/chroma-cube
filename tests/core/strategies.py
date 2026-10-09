@@ -4,11 +4,13 @@ from hypothesis import strategies as st
 
 from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -16,7 +18,9 @@ from chroma_cube.core.clues import (
     Not,
     Or,
     Property,
+    Region,
     Relation,
+    regions,
 )
 
 color_refs = st.one_of(
@@ -43,6 +47,18 @@ def properties(draw: st.DrawFn) -> Property:
     return Property(kind, draw(color_refs), index)
 
 
+@st.composite
+def attribute_clues(draw: st.DrawFn) -> AttributeClue:
+    name = draw(st.sampled_from(sorted(ATTRIBUTE_KINDS)))
+    kind = ATTRIBUTE_KINDS[name]
+    value = draw(st.sampled_from(kind.values))
+    if kind.subject == "color":
+        return AttributeClue(name, value, color=draw(color_refs))
+    region: Region = draw(st.sampled_from(regions(CLASSIC_BOARD)))
+    n = draw(st.integers(0, len(region.cells(CLASSIC_BOARD)))) if kind.counted else None
+    return AttributeClue(name, value, region=region, n=n)
+
+
 board_rules = st.sampled_from(sorted(BOARD_RULE_KINDS)).map(BoardRule)
 
 
@@ -58,5 +74,5 @@ def _compounds(children: st.SearchStrategy[Clue]) -> st.SearchStrategy[Clue]:
 
 
 clues: st.SearchStrategy[Clue] = st.recursive(
-    st.one_of(relations(), properties(), board_rules), _compounds, max_leaves=12
+    st.one_of(relations(), properties(), attribute_clues(), board_rules), _compounds, max_leaves=12
 )

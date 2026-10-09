@@ -1,7 +1,7 @@
 """The clue language: an immutable AST of clues about where colors sit.
 
-Relation, property and board-rule kinds live in registries (`RELATION_KINDS`,
-`PROPERTY_KINDS`, `BOARD_RULE_KINDS`).
+Relation, property, attribute and board-rule kinds live in registries (`RELATION_KINDS`,
+`PROPERTY_KINDS`, `ATTRIBUTE_KINDS`, `BOARD_RULE_KINDS`).
 Each entry carries everything the rest of the system needs to know about a kind: its
 arity, the predicate over cells that the evaluator uses, and the English templates the
 renderer uses. Adding a kind is one registry entry; no new node class is needed.
@@ -11,10 +11,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from itertools import product
 
 from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.board_rules import columns_alphabetical, rows_alphabetical
-from chroma_cube.core.colors import Palette
+from chroma_cube.core.colors import FAMILIES, QUALITIES, Palette
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.truth import Truth
 
@@ -257,6 +258,112 @@ BOARD_RULE_KINDS: dict[str, BoardRuleKind] = {
 """Every board-wide rule, by the name used in puzzle data."""
 
 
+# --------------------------------------------------------------------------- attributes
+
+REGION_KINDS = ("corners", "edge", "center", "row", "column")
+"""The parts of the board a region clue can talk about. Rows and columns take an index."""
+
+
+@dataclass(frozen=True)
+class Region:
+    """A set of cells named in a clue: `Region("corners")`, `Region("row", 0)`."""
+
+    kind: str
+    index: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind not in REGION_KINDS:
+            raise ValueError(f"unknown region {self.kind!r}")
+        lined = self.kind in ("row", "column")
+        if lined and (self.index is None or self.index < 0):
+            raise ValueError(f"a {self.kind} region needs an index >= 0")
+        if not lined and self.index is not None:
+            raise ValueError(f"the {self.kind} region takes no index")
+
+    def cells(self, board: Board) -> tuple[Cell, ...]:
+        """The region's cells in row-major order. Raises `ValueError` for a line off the board."""
+        match self.kind:
+            case "corners":
+                return tuple(cell for cell in board if board.is_corner(cell))
+            case "edge":
+                return tuple(cell for cell in board if board.is_edge(cell))
+            case "center":
+                return tuple(cell for cell in board if board.is_center(cell))
+            case "row":
+                assert self.index is not None
+                return board.row(self.index)
+        assert self.index is not None
+        return board.column(self.index)
+
+
+@dataclass(frozen=True)
+class AttributeKind:
+    """How a clue about color attributes is decided and said.
+
+    The clue looks at a group of cells: the cells next to its color (`subject` "color")
+    or a named region (`subject` "region"). `holds(matching, others, n)` decides it from
+    how many cubes in those cells have the clue's value and how many do not; `n` is the
+    clue's count for `counted` kinds, else None. `values` lists the values the clue may
+    name. Templates use `{0}` for the color, `{value}`, `{region}` ("in the corners"),
+    `{n}`, and `{colors}` / `{is}`, which agree with `n`. A `negated` of None means
+    `Not(...)` is said as "It's not true that ...".
+    """
+
+    subject: str
+    values: tuple[str, ...]
+    holds: Callable[[int, int, int | None], bool]
+    text: str
+    negated: str | None = None
+    counted: bool = False
+
+
+ATTRIBUTE_KINDS: dict[str, AttributeKind] = {
+    "neighbours_all": AttributeKind(
+        "color",
+        QUALITIES,
+        lambda matching, others, _: others == 0,
+        "Every cube next to {0} is a {value} color",
+        "Not every cube next to {0} is a {value} color",
+    ),
+    "neighbours_none": AttributeKind(
+        "color",
+        QUALITIES,
+        lambda matching, others, _: matching == 0,
+        "No cube next to {0} is a {value} color",
+        "Some cube next to {0} is a {value} color",
+    ),
+    "neighbours_some": AttributeKind(
+        "color",
+        QUALITIES,
+        lambda matching, others, _: matching > 0,
+        "{0} sits next to a {value} color",
+        "{0} doesn't sit next to a {value} color",
+    ),
+    "next_to_family": AttributeKind(
+        "color",
+        FAMILIES,
+        lambda matching, others, _: matching > 0,
+        "{0} sits next to a shade of {value}",
+        "{0} doesn't sit next to a shade of {value}",
+    ),
+    "region_all": AttributeKind(
+        "region",
+        QUALITIES,
+        lambda matching, others, _: others == 0,
+        "Every cube {region} is a {value} color",
+        "Not every cube {region} is a {value} color",
+    ),
+    "region_count": AttributeKind(
+        "region",
+        QUALITIES,
+        lambda matching, others, n: matching == n,
+        "Exactly {n} {value} {colors} {is} {region}",
+        counted=True,
+    ),
+}
+"""Every attribute kind, by the name used in puzzle data. "Next to" means sharing a side."""
+
+
 # --------------------------------------------------------------------------- nodes
 
 
@@ -302,6 +409,38 @@ class BoardRule:
     def __post_init__(self) -> None:
         if self.kind not in BOARD_RULE_KINDS:
             raise ValueError(f"unknown board rule {self.kind!r}")
+
+
+@dataclass(frozen=True)
+class AttributeClue:
+    """A clue about the attributes of the cubes next to a color or in a region, e.g.
+    `AttributeClue("neighbours_all", "cool", color=mint)` or
+    `AttributeClue("region_count", "light", region=Region("row", 0), n=2)`."""
+
+    kind: str
+    value: str
+    color: ColorRef | None = None
+    region: Region | None = None
+    n: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind not in ATTRIBUTE_KINDS:
+            raise ValueError(f"unknown attribute kind {self.kind!r}")
+        kind = ATTRIBUTE_KINDS[self.kind]
+        if self.value not in kind.values:
+            raise ValueError(f"{self.kind} takes one of {kind.values}, got {self.value!r}")
+        if (self.color is not None) != (kind.subject == "color"):
+            raise ValueError(
+                f"{self.kind} {'needs' if kind.subject == 'color' else 'takes no'} color"
+            )
+        if (self.region is not None) != (kind.subject == "region"):
+            raise ValueError(
+                f"{self.kind} {'needs' if kind.subject == 'region' else 'takes no'} region"
+            )
+        if kind.counted and (self.n is None or self.n < 0):
+            raise ValueError(f"{self.kind} needs a count >= 0")
+        if not kind.counted and self.n is not None:
+            raise ValueError(f"{self.kind} takes no count")
 
 
 @dataclass(frozen=True)
@@ -358,7 +497,7 @@ def _check_count(n: int, clues: tuple[Clue, ...]) -> None:
         raise ValueError(f"cannot count {n} of {len(clues)} clues")
 
 
-Clue = Relation | Property | BoardRule | Not | And | Or | Exactly | AtLeast
+Clue = Relation | Property | AttributeClue | BoardRule | Not | And | Or | Exactly | AtLeast
 """Any clue."""
 
 
@@ -373,3 +512,49 @@ def relation(kind: str, *colors: ColorRef | str) -> Relation:
 def prop(kind: str, color: ColorRef | str, index: int | None = None) -> Property:
     """`prop("in_row", "black", 0)`: the string is coerced with `ref`."""
     return Property(kind, ref(color), index)
+
+
+def attribute(
+    kind: str,
+    value: str,
+    *,
+    color: ColorRef | str | None = None,
+    region: Region | None = None,
+    n: int | None = None,
+) -> AttributeClue:
+    """`attribute("neighbours_all", "cool", color="mint")`: a string color is coerced with `ref`."""
+    return AttributeClue(kind, value, None if color is None else ref(color), region, n)
+
+
+def regions(board: Board) -> tuple[Region, ...]:
+    """Every region of the board: corners, edge, center (if any), each row and column."""
+    found = [Region("corners"), Region("edge")]
+    if any(board.is_center(cell) for cell in board):
+        found.append(Region("center"))
+    found += [Region("row", i) for i in range(board.rows)]
+    found += [Region("column", i) for i in range(board.cols)]
+    return tuple(found)
+
+
+def attribute_clues(board: Board, palette: Palette) -> tuple[AttributeClue, ...]:
+    """Every attribute clue that names palette colors by id and fits the board.
+
+    Values no palette color has are left out, since a clue about them says nothing a
+    player could use. Counts run from zero to the region's size. This is the list a
+    puzzle generator draws attribute clues from, so a new kind in `ATTRIBUTE_KINDS` shows
+    up here without changes.
+    """
+    found: list[AttributeClue] = []
+    for name, kind in ATTRIBUTE_KINDS.items():
+        values = [v for v in kind.values if any(color.has(v) for color in palette)]
+        if kind.subject == "color":
+            for color, value in product(palette, values):
+                found.append(AttributeClue(name, value, color=ColorRef(color.id)))
+            continue
+        for region, value in product(regions(board), values):
+            counts: list[int | None] = (
+                list(range(len(region.cells(board)) + 1)) if kind.counted else [None]
+            )
+            for n in counts:
+                found.append(AttributeClue(name, value, region=region, n=n))
+    return tuple(found)

@@ -13,12 +13,14 @@ from chroma_cube.core._data import as_int, as_list, as_str
 from chroma_cube.core.clues import (
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     Exactly,
     Not,
     Or,
     Property,
+    Region,
     Relation,
     ref,
 )
@@ -33,6 +35,17 @@ def clue_to_dict(clue: Clue) -> dict[str, Any]:
             if index is not None:
                 data["index"] = index
             return data
+        case AttributeClue(kind=kind, value=value, color=color, region=region, n=n):
+            attr: dict[str, Any] = {"type": "attribute", "kind": kind, "value": value}
+            if color is not None:
+                attr["color"] = str(color)
+            if region is not None:
+                attr["region"] = region.kind
+                if region.index is not None:
+                    attr["index"] = region.index
+            if n is not None:
+                attr["n"] = n
+            return attr
         case BoardRule(kind=kind):
             return {"type": "board_rule", "kind": kind}
         case Not(clue=inner):
@@ -67,6 +80,18 @@ def _from_dict(data: Mapping[str, Any]) -> Clue:
             index = data.get("index")
             return Property(
                 data["kind"], ref(as_str(data["color"])), None if index is None else as_int(index)
+            )
+        case "attribute":
+            color, region, n = data.get("color"), data.get("region"), data.get("n")
+            index = data.get("index")
+            return AttributeClue(
+                as_str(data["kind"]),
+                as_str(data["value"]),
+                color=None if color is None else ref(as_str(color)),
+                region=None
+                if region is None
+                else Region(as_str(region), None if index is None else as_int(index)),
+                n=None if n is None else as_int(n),
             )
         case "board_rule":
             return BoardRule(data["kind"])

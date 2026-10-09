@@ -12,6 +12,7 @@ from chroma_cube.core.clues import (
     PROPERTY_KINDS,
     And,
     AtLeast,
+    AttributeClue,
     Clue,
     ColorRef,
     Exactly,
@@ -66,6 +67,13 @@ def _check_clue(clue: Clue, board: Board, palette: Palette) -> None:
             size = board.rows if line == "row" else board.cols
             if line is not None and index is not None and index >= size:
                 raise ValueError(f"{line} {index} is not on a {board.rows}x{board.cols} board")
+        case AttributeClue(color=color_ref, region=region, n=n):
+            if color_ref is not None:
+                _check_ref(color_ref, palette)
+            if region is not None:
+                size = len(region.cells(board))
+                if n is not None and n > size:
+                    raise ValueError(f"cannot count {n} cubes in a region of {size} cells")
         case Not(clue=inner):
             _check_clue(inner, board, palette)
         case And(clues=clues) | Or(clues=clues) | Exactly(clues=clues) | AtLeast(clues=clues):
