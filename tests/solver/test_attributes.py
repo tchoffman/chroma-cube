@@ -1,15 +1,27 @@
 """The solver handles clues about color attributes."""
 
+import time
+
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE, Board, Cell, Placement, Puzzle
+from chroma_cube.core import (
+    BOARD_4X4,
+    CLASSIC_BOARD,
+    CLASSIC_PALETTE,
+    EXTENDED_16,
+    Board,
+    Cell,
+    Placement,
+    Puzzle,
+)
 from chroma_cube.core.clues import (
     ATTRIBUTE_KINDS,
     Not,
     Region,
     attribute,
     attribute_clues,
+    prop,
     relation,
 )
 from chroma_cube.core.evaluate import Truth, evaluate
@@ -142,3 +154,48 @@ def test_hints_lead_through_an_attribute_puzzle_to_its_solution() -> None:
         assert hint.reason is not HintReason.MISPLACED
         placement = placement.with_color(hint.color, hint.cell)
     assert placement == Placement(dict(zip(SIX.colors, list(SMALL), strict=True)))
+
+
+# --------------------------------------------------------------------------- speed
+
+FOUR_BY_FOUR_SOLUTION = (
+    ("azure", "coral", "magenta", "mint"),
+    ("white", "cobalt", "garnet", "purple"),
+    ("teal", "emerald", "black", "mustard"),
+    ("silver", "orange", "brown", "lavender"),
+)
+FOUR_BY_FOUR_GIVENS = ("azure", "brown", "cobalt", "emerald", "purple", "silver")
+FOUR_BY_FOUR_CLUES = (
+    attribute("region_count", "light", region=Region("column", 2), n=1),
+    prop("in_row", "mint", 0),
+    attribute("neighbours_some", "light", color="lavender"),
+    relation("directly_above", "white", "teal"),
+    attribute("region_count", "neutral", region=Region("row", 1), n=1),
+    relation("directly_left_of", "coral", "magenta"),
+    attribute("region_count", "cool", region=Region("corners"), n=3),
+    prop("in_col", "mustard", 3),
+)
+
+
+def test_a_4x4_attribute_puzzle_is_proved_unique_quickly() -> None:
+    solution = Placement(
+        {
+            EXTENDED_16.by_id(color_id): Cell(row, col)
+            for row, line in enumerate(FOUR_BY_FOUR_SOLUTION)
+            for col, color_id in enumerate(line)
+        }
+    )
+    givens = Placement(
+        {
+            color: cell
+            for color, cell in solution.assignments.items()
+            if color.id in FOUR_BY_FOUR_GIVENS
+        }
+    )
+    p = puzzle(BOARD_4X4, EXTENDED_16, FOUR_BY_FOUR_CLUES, givens)
+    start = time.perf_counter()
+    result = solve(p, limit=2)
+    elapsed = time.perf_counter() - start
+    assert result.solutions == (solution,)
+    assert not result.truncated and not result.gave_up
+    assert elapsed < 3, f"took {elapsed:.2f}s"

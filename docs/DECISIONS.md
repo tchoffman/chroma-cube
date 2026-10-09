@@ -420,7 +420,10 @@ every placement ("Mint is a cool color", "Mint and Teal are the same temperature
 out. Region and neighbour kinds take qualities only, and families only through
 `next_to_family`; both are one-line changes if wanted. The solver re-checks an
 attribute clue whenever any cube is placed, as for a board rule, since a cube it does not
-name can decide it. We gave up reusing the
+name can decide it. Since only counts matter, the evaluator treats the unplaced colors as
+a pool of so many with the value and so many without, rather than trying placements, which
+keeps that re-checking cheap: a 4 × 4 card with six givens and eight mixed clues proves
+unique in a few hundredths of a second. We gave up reusing the
 `Property` node, which would have needed a second kind of test inside it.
 
 ## D38: Puzzle files store a color's attributes only when the hex would not give them (2026-10-08)
