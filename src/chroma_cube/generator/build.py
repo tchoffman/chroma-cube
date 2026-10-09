@@ -47,6 +47,9 @@ from chroma_cube.generator.profiles import PROFILES, Difficulty, Profile
 from chroma_cube.solver import solve_clues
 
 _MAX_ATTEMPTS = 200
+_MAX_NODES = 20_000
+"""Solver budget per call. A clue set the solver cannot settle within it is dropped and
+the next attempt starts from a fresh solution, so no seed can stall on a hard search."""
 _SLACK = 1
 """How far past the profile's clue limit greedy may run before the attempt is dropped."""
 _RANDOM_DRAWS = 300
@@ -96,7 +99,10 @@ def generate(
     rng = random.Random(seed)
     profile = PROFILES[difficulty]
     for _ in range(_MAX_ATTEMPTS):
-        found = _attempt(rng, profile, difficulty, board, palette)
+        try:
+            found = _attempt(rng, profile, difficulty, board, palette)
+        except _GaveUp:
+            found = None
         if found is not None:
             givens, clues = found
             return Puzzle(
@@ -177,9 +183,20 @@ def _fits(profile: Profile, clues: Sequence[Clue]) -> bool:
     return most <= max(2, (len(clues) + 1) // 2)
 
 
+class _GaveUp(Exception):
+    """The solver ran out of budget before it could answer."""
+
+
 def _unique(board: Board, palette: Palette, clues: Sequence[Clue], givens: Placement) -> bool:
-    result = solve_clues(board, palette, clues, givens=givens, limit=1)
-    return result.count == 1 and not result.truncated
+    """Exactly one solution. Raises `_GaveUp` if the solver's budget ran out first."""
+    result = solve_clues(board, palette, clues, givens=givens, limit=1, max_nodes=_MAX_NODES)
+    if result.count == 1 and not result.truncated and not result.gave_up:
+        return True
+    if result.count > 1 or result.truncated:
+        return False
+    if result.gave_up:
+        raise _GaveUp
+    return False
 
 
 # --------------------------------------------------------------------------- greedy
@@ -289,12 +306,19 @@ class _Greedy:
                 found[other] = None
         if not found:
             result = solve_clues(
-                self.board, self.palette, self.chosen, givens=self.givens, limit=_SOLVER_SAMPLE
+                self.board,
+                self.palette,
+                self.chosen,
+                givens=self.givens,
+                limit=_SOLVER_SAMPLE,
+                max_nodes=_MAX_NODES,
             )
             for solution in result.solutions:
                 other = cells_of(solution, self.palette)
                 if other != self.solution_cells:
                     found[other] = None
+            if result.gave_up and not found:
+                raise _GaveUp
         return list(found)
 
     def walk(self) -> list[tuple[Cell, ...]]:
@@ -392,7 +416,13 @@ def _minimise(
             for other in itertools.chain(greedy.witnesses, greedy.near)
         ):
             continue
-        if _unique(greedy.board, greedy.palette, [clues[j] for j in trial], greedy.givens):
+        try:
+            removable = _unique(
+                greedy.board, greedy.palette, [clues[j] for j in trial], greedy.givens
+            )
+        except _GaveUp:
+            removable = False
+        if removable:
             kept.remove(i)
     return tuple(clues[j] for j in sorted(kept))
 
