@@ -127,7 +127,7 @@ Markers are text as well as border, since no single border color shows on every 
 ## D20: Solving is checked after every change and remembered only for the session (2026-10-08)
 After each change, a card whose cubes are all placed and whose clues are all satisfied
 opens a win dialog with "Next card" and "Back to list", and the card gets a tick in the
-list. Solved cards are kept in memory only; persistence between runs is a separate feature.
+list. Solved cards were kept in memory only at first; D24 makes them persist between runs.
 
 ## D21: The play screen sizes itself from the board and the terminal (2026-10-08)
 The tray's rows and columns come from the puzzle's board, and every track is a fraction of
@@ -161,3 +161,21 @@ reach that form, even for symmetric kinds (`next_to`, `knows`, `same_row`), beca
 when it means the same thing. A shared first color ("Either White knows Teal or White knows
 Mint") keeps the long form, as do a shared initial (each part picks its own B), negated parts
 and four or more parts. We gave up the short form for those clues.
+
+## D24: Progress is one JSON file that is forgiving to read and atomic to write (2026-10-08)
+`chroma_cube.progress.Progress` (pure, no Textual) keeps solved cards (solve count and a
+best-hints slot for when hints exist) and the cubes placed on the last card played. Only one
+in-progress board is kept: opening another card and moving a cube replaces it, and a board
+back at the givens or a solved card clears it. The file is `progress.json` in
+`CHROMA_CUBE_DATA_DIR` if set, else `%APPDATA%\chroma-cube` on Windows,
+`~/Library/Application Support/chroma-cube` on macOS (XDG variables are ignored there) and
+`$XDG_DATA_HOME/chroma-cube` or `~/.local/share/chroma-cube` elsewhere. The lookup is our own
+few lines rather than a `platformdirs` dependency. Reading never raises and never logs:
+an unreadable file starts fresh, and the solved list and the board are checked separately,
+so a bad board does not cost the ticks and a bad solve entry is dropped alone. A saved board
+that no longer fits its card (unknown color, cell off the board or on a given) is ignored.
+Saves write a temporary file in the same directory and rename it over the old one; a save
+that fails (read-only disk, a directory in the way) is silently dropped so play goes on.
+The board is saved on every change, which is one small write per move. Tests point
+`CHROMA_CUBE_DATA_DIR` at a temporary directory through an autouse fixture, so no test
+touches real saves. We gave up any warning when saves are lost, and per-card boards.
