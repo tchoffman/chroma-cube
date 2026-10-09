@@ -138,3 +138,26 @@ everything and 60x20 still shows every cell and cube with a scrolling clue list.
 list never takes keyboard focus, so arrows always move the tray cursor; PageUp/PageDown or
 the mouse wheel scroll it. Textual's command palette is off so its "palette" does not
 collide with the game's.
+
+## D22: The solver is backtracking with forward checking, on the evaluator as it is (2026-10-08)
+The search keeps, for each unplaced color, the cells it could still take: a cell survives
+while placing the color there leaves every clue that mentions the color not VIOLATED. It
+places the color with the fewest candidates first and re-narrows the rest after every
+placement. Clues are indexed by the colors they can name (an initial counts as every
+matching color, a board rule as all of them), so only those clues are re-checked. Ruling a
+cell out is safe because VIOLATED means no completion can satisfy the clue. The evaluator
+in `core/` is unchanged: measured on the classic tray, a five-given puzzle proves unique in
+about 3 ms, a ten-clue empty tray in about 25 ms, and the worst of roughly 1,800 random
+clue sets took 0.25 s. We gave up cleverer propagation (all-different reasoning, clue
+compilation) until a measurement asks for it.
+
+## D23: `limit` counts solutions, and the solver looks one further (2026-10-08)
+`solve(puzzle, limit=n)` returns up to `n` solutions and sets `truncated` when an `n + 1`th
+exists, so one call can say "unique", "N solutions" or "more than N". The default limit is
+1, which answers both "solvable?" and "unique?" with one search. `count_solutions(puzzle,
+cap)` returns at most `cap`, so `cap` there means "at least `cap`".
+
+## D24: The palette must fill the board exactly (2026-10-08)
+A solution places every color and leaves no cell empty, matching the physical game. The
+solver raises `ValueError` when the palette size differs from the cell count rather than
+guessing what an empty cell means for the alphabetical rules.
