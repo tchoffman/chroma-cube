@@ -7,11 +7,13 @@ from itertools import product
 
 from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -34,8 +36,8 @@ SAT, VIOL, UNK = Truth.SATISFIED, Truth.VIOLATED, Truth.UNKNOWN
 def evaluate(clue: Clue, placement: Placement, board: Board, palette: Palette) -> Truth:
     """Decide `clue` on `placement`, as early as the placed cubes allow.
 
-    Relations and properties are exact: they are UNKNOWN only if some way of putting the
-    clue's unplaced colors on free cells makes them true and another makes them false.
+    Relations, properties and attribute clues are exact: they are UNKNOWN only if some
+    way of filling the free cells makes them true and another makes them false.
     Initial-letter references hold if some choice of distinct matching colors holds.
     Combinators use Kleene's three-valued logic over their sub-clues, so a combination
     can stay UNKNOWN even when every completion would decide it the same way.
@@ -53,6 +55,8 @@ def evaluate(clue: Clue, placement: Placement, board: Board, palette: Palette) -
                 board,
                 palette,
             )
+        case AttributeClue():
+            return _attribute(clue, placement, board, palette)
         case BoardRule(kind=kind):
             return BOARD_RULE_KINDS[kind].evaluate(placement, board, palette)
         case Not(clue=inner):
@@ -153,3 +157,82 @@ def _decide(
     if seen_true:
         return SAT
     return VIOL
+
+
+# --------------------------------------------------------------------------- attributes
+
+
+def _attribute(clue: AttributeClue, placement: Placement, board: Board, palette: Palette) -> Truth:
+    """Count matching cubes next to the clue's color or in its region, over every completion.
+
+    A region is decided directly. A color clue tries its color on every free cell when it
+    is not placed yet; initials try each matching color and combine with Kleene "or".
+    """
+    kind = ATTRIBUTE_KINDS[clue.kind]
+
+    def decide(cells: tuple[Cell, ...], trial: Placement) -> tuple[bool, bool]:
+        free_cells = sum(1 for cell in board if trial.color_at(cell) is None)
+        return _counts(
+            cells, trial, palette, free_cells, clue.value, lambda m, o: kind.holds(m, o, clue.n)
+        )
+
+    if clue.region is not None:
+        return _truth(*decide(clue.region.cells(board), placement))
+    assert clue.color is not None
+    free = [cell for cell in board if placement.color_at(cell) is None]
+    truths = []
+    for color in _candidates(clue.color, palette):
+        placed = placement.cell_of(color)
+        seen_true = seen_false = False
+        for spot in (placed,) if placed is not None else tuple(free):
+            trial = placement if placed is not None else placement.with_color(color, spot)
+            can_true, can_false = decide(board.orthogonal_neighbours(spot), trial)
+            seen_true, seen_false = seen_true or can_true, seen_false or can_false
+        truths.append(_truth(seen_true, seen_false))
+    return _any(truths)
+
+
+def _counts(
+    cells: tuple[Cell, ...],
+    placement: Placement,
+    palette: Palette,
+    free_cells: int,
+    value: str,
+    holds: Callable[[int, int], bool],
+) -> tuple[bool, bool]:
+    """Whether some completion makes `holds(matching, others)` true over `cells`, and
+    whether some makes it false.
+
+    Placed cubes in the cells are counted as they are. Each unplaced color lands on one
+    free cell, so what can vary is how many matching (`a`) and other (`b`) unplaced colors
+    land in the empty cells here; any split is possible as long as the rest fit elsewhere.
+    """
+    matching = others = empty = 0
+    for cell in cells:
+        color = placement.color_at(cell)
+        if color is None:
+            empty += 1
+        elif color.has(value):
+            matching += 1
+        else:
+            others += 1
+    unplaced = placement.unplaced(palette)
+    free_matching = sum(1 for color in unplaced if color.has(value))
+    free_others = len(unplaced) - free_matching
+    elsewhere = free_cells - empty
+    can_true = can_false = False
+    for a in range(min(free_matching, empty) + 1):
+        for b in range(min(free_others, empty - a) + 1):
+            if (free_matching - a) + (free_others - b) > elsewhere:
+                continue
+            if holds(matching + a, others + b):
+                can_true = True
+            else:
+                can_false = True
+    return can_true, can_false
+
+
+def _truth(can_true: bool, can_false: bool) -> Truth:
+    if can_true and can_false:
+        return UNK
+    return SAT if can_true else VIOL

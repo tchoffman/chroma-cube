@@ -2,11 +2,15 @@
 
 from chroma_cube.core.board import BOARD_4X4, BOARD_4X5, CLASSIC_BOARD, Board, Cell
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
+    REGION_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
+    AttributeKind,
     BoardRule,
     BoardRuleKind,
     Clue,
@@ -16,10 +20,14 @@ from chroma_cube.core.clues import (
     Or,
     Property,
     PropertyKind,
+    Region,
     Relation,
     RelationKind,
+    attribute,
+    attribute_clues,
     prop,
     ref,
+    regions,
     relation,
 )
 from chroma_cube.core.colors import (
@@ -43,6 +51,14 @@ from chroma_cube.core.render import render
 from chroma_cube.core.serialize import clue_from_dict, clue_to_dict
 
 __all__ = [
+    "ATTRIBUTE_KINDS",
+    "REGION_KINDS",
+    "AttributeClue",
+    "AttributeKind",
+    "Region",
+    "attribute",
+    "attribute_clues",
+    "regions",
     "BOARD_4X4",
     "BOARD_4X5",
     "EXTENDED_16",

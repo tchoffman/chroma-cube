@@ -13,16 +13,18 @@ from __future__ import annotations
 import functools
 import re
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TypeVar
 
 from chroma_cube.core.board import CLASSIC_BOARD, Board
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -30,6 +32,7 @@ from chroma_cube.core.clues import (
     Not,
     Or,
     Property,
+    Region,
     Relation,
 )
 from chroma_cube.core.colors import Palette
@@ -172,11 +175,27 @@ _EXTRA_PROPERTY_TEXT: dict[str, list[tuple[str, str]]] = {
 
 
 @dataclass(frozen=True)
+class _Filled:
+    """What a template's slots were filled with so far."""
+
+    colors: tuple[ColorRef, ...] = ()
+    index: int | None = None
+    region: Region | None = None
+    value: str | None = None
+    n: int | None = None
+
+
+_Builder = Callable[[_Filled], Clue]
+
+
+@dataclass(frozen=True)
 class _Template:
     words: tuple[str, ...]
-    build: Callable[[tuple[ColorRef, ...], int | None], Clue]
+    build: _Builder
     line: str | None = None
     """"row" or "column" if the template has a `{line}` slot."""
+    values: tuple[str, ...] = ()
+    """The words a `{value}` slot accepts."""
 
     @property
     def subject_first(self) -> bool:
@@ -191,28 +210,30 @@ class _Template:
         return "is" if self.words[1] == "is" else "does"
 
 
-def _relation_builder(
-    kind: str, negated: bool
-) -> Callable[[tuple[ColorRef, ...], int | None], Clue]:
-    def build(colors: tuple[ColorRef, ...], _: int | None) -> Clue:
-        clue = Relation(kind, colors)
-        return Not(clue) if negated else clue
+def _negatable(clue: Clue, negated: bool) -> Clue:
+    return Not(clue) if negated else clue
+
+
+def _relation_builder(kind: str, negated: bool) -> _Builder:
+    return lambda filled: _negatable(Relation(kind, filled.colors), negated)
+
+
+def _property_builder(kind: str, negated: bool) -> _Builder:
+    return lambda filled: _negatable(Property(kind, filled.colors[0], filled.index), negated)
+
+
+def _attribute_builder(kind: str, negated: bool) -> _Builder:
+    def build(filled: _Filled) -> Clue:
+        assert filled.value is not None
+        color = filled.colors[0] if filled.colors else None
+        clue = AttributeClue(kind, filled.value, color, filled.region, filled.n)
+        return _negatable(clue, negated)
 
     return build
 
 
-def _property_builder(
-    kind: str, negated: bool
-) -> Callable[[tuple[ColorRef, ...], int | None], Clue]:
-    def build(colors: tuple[ColorRef, ...], index: int | None) -> Clue:
-        clue = Property(kind, colors[0], index)
-        return Not(clue) if negated else clue
-
-    return build
-
-
-def _rule_builder(kind: str) -> Callable[[tuple[ColorRef, ...], int | None], Clue]:
-    return lambda _colors, _index: BoardRule(kind)
+def _rule_builder(kind: str) -> _Builder:
+    return lambda _filled: BoardRule(kind)
 
 
 def _templates() -> list[_Template]:
@@ -232,6 +253,13 @@ def _templates() -> list[_Template]:
             line = property_kind.index
             templates.append(_Template(_words(text), _property_builder(kind, False), line))
             templates.append(_Template(_words(negated), _property_builder(kind, True), line))
+    for kind, attribute_kind in ATTRIBUTE_KINDS.items():
+        values = attribute_kind.values
+        sayings = ((attribute_kind.text, False), (attribute_kind.negated, True))
+        for saying, is_negated in sayings:
+            if saying is not None:
+                build = _attribute_builder(kind, is_negated)
+                templates.append(_Template(_words(saying), build, values=values))
     for kind, rule_kind in BOARD_RULE_KINDS.items():
         templates.append(_Template(_words(rule_kind.text), _rule_builder(kind)))
     return templates
@@ -275,6 +303,8 @@ _NUMERIC_ORDINAL = re.compile(r"(\d+)(?:st|nd|rd|th)")
 _NOT_TRUE = (("it", "is", "not", "true", "that"), ("it", "is", "not", "the", "case", "that"))
 _SEPARATORS = ((",", "and"), (",", "but"), (",", "or"), ("and",), ("but",), ("or",), (",",))
 _CONNECTIVES = {"and": "and", "but": "and", "or": "or"}
+_AGREEING = {"{colors}": ("colors", "color"), "{is}": ("are", "is")}
+"""Slots whose word agrees with a count; the parser takes either form."""
 _MAX_DEPTH = 16
 """How deeply brackets and "it's not true that" may nest."""
 _MAX_ALTERNATIVES = 3
@@ -583,41 +613,76 @@ class _Parser:
         subjects = self.subjects(i)
         for template in _TEMPLATES:
             if not template.subject_first:
-                for clue, stop in self.slots(template, 0, i, (), None):
+                for clue, stop in self.slots(template, 0, i, _Filled()):
                     yield clue, stop, None
                 continue
             for found, end in subjects:
-                for clue, stop in self.slots(template, 1, end, (found[0],), None):
+                for clue, stop in self.slots(template, 1, end, _Filled((found[0],))):
                     if len(found) == 1:
                         yield clue, stop, template.verb
                     else:
                         yield Or(tuple(_with_subject(clue, s) for s in found)), stop, None
 
-    def slots(
-        self,
-        template: _Template,
-        k: int,
-        i: int,
-        colors: tuple[ColorRef, ...],
-        index: int | None,
-    ) -> _Parses:
-        """Match the template from word `k` on, filling color and line slots in order."""
+    def slots(self, template: _Template, k: int, i: int, filled: _Filled) -> _Parses:
+        """Match the template from word `k` on, filling its slots in order."""
         if k == len(template.words):
-            yield template.build(colors, index), i
+            yield template.build(filled), i
             return
         word = template.words[k]
+        word_here = self.word(i)
         if word == "{line}":
             assert template.line is not None
             line = self.line(i, template.line)
             if line is not None:
-                yield from self.slots(template, k + 1, line[1], colors, line[0])
+                yield from self.slots(template, k + 1, line[1], replace(filled, index=line[0]))
+        elif word == "{region}":
+            for region, end in self.region(i):
+                yield from self.slots(template, k + 1, end, replace(filled, region=region))
+        elif word == "{value}":
+            if word_here in template.values:
+                yield from self.slots(template, k + 1, i + 1, replace(filled, value=word_here))
+            else:
+                self.fail(i, "a color attribute")
+        elif word == "{n}":
+            n = _number(word_here or "")
+            if n is not None:
+                yield from self.slots(template, k + 1, i + 1, replace(filled, n=n))
+            else:
+                self.fail(i, "a number")
+        elif word in _AGREEING:
+            if word_here in _AGREEING[word]:
+                yield from self.slots(template, k + 1, i + 1, filled)
+            else:
+                self.fail(i, repr(_AGREEING[word][0]))
         elif word.startswith("{"):
             for color, end in self.color(i):
-                yield from self.slots(template, k + 1, end, (*colors, color), index)
-        elif self.word(i) == word:
-            yield from self.slots(template, k + 1, i + 1, colors, index)
+                colors = (*filled.colors, color)
+                yield from self.slots(template, k + 1, end, replace(filled, colors=colors))
+        elif word_here == word:
+            yield from self.slots(template, k + 1, i + 1, filled)
         else:
             self.fail(i, repr(word))
+
+    def region(self, i: int) -> Iterator[tuple[Region, int]]:
+        """A region with its preposition: "in the corners", "on the edge", "in row 2"."""
+        if self.at(i, "on", "the", "edge"):
+            yield Region("edge"), i + 3
+            return
+        if not self.at(i, "in"):
+            self.fail(i, "'in'")
+            self.fail(i, "'on'")
+            return
+        middle = self.at(i + 1, "the", "middle") and not self.at(i + 3, "row")
+        if middle or self.at(i + 1, "the", "center"):
+            yield Region("center"), i + 3
+            return
+        if self.at(i + 1, "the", "corners"):
+            yield Region("corners"), i + 3
+            return
+        for kind in ("row", "column"):
+            line = self.line(i + 1, kind)
+            if line is not None:
+                yield Region(kind, line[0]), line[1]
 
     def subjects(self, i: int) -> _Subjects:
         """One color, or "either A or B" / "A, B or C" naming up to three alternatives.
@@ -714,7 +779,9 @@ def _repeat(previous: Clue, color: ColorRef, negated: bool) -> Clue | None:
     inner = previous.clue if isinstance(previous, Not) else previous
     if isinstance(inner, Relation) and RELATION_KINDS[inner.kind].text.startswith("{0} and"):
         return None
-    if not isinstance(inner, Relation | Property):
+    if isinstance(inner, AttributeClue) and inner.color is None:
+        return None
+    if not isinstance(inner, Relation | Property | AttributeClue):
         return None
     clue = _with_subject(inner, color)
     return Not(clue) if negated else clue
@@ -729,4 +796,6 @@ def _with_subject(clue: Clue, color: ColorRef) -> Clue:
             return Relation(kind, (color, *colors[1:]))
         case Property(kind=kind, index=index):
             return Property(kind, color, index)
+        case AttributeClue():
+            return replace(clue, color=color)
     raise TypeError(f"no subject to replace in {clue!r}")
