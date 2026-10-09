@@ -127,7 +127,7 @@ Markers are text as well as border, since no single border color shows on every 
 ## D20: Solving is checked after every change and remembered only for the session (2026-10-08)
 After each change, a card whose cubes are all placed and whose clues are all satisfied
 opens a win dialog with "Next card" and "Back to list", and the card gets a tick in the
-list. Solved cards were kept in memory only at first; D24 makes them persist between runs.
+list. Solved cards were kept in memory only at first; D29 makes them persist between runs.
 
 ## D21: The play screen sizes itself from the board and the terminal (2026-10-08)
 The tray's rows and columns come from the puzzle's board, and every track is a fraction of
@@ -161,8 +161,61 @@ reach that form, even for symmetric kinds (`next_to`, `knows`, `same_row`), beca
 when it means the same thing. A shared first color ("Either White knows Teal or White knows
 Mint") keeps the long form, as do a shared initial (each part picks its own B), negated parts
 and four or more parts. We gave up the short form for those clues.
+## D24: The solver is backtracking with forward checking, on the evaluator as it is (2026-10-08)
+The search keeps, for each unplaced color, the cells it could still take: a cell survives
+while placing the color there leaves every clue that mentions the color not VIOLATED. It
+places the color with the fewest candidates first and re-narrows the rest after every
+placement. Clues are indexed by the colors they can name (an initial counts as every
+matching color, a board rule as all of them), so only those clues are re-checked. Ruling a
+cell out is safe because VIOLATED means no completion can satisfy the clue. The evaluator
+in `core/` is unchanged. Measured on the classic tray, a five-given puzzle proves unique in
+about 2 ms and a ten-clue empty tray in about 25 ms. We gave up cleverer propagation
+(all-different reasoning, clue compilation) until a measurement asks for it.
 
-## D24: Progress is one JSON file that is forgiving to read and atomic to write (2026-10-08)
+Correction after review: the first version of this entry said the worst of about 1,800
+random clue sets took 0.25 s. That held for clues true in a known solution, not for random
+clue sets with nested negations: of 400 sets from the test suite's clue strategy, 10 took
+over a second, 6 over ten, and 2 were still running after 30 s. The slowest one profiled
+hid a contradiction that the evaluator only sees on a full board. D27 and D28 deal with
+that. The machine was heavily loaded during these measurements, so absolute times may be
+high; the before/after comparison ran on the same machine and sets.
+
+## D25: `limit` counts solutions, and the solver looks one further (2026-10-08)
+`solve(puzzle, limit=n)` returns up to `n` solutions and sets `truncated` when an `n + 1`th
+exists, so one call can say "unique", "N solutions" or "more than N". The default limit is
+1, which answers both "solvable?" and "unique?" with one search. `count_solutions(puzzle,
+cap)` returns at most `cap`, so `cap` there means "at least `cap`".
+
+## D26: The palette must fill the board exactly (2026-10-08)
+A solution places every color and leaves no cell empty, matching the physical game. The
+solver raises `ValueError` when the palette size differs from the cell count rather than
+guessing what an empty cell means for the alphabetical rules.
+
+## D27: Clues are simplified before the search, using the fact that they all hold (2026-10-08)
+Every clue on a card must be true, so the solver first splits each clue into the separate
+facts it asserts ("not (A or B)" becomes "not A" and "not B", "not not A" becomes "A",
+single-item and all-or-none counts unwrap), then reads any copy of a fact found inside
+another clue as true, or as false if its negation is a fact. A clue that folds to false
+means no solutions; one that folds to true is dropped. This repeats until nothing changes.
+A clue is never simplified using itself, so the result has the same solutions; a
+brute-force property test checks that, including clues built to repeat and negate others.
+This catches contradictions the three-valued evaluator only sees on a full board ("every
+column is alphabetical" next to "not every column is alphabetical", which took 156 s). On
+two batches of 400 random clue sets, none now take over a second (worst 0.6 s). We gave
+up catching contradictions that need real reasoning rather than matching equal clues.
+
+## D28: The search has a budget, and yes/no helpers refuse to guess (2026-10-08)
+`solve` takes `max_nodes` (default 200,000, None for no limit), counting every trial
+placement of a color on a cell. When it runs out the result has `gave_up=True`: the
+solutions listed are real but there may be more, so `truncated` stays False.
+`first_solution`, `is_solvable`, `is_unique` and `count_solutions` raise
+`SearchBudgetExceeded` when the budget ran out before their answer was known, so "unknown"
+is never read as "no". A trial's cost depends on the clues, from about 15 µs to 500 µs, so
+the default allows from about 3 s to about 100 s of work in the worst cases measured; it
+is a backstop against hanging, not a time limit. We gave up a wall-clock limit because it
+makes results depend on the machine.
+
+## D29: Progress is one JSON file that is forgiving to read and atomic to write (2026-10-08)
 `chroma_cube.progress.Progress` (pure, no Textual) keeps solved cards (solve count and a
 best-hints slot for when hints exist) and the cubes placed on the last card played. Only one
 in-progress board is kept: opening another card and moving a cube replaces it, and a board
