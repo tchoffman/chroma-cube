@@ -39,3 +39,19 @@ TDD is the working style: write the failing test first, then the code. CI runs o
 ## D8: Puzzle validity means "at least one solution"; uniqueness is a quality flag (2026-10-08)
 The physical game allows multiple solutions. The solver reports the solution count (capped),
 and the generator aims for uniqueness because unique puzzles are more satisfying to deduce.
+
+## D9: A placement is board-agnostic and never moves a cube implicitly (2026-10-08)
+`Placement` only maps colors to cells; it does not check that a cell is on a given board or
+a color is in a given palette. Callers that care pass the palette (`unplaced`, `is_complete`)
+or check the board themselves. Placing an already-placed color raises instead of moving it,
+so a move is `without(color).with_color(color, cell)` and a mistaken double placement never
+passes silently. A color's initial is derived from its name so the two cannot disagree.
+We gave up a one-call "move" and board validation inside the placement.
+
+## D10: The twelve hex values are our own picks, tuned for the terminal (2026-10-08)
+No source gives the physical cubes' exact colors, so `CLASSIC_PALETTE`'s hex values are
+approximations chosen to be told apart in a truecolor terminal. A review scored every pair
+with CIEDE2000; the two weakest pairs were Mustard/Orange (17.4) and Cobalt/Purple (17.7), so
+Mustard moved to `#ccb800` and Purple to `#9440d8`, lifting the closest pair to about 21.
+Black is near-invisible on a dark background; the UI should give cubes a border or a light
+tray rather than change the core value. The UI may adjust these values for display.
