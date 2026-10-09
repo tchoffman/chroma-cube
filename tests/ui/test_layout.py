@@ -3,6 +3,7 @@
 import pytest
 from textual.app import App
 from textual.widget import Widget
+from textual.widgets import Footer
 
 from chroma_cube.core import (
     CLASSIC_PALETTE,
@@ -114,3 +115,15 @@ async def test_page_down_scrolls_the_clues() -> None:
         await pilot.press("pagedown")
         await pilot.pause()
         assert clues.scroll_y > 0
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20)])
+async def test_a_long_hint_wraps_and_the_tray_still_fits(size: tuple[int, int]) -> None:
+    async with ChromaCubeApp((DEMO,)).run_test(size=size) as pilot:
+        await pilot.press("enter", "h")
+        await pilot.pause()
+        message = pilot.app.screen.query_one("#message")
+        assert message.size.height > 1
+        assert message.region.bottom <= pilot.app.screen.query_one(Footer).region.y
+        for cell in pilot.app.screen.query(TrayCell):
+            assert_reachable(pilot.app, cell)

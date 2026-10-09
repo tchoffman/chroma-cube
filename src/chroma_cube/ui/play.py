@@ -7,6 +7,7 @@ about picking up, placing, swapping and returning cubes lives here and is tested
 from __future__ import annotations
 
 from chroma_cube.core import Cell, Color, Placement, Puzzle, Truth, evaluate
+from chroma_cube.solver import Hint, explain, next_hint
 
 
 class PlayState:
@@ -22,6 +23,10 @@ class PlayState:
         self.placement: Placement = puzzle.givens if placement is None else placement
         self.held: Color | None = None
         self.cursor = Cell(0, 0)
+        self.hint: Hint | None = None
+        """The hint on show; it goes away as soon as the tray changes."""
+        self.hints_used = 0
+        """Hints given on this card, kept through a reset."""
 
     # ------------------------------------------------------------------ queries
 
@@ -92,7 +97,7 @@ class PlayState:
             placement = placement.without(occupant)
             if from_cell is not None:
                 placement = placement.with_color(occupant, from_cell)
-        self.placement = placement.with_color(held, cell)
+        self._set_placement(placement.with_color(held, cell))
         if occupant is None:
             return f"Placed {held.name}."
         if from_cell is None:
@@ -112,7 +117,7 @@ class PlayState:
             held = under
         self.held = None
         if self.placement.cell_of(held) is not None:
-            self.placement = self.placement.without(held)
+            self._set_placement(self.placement.without(held))
         return True
 
     def move_cursor(self, drow: int, dcol: int) -> None:
@@ -123,5 +128,23 @@ class PlayState:
 
     def reset(self) -> None:
         """Back to the card's starting tray."""
-        self.placement = self.puzzle.givens
+        self._set_placement(self.puzzle.givens)
         self.held = None
+
+    def take_hint(self) -> str:
+        """Show the next sure move; returns its explanation for the status bar.
+
+        Asking again before the tray changes shows the same hint and is not counted again.
+        """
+        hint = next_hint(self.puzzle, self.placement)
+        if hint is None:
+            self.hint = None
+            return "No hint: nothing is forced yet."
+        if hint != self.hint:
+            self.hints_used += 1
+        self.hint = hint
+        return f"{explain(hint, self.puzzle)}."
+
+    def _set_placement(self, placement: Placement) -> None:
+        self.placement = placement
+        self.hint = None

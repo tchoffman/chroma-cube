@@ -26,7 +26,9 @@ class TrayCell(Static):
         self.cell = cell
         self.text = ""
 
-    def show(self, color: Color | None, *, given: bool, cursor: bool, held: bool) -> None:
+    def show(
+        self, color: Color | None, *, given: bool, cursor: bool, held: bool, hinted: bool = False
+    ) -> None:
         if color is None:
             self.text = ""
             self.styles.clear_rule("background")
@@ -41,6 +43,7 @@ class TrayCell(Static):
         self.set_class(given, "given")
         self.set_class(cursor, "cursor")
         self.set_class(held, "held")
+        self.set_class(hinted, "hinted")
         self.update(self.text)
 
     def on_click(self) -> None:
@@ -62,10 +65,11 @@ class PaletteChip(Static):
         self.styles.color = text_color(color.hex)
         self.set_class(is_dark(color.hex), "dark")
 
-    def show(self, slot: int | None, *, held: bool) -> None:
+    def show(self, slot: int | None, *, held: bool, hinted: bool = False) -> None:
         """`slot` is the chip's number key, or None when the cube is on the tray."""
         self.display = slot is not None
         self.set_class(held, "held")
+        self.set_class(hinted, "hinted")
         key = "" if slot is None or slot > 10 else f"{slot % 10} "
         pointer = f"{HELD_MARK} " if held else ""
         self.update(f"{pointer}{key}{self.color.name}")
@@ -84,9 +88,10 @@ class ClueRow(Static):
         self.text = ""
         self.show(Truth.UNKNOWN)
 
-    def show(self, truth: Truth) -> None:
+    def show(self, truth: Truth, *, hinted: bool = False) -> None:
         self.truth = truth
         self.text = f"{STATUS_MARKERS[truth]} {self.sentence}"
         for value in Truth:
             self.set_class(value is truth, value.value)
+        self.set_class(hinted, "hinted")
         self.update(self.text)

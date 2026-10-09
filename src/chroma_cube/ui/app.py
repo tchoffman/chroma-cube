@@ -41,10 +41,10 @@ class ChromaCubeApp(App[None]):
     def board_changed(self, index: int, placement: Placement) -> None:
         self.progress.save_board(self.puzzles[index], placement)
 
-    def card_solved(self, index: int) -> None:
-        """Record the solve, forget its board, tick the card and offer the next one."""
+    def card_solved(self, index: int, hints: int = 0) -> None:
+        """Record the solve and its hints, forget its board, tick the card, offer the next."""
         puzzle_id = self.puzzles[index].id
-        self.progress.record_solve(puzzle_id)
+        self.progress.record_solve(puzzle_id, hints=hints)
         self.progress.clear_board(puzzle_id)
         has_next = index + 1 < len(self.puzzles)
 
@@ -53,4 +53,4 @@ class ChromaCubeApp(App[None]):
             if choice == "next" and has_next:
                 self.open_card(index + 1)
 
-        self.push_screen(WinScreen(self.puzzles[index].title, has_next), chosen)
+        self.push_screen(WinScreen(self.puzzles[index].title, has_next, hints), chosen)

@@ -253,3 +253,19 @@ a machine can have several. `--port` takes 1-65535 only: port 0 would pick a ran
 the page never learns. The game command the server runs is quoted for cmd.exe on Windows
 and for a POSIX shell elsewhere; only macOS and Linux have been tried. The README screenshot is an SVG exported from a game driven by
 Textual's test pilot at 100x32, so it is sharp at any size and needs no terminal to retake.
+
+## D31: Hints look one cube ahead and prefer what a player would spot (2026-10-08)
+A hint is, in order: a cube the player put in the wrong place (it breaks a clue, or the
+card has one solution and it is elsewhere in it); a cube with one cell left where no clue
+breaks; a cell that only one cube left can take; and, only on a card with one solution, a
+cube from that solution, the one that settles the most clues. "Breaks" is the same
+VIOLATED the clue list shows, tested one cube at a time, so every forced hint can be
+explained by quoting clues the player can see. When several cubes are forced, the hint
+picks the one whose forcing clues all name it (a clue about Teal placing Teal beats the
+same clue crowding Mint out of its last other cell), then the one resting on fewest clues,
+then palette order; on card 1 this gives Magenta, Coral, White, Teal, Mint. A card with
+several solutions and nothing forced gets no hint rather than a guess, and a wrong cube
+that breaks nothing on such a card is not flagged. Asking twice without moving counts once;
+the count survives a reset and shows in the win dialog. The status line wraps to three
+lines so the explanation is readable at 80 columns. We gave up deeper deductions (chains
+of two or more cubes) until a card needs them.

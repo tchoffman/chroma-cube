@@ -6,7 +6,7 @@ from typing import Any
 from textual.app import App
 from textual.pilot import Pilot
 from textual.screen import Screen
-from textual.widgets import OptionList
+from textual.widgets import Label, OptionList, Static
 
 from chroma_cube.core import CLASSIC_BOARD, CLASSIC_PALETTE, Cell, Puzzle, Truth
 from chroma_cube.puzzles import classic_puzzles
@@ -191,3 +191,32 @@ async def test_q_quits() -> None:
     async with app().run_test(size=SIZE) as pilot:
         await pilot.press("q")
         assert not pilot.app.is_running
+
+
+async def test_h_highlights_the_hinted_cell_chip_and_clues_and_explains() -> None:
+    async with app().run_test(size=SIZE) as pilot:
+        await pilot.press("enter", "h")
+        assert cell_widget(pilot.app, Cell(2, 1)).has_class("hinted")
+        assert not cell_widget(pilot.app, Cell(0, 0)).has_class("hinted")
+        assert pilot.app.screen.query_one("#chip-magenta").has_class("hinted")
+        rows = list(pilot.app.screen.query(ClueRow))
+        assert [row.has_class("hinted") for row in rows] == [True, True, False, False]
+        message = str(pilot.app.screen.query_one("#message", Static).render())
+        assert message.startswith("Magenta must go in the bottom row, second column")
+        assert play(pilot.app).state.hint is not None
+        await pilot.press("m", "down", "down", "right", "enter")
+        assert not cell_widget(pilot.app, Cell(2, 1)).has_class("hinted")
+
+
+async def test_the_win_dialog_counts_the_hints() -> None:
+    async with app().run_test(size=SIZE) as pilot:
+        await pilot.press("enter", "h")
+        await pilot.press("m", "down", "down", "right", "enter", "h")
+        for color_id, cell in SOLUTION.items():
+            if color_id != "magenta":
+                await pilot.click(f"#chip-{color_id}")
+                await pilot.click(f"#cell-{cell.row}-{cell.col}")
+        await pilot.pause()
+        assert isinstance(pilot.app.screen, WinScreen)
+        text = str(pilot.app.screen.query_one("#win-hints", Label).render())
+        assert text == "Solved with 2 hints."
