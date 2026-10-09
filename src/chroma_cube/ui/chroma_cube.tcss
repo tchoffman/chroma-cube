@@ -127,10 +127,10 @@ ClueRow.hinted {
     background: $success 15%;
 }
 
-/* Hint explanations run long, so the status line wraps onto up to three lines. */
+/* Hint explanations run long, so the status line wraps onto up to four lines. */
 #message {
     height: auto;
-    max-height: 3;
+    max-height: 4;
     padding: 0 1;
     color: $text-muted;
     text-overflow: ellipsis;
