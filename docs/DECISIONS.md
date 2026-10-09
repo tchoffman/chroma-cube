@@ -55,3 +55,45 @@ with CIEDE2000; the two weakest pairs were Mustard/Orange (17.4) and Cobalt/Purp
 Mustard moved to `#ccb800` and Purple to `#9440d8`, lifting the closest pair to about 21.
 Black is near-invisible on a dark background; the UI should give cubes a border or a light
 tray rather than change the core value. The UI may adjust these values for display.
+
+## D11: Relation, property and board-rule kinds are registry entries, not classes (2026-10-08)
+One `Relation(kind, colors)` node, one `Property(kind, color, index)` node and one
+`BoardRule(kind)` node, with a registry entry per kind that holds how it is decided and its
+English. Board rules are decided by a three-valued function in their entry, since they
+have no small set of colors to try out. The ternary
+`between` is a relation with arity 3. Adding a kind (color-attribute clues are planned) is
+one entry and touches no evaluator, renderer or serializer code. We gave up per-kind
+classes that a type checker could tell apart; kinds are validated when a node is built.
+
+## D12: Initials pick distinct colors, and `not` negates the whole choice (2026-10-08)
+"B knows B" asks about two different B colors; a cube cannot be related to itself. A clue
+with no valid choice (no Z colors, or "T knows T" with one T color) is false. `not` applied
+to an initial clue means no choice works, which is how the sentence reads ("B isn't in a
+corner"). The alternative, "some B color isn't in a corner", reads wrongly in English.
+
+## D13: Partial evaluation is exact for named leaves, Kleene elsewhere (2026-10-08)
+A relation or property naming its colors by id tries every placement of its own unplaced
+colors on the free cells, which is at most a few hundred cases, and so is exact. With
+initials, each choice of matching colors is decided on its own and the answers are
+combined with a three-valued "or"; combinators combine their parts with Kleene logic; and
+alphabetical rules check each line on its own. All three are sound (a decided answer holds
+on every completion) but can stay UNKNOWN where a joint search would decide. That keeps
+evaluation cheap and local (about a millisecond at worst on the classic board); the
+solver does the global search. We gave up an exact live checker for initials and
+combinations: it may show a clue as open a little longer than strictly needed.
+
+## D14: Color references are bare strings in data (2026-10-08)
+A reference is written `"black"` (an id) or `"B"` (an initial), so hand-written puzzle data
+stays short. A single capital letter is always an initial, so a color id may never be one.
+We gave up a fully explicit `{"id": ...}` / `{"initial": ...}` form.
+
+## D15: The renderer takes the board, defaulting to the classic tray (2026-10-08)
+"Top / middle / bottom row" needs the row count, so `render(clue, palette, board)` takes
+an optional board. Compound clues nested in `and`, `or` or a count are bracketed so the
+sentence cannot be misread; the price is some brackets in deeply nested generated clues.
+
+## D16: A puzzle carries its own palette and board (2026-10-08)
+Each stored puzzle lists its colors (id, name, hex) and board size instead of pointing at a
+named palette, so generated puzzles on other boards or palettes need no lookup table and a
+puzzle file stays readable on its own. Givens are written in reading order so files diff
+cleanly. We gave up smaller files: the classic palette is repeated in every classic puzzle.
