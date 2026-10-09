@@ -13,7 +13,7 @@ from chroma_cube.puzzles.classic import (
     clue_kinds,
     difficulty_score,
 )
-from chroma_cube.solver import solve
+from chroma_cube.solver import DEFAULT_MAX_NODES, solve
 from tests.core.helpers import grid
 
 CARDS = classic_puzzles()
@@ -72,6 +72,7 @@ def kinds(puzzle: Puzzle) -> frozenset[str]:
 
 def is_unique(puzzle: Puzzle) -> bool:
     result = solve(puzzle, limit=1)
+    assert not result.gave_up, f"{puzzle.id} ran past the search budget"
     return result.count == 1 and not result.truncated
 
 
@@ -156,6 +157,14 @@ def test_a_card_that_introduces_a_clue_kind_explains_it() -> None:
 
 
 # ------------------------------------------------------------------ solving
+
+
+@pytest.mark.parametrize("number", NUMBERS)
+def test_card_solves_within_the_default_search_budget(number: int) -> None:
+    puzzle = card(number)
+    result = solve(puzzle, limit=1, max_nodes=DEFAULT_MAX_NODES)
+    assert not result.gave_up
+    assert result.count == 1 and not result.truncated
 
 
 @pytest.mark.parametrize("number", NUMBERS)
