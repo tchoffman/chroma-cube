@@ -2,7 +2,7 @@
   "id": "classic-15",
   "title": "Slantwise",
   "difficulty": "hard",
-  "notes": "\"Diagonal to\" means the two cubes touch only at a corner.",
+  "notes": "\"Diagonal to\" means the two cubes touch only at a corner. \"A is between B and C\" means B and C sit right next to A on opposite sides, in one row or one column.",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},
@@ -20,11 +20,11 @@
   ],
   "givens": [],
   "clues": [
-    {"type": "relation", "kind": "diagonal", "colors": ["magenta", "mustard"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["emerald", "black"]}, {"type": "relation", "kind": "left_of", "colors": ["emerald", "mint"]}, {"type": "relation", "kind": "left_of", "colors": ["emerald", "orange"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["white", "coral"]}, {"type": "relation", "kind": "diagonal", "colors": ["white", "mint"]}, {"type": "relation", "kind": "diagonal", "colors": ["white", "purple"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "below", "colors": ["coral", "black"]}, {"type": "relation", "kind": "below", "colors": ["coral", "cobalt"]}]},
-    {"type": "relation", "kind": "directly_right_of", "colors": ["magenta", "purple"]},
-    {"type": "property", "kind": "in_corner", "color": "teal"}
+    {"type": "relation", "kind": "diagonal", "colors": ["black", "cobalt"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["orange", "cobalt"]}, {"type": "relation", "kind": "diagonal", "colors": ["orange", "mint"]}, {"type": "relation", "kind": "diagonal", "colors": ["orange", "purple"]}]},
+    {"type": "relation", "kind": "between", "colors": ["mustard", "cobalt", "magenta"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["mint", "coral"]}, {"type": "relation", "kind": "right_of", "colors": ["mint", "purple"]}, {"type": "relation", "kind": "right_of", "colors": ["mint", "teal"]}]},
+    {"type": "relation", "kind": "below", "colors": ["white", "teal"]},
+    {"type": "relation", "kind": "directly_above", "colors": ["brown", "magenta"]}
   ]
 }

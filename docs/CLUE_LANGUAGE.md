@@ -159,6 +159,7 @@ true if there is *some* choice of matching colors that makes it true.
 | `and` of one relation from one color    | "Black knows White, Teal and Mint" (when the template ends with the second color and the shared color is named, not an initial) |
 | `or`                                    | "Either X or Y", "Either X, Y or Z"; a one-clue `or` is just that clue |
 | `or` of 2–3 like clauses, first color differs | "Either Teal or Black is in the same row as Cobalt", "Either Teal, Mint or B is in a corner" |
+| `and` of a property and its negation for another color | "White isn't in a corner, but Mustard is" (two parts, same property and row or column) |
 | `exactly(n)` / `at_least(n)`            | "Exactly one of these is true: X; Y; Z"                 |
 | `rows_alphabetical`                     | "Every row is in alphabetical order from left to right" |
 | `columns_alphabetical`                  | "Every column is in alphabetical order from top to bottom" |

@@ -2,7 +2,7 @@
   "id": "classic-16",
   "title": "Caught in the Middle",
   "difficulty": "hard",
-  "notes": "\"A is between B and C\" means B and C sit right next to A on opposite sides, in one row or one column.",
+  "notes": "",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},
@@ -20,11 +20,11 @@
   ],
   "givens": [],
   "clues": [
-    {"type": "relation", "kind": "between", "colors": ["magenta", "teal", "white"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mustard", "black"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "orange"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["orange", "brown"]}, {"type": "relation", "kind": "diagonal", "colors": ["orange", "coral"]}, {"type": "relation", "kind": "diagonal", "colors": ["orange", "magenta"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["cobalt", "emerald"]}, {"type": "relation", "kind": "above", "colors": ["cobalt", "teal"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "knows", "colors": ["emerald", "magenta"]}, {"type": "relation", "kind": "knows", "colors": ["emerald", "mint"]}, {"type": "relation", "kind": "knows", "colors": ["emerald", "teal"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["coral", "brown"]}, {"type": "relation", "kind": "above", "colors": ["coral", "mustard"]}]}
+    {"type": "relation", "kind": "between", "colors": ["orange", "mint", "teal"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["mustard", "black"]}, {"type": "relation", "kind": "diagonal", "colors": ["mustard", "cobalt"]}, {"type": "relation", "kind": "diagonal", "colors": ["mustard", "coral"]}]},
+    {"type": "relation", "kind": "between", "colors": ["white", "black", "coral"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["white", "black"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "magenta"]}]},
+    {"type": "or", "clues": [{"type": "relation", "kind": "above", "colors": ["emerald", "mint"]}, {"type": "relation", "kind": "above", "colors": ["orange", "mint"]}]},
+    {"type": "or", "clues": [{"type": "relation", "kind": "above", "colors": ["black", "brown"]}, {"type": "relation", "kind": "above", "colors": ["emerald", "brown"]}]}
   ]
 }

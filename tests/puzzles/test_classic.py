@@ -1,17 +1,20 @@
 """The 25 classic cards: they load, solve, read well and get harder as they go."""
 
 import json
+import statistics
+from functools import cache
 from importlib.resources import files
 
 import pytest
 
-from chroma_cube.core import Cell, Puzzle, puzzle_from_dict, puzzle_to_dict
+from chroma_cube.core import And, Cell, Clue, Puzzle, Relation, puzzle_from_dict, puzzle_to_dict
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.puzzles.classic import (
     DIFFICULTIES,
     classic_puzzle,
     clue_kinds,
     difficulty_score,
+    rate_card,
 )
 from chroma_cube.solver import DEFAULT_MAX_NODES, solve
 from tests.core.helpers import grid
@@ -156,6 +159,51 @@ def test_a_card_that_introduces_a_clue_kind_explains_it() -> None:
         seen |= new
 
 
+@cache
+def rating(number: int) -> int:
+    return rate_card(card(number))
+
+
+def test_measured_difficulty_climbs_by_tier() -> None:
+    medians = [
+        statistics.median(rating(n) for n in NUMBERS if card(n).difficulty == tier)
+        for tier in DIFFICULTIES
+    ]
+    assert medians == sorted(medians), medians
+
+
+def test_the_last_card_is_the_hardest() -> None:
+    assert all(rating(25) > rating(n) for n in NUMBERS if n != 25)
+
+
+def test_rate_card_is_zero_when_every_step_is_forced() -> None:
+    assert rating(1) == 0
+
+
+def fills_a_line(puzzle: Puzzle, clue: Clue) -> bool:
+    """ "X is right of A, B and C" or "X is above A and B": one clue that fills a whole row
+    or column around X."""
+    if not isinstance(clue, And) or not all(isinstance(sub, Relation) for sub in clue.clues):
+        return False
+    relations = [sub for sub in clue.clues if isinstance(sub, Relation)]
+    kinds = {r.kind for r in relations}
+    subjects = {r.colors[0] for r in relations}
+    if len(kinds) != 1 or len(subjects) != 1:
+        return False
+    span = {"left_of": puzzle.board.cols, "right_of": puzzle.board.cols}.get(
+        relations[0].kind,
+        puzzle.board.rows if relations[0].kind in ("above", "below") else 0,
+    )
+    return span > 0 and len(relations) >= span - 1
+
+
+def test_line_filling_clues_are_rare() -> None:
+    counts = {n: sum(fills_a_line(card(n), clue) for clue in card(n).clues) for n in NUMBERS}
+    assert max(counts.values()) <= 1, counts
+    late = [n for n in NUMBERS if card(n).difficulty in ("hard", "expert")]
+    assert sum(1 for n in late if counts[n] == 0) * 2 >= len(late), counts
+
+
 # ------------------------------------------------------------------ solving
 
 
@@ -215,7 +263,7 @@ CARD_1_SOLUTION = grid(
 )
 
 
-def test_card_1_reads_like_the_published_card() -> None:
+def test_card_1_wording_adapts_the_published_walkthrough() -> None:
     assert card(1).rendered_clues() == (
         "Coral and Magenta are in the same column",
         "Black sits next to Magenta",

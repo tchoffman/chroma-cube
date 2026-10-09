@@ -2,7 +2,7 @@
   "id": "classic-08",
   "title": "Empty Tray",
   "difficulty": "medium",
-  "notes": "No cubes to start with: every cube is placed from the clues alone.",
+  "notes": "No cubes to start with: every cube is placed from the clues alone. Rows are named top, middle and bottom.",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},
@@ -21,10 +21,10 @@
   "givens": [],
   "clues": [
     {"type": "not", "clue": {"type": "property", "kind": "in_corner", "color": "purple"}},
-    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["teal", "coral"]}, {"type": "relation", "kind": "right_of", "colors": ["teal", "emerald"]}, {"type": "relation", "kind": "right_of", "colors": ["teal", "orange"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["brown", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "teal"]}, {"type": "relation", "kind": "next_to", "colors": ["brown", "white"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "below", "colors": ["black", "mustard"]}, {"type": "relation", "kind": "below", "colors": ["black", "orange"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["mustard", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["mustard", "white"]}]},
-    {"type": "relation", "kind": "above", "colors": ["coral", "purple"]}
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["teal", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["teal", "brown"]}, {"type": "relation", "kind": "next_to", "colors": ["teal", "cobalt"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["mint", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["mint", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["mint", "mustard"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["mint", "brown"]}, {"type": "relation", "kind": "left_of", "colors": ["mint", "white"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["orange", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["orange", "mustard"]}]},
+    {"type": "property", "kind": "in_row", "color": "coral", "index": 2}
   ]
 }

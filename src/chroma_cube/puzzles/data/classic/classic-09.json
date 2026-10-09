@@ -19,14 +19,14 @@
     {"id": "white", "name": "White", "hex": "#f5f5f5"}
   ],
   "givens": [
-    {"color": "magenta", "row": 0, "col": 3},
-    {"color": "mustard", "row": 1, "col": 2}
+    {"color": "coral", "row": 1, "col": 3},
+    {"color": "teal", "row": 2, "col": 0}
   ],
   "clues": [
-    {"type": "or", "clues": [{"type": "relation", "kind": "same_row", "colors": ["cobalt", "mustard"]}, {"type": "relation", "kind": "same_row", "colors": ["magenta", "mustard"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["brown", "black"]}, {"type": "relation", "kind": "left_of", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["brown", "teal"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "above", "colors": ["coral", "emerald"]}, {"type": "relation", "kind": "above", "colors": ["coral", "white"]}]},
-    {"type": "relation", "kind": "directly_above", "colors": ["purple", "teal"]},
-    {"type": "or", "clues": [{"type": "property", "kind": "in_col", "color": "mint", "index": 0}, {"type": "property", "kind": "in_col", "color": "mustard", "index": 0}]}
+    {"type": "or", "clues": [{"type": "relation", "kind": "same_row", "colors": ["coral", "teal"]}, {"type": "relation", "kind": "same_row", "colors": ["purple", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["orange", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "mint"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "teal"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["white", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "coral"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "emerald"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "right_of", "colors": ["brown", "magenta"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["mustard", "mint"]}, {"type": "relation", "kind": "next_to", "colors": ["mustard", "teal"]}]}
   ]
 }

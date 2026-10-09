@@ -21,7 +21,8 @@ Place all 12 cubes so that every clue on the card is true.
 
 - Same row / same column: "Coral and Magenta are in the same column."
 - Adjacency: "Black sits next to Magenta."
-- Either/or: "Either Teal or Black is in the same row as Cobalt."
+- Either/or: "Either Teal or Black sits next to Cobalt." (Our card 1 adapts this to "Either
+  Teal or Black is in the same row as Cobalt" so that every clue on it is needed.)
 - Corners and negation: "White isn't in a corner, but Mustard is."
 - A cryptic relation: "Mint knows Cobalt, Magenta, and Brown." The game never defines
   "knows"; the player works it out from earlier cards.
