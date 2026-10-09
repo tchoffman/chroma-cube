@@ -20,8 +20,9 @@ FAMILIES = ("red", "orange", "yellow", "green", "blue", "purple", "pink", "brown
 
 _GREY_CHROMA = 0.12
 """Below this spread between the strongest and weakest channel a color reads as grey."""
-_LIGHT_LUMINANCE = 0.18
-"""Relative luminance from which a color is light; black text reads better on it (see D19)."""
+LIGHT_LUMINANCE = 0.18
+"""Relative luminance from which a color is light: black text reads better on it, and the UI
+draws it without a light outline (see D19)."""
 
 
 def attributes_from_hex(hex_value: str) -> tuple[str, str, str]:
@@ -35,7 +36,7 @@ def attributes_from_hex(hex_value: str) -> tuple[str, str, str]:
     if not _HEX.fullmatch(hex_value):
         raise ValueError(f"color hex must look like #rrggbb, got {hex_value!r}")
     red, green, blue = (int(hex_value[i : i + 2], 16) / 255 for i in (1, 3, 5))
-    tone = "light" if _luminance(red, green, blue) >= _LIGHT_LUMINANCE else "dark"
+    tone = "light" if luminance(hex_value) >= LIGHT_LUMINANCE else "dark"
     if max(red, green, blue) - min(red, green, blue) < _GREY_CHROMA:
         return "neutral", tone, "grey"
     hue, _, value = colorsys.rgb_to_hsv(red, green, blue)
@@ -55,11 +56,14 @@ def _family(hue: float, value: float, lightness: float) -> str:
     return "purple" if hue < 290 else "pink"
 
 
-def _luminance(red: float, green: float, blue: float) -> float:
-    def linear(channel: float) -> float:
-        return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+def luminance(hex_value: str) -> float:
+    """WCAG relative luminance of a `#rrggbb` color, from 0 (black) to 1 (white)."""
 
-    return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    def channel(offset: int) -> float:
+        value = int(hex_value[offset : offset + 2], 16) / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
 
 
 @dataclass(frozen=True)
