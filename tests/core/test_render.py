@@ -132,10 +132,10 @@ def test_and_does_not_merge_when_the_sentence_would_break() -> None:
 def test_or() -> None:
     two = Or((prop("in_corner", "black"), relation("knows", "teal", "white")))
     assert render(two, CLASSIC_PALETTE) == "Either Black is in a corner or Teal knows White"
-    three = Or((prop("in_corner", "black"), prop("in_corner", "teal"), prop("in_corner", "mint")))
+    three = Or((prop("in_corner", "black"), prop("on_edge", "teal"), prop("in_corner", "mint")))
     assert (
         render(three, CLASSIC_PALETTE)
-        == "Either Black is in a corner, Teal is in a corner or Mint is in a corner"
+        == "Either Black is in a corner, Teal is on an edge or Mint is in a corner"
     )
 
 
@@ -178,10 +178,14 @@ def test_board_rules() -> None:
 
 
 def test_fixed_openers_are_lowercased_mid_sentence() -> None:
-    clue = Not(Or((prop("in_corner", "black"), prop("in_corner", "white"))))
+    clue = Not(Or((prop("in_corner", "black"), prop("on_edge", "white"))))
     assert (
         render(clue, CLASSIC_PALETTE)
-        == "It's not true that either Black is in a corner or White is in a corner"
+        == "It's not true that either Black is in a corner or White is on an edge"
+    )
+    short = Not(Or((prop("in_corner", "black"), prop("in_corner", "white"))))
+    assert (
+        render(short, CLASSIC_PALETTE) == "It's not true that either Black or White is in a corner"
     )
 
 
@@ -201,3 +205,81 @@ def test_and_does_not_merge_when_the_shared_color_is_an_initial() -> None:
 
 def test_a_one_item_or_is_just_its_clue() -> None:
     assert render(Or((prop("in_corner", "black"),)), CLASSIC_PALETTE) == "Black is in a corner"
+
+
+def test_card_one_either_or_reads_like_the_card() -> None:
+    clue = Or((relation("same_row", "teal", "cobalt"), relation("same_row", "black", "cobalt")))
+    assert render(clue, CLASSIC_PALETTE) + "." == (
+        "Either Teal or Black is in the same row as Cobalt."
+    )
+
+
+@pytest.mark.parametrize(
+    ("clue", "sentence"),
+    [
+        (
+            Or((relation("next_to", "teal", "white"), relation("next_to", "mint", "white"))),
+            "Either Teal or Mint sits next to White",
+        ),
+        (
+            Or(
+                (
+                    relation("above", "teal", "white"),
+                    relation("above", "mint", "white"),
+                    relation("above", "B", "white"),
+                )
+            ),
+            "Either Teal, Mint or B is above White",
+        ),
+        (
+            Or(
+                (relation("same_column", "teal", "white"), relation("same_column", "mint", "white"))
+            ),
+            "Either Teal or Mint is in the same column as White",
+        ),
+        (
+            Or((prop("in_corner", "teal"), prop("in_corner", "mint"))),
+            "Either Teal or Mint is in a corner",
+        ),
+        (
+            Or((prop("in_row", "teal", 2), prop("in_row", "M", 2), prop("in_row", "white", 2))),
+            "Either Teal, M or White is in the bottom row",
+        ),
+        (
+            And(
+                (prop("in_corner", "black"), Or((prop("on_edge", "teal"), prop("on_edge", "mint"))))
+            ),
+            "Black is in a corner and (either Teal or Mint is on an edge)",
+        ),
+    ],
+)
+def test_either_or_sharing_a_color_collapses(clue: Clue, sentence: str) -> None:
+    assert render(clue, CLASSIC_PALETTE) == sentence
+
+
+@pytest.mark.parametrize(
+    "clue",
+    [
+        # The shared color is first: swapping it to the end would change the clue.
+        Or((relation("next_to", "white", "teal"), relation("next_to", "white", "mint"))),
+        # Different kinds, rows or second colors.
+        Or((relation("next_to", "teal", "white"), relation("knows", "mint", "white"))),
+        Or((relation("next_to", "teal", "white"), relation("next_to", "mint", "black"))),
+        Or((prop("in_row", "teal", 0), prop("in_row", "mint", 1))),
+        # Negated branches, a three-color relation, four branches, a repeated color.
+        Or((Not(prop("in_corner", "teal")), Not(prop("in_corner", "mint")))),
+        Or(
+            (
+                relation("between", "teal", "white", "black"),
+                relation("between", "mint", "white", "black"),
+            )
+        ),
+        Or(tuple(prop("in_corner", color) for color in ("teal", "mint", "white", "black"))),
+        Or((prop("in_corner", "teal"), prop("in_corner", "teal"))),
+        # A shared initial: each branch picks its own B, so one sentence would say too much.
+        Or((relation("knows", "teal", "B"), relation("knows", "mint", "B"))),
+    ],
+)
+def test_other_either_or_clues_keep_the_long_form(clue: Or) -> None:
+    first = render(clue.clues[0], CLASSIC_PALETTE)
+    assert render(clue, CLASSIC_PALETTE).startswith(f"Either {first}")
