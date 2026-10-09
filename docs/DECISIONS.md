@@ -404,10 +404,17 @@ value, color | region, n)` with `ATTRIBUTE_KINDS` keeps D11's shape: each kind i
 saying whether it looks at a color's neighbours or a region, which values it takes, and a
 test on (matching count, other count, n). Evaluation, rendering, parsing, serialization
 and `attribute_clues` (the generator's list) are written once for all kinds. "Next to"
-means sharing a side, like `next_to`. Sentences are chosen so no two clues read alike: a
-negated `neighbours_none` is "Some cube next to Mint is ...", while `neighbours_some` is
-"Mint sits next to a ... color", and families read "a shade of green" so a family named
-like a color ("a shade of orange") is never taken for the Orange cube. `region_count`
+means sharing a side, like `next_to`. A kind is added only if no other clue already says
+it: "no cube next to Mint is warm" was a `neighbours_none` kind, but it is exactly "Mint
+doesn't sit next to a warm color", so it was folded into a negated `neighbours_some` and
+its sentences parse to that. The sitting-next-to sentence was the one kept because it reads
+like the cards and because "Mint sits next to a warm color, but Teal doesn't" then repeats
+with the right meaning. Families read "a shade of green" so a family named like a color
+("a shade of orange") is never taken for the Orange cube. Two pairs still overlap on full
+boards and are documented rather than merged: `next_to_family` is `neighbours_some` over
+families (one value list per kind keeps each sentence's words unambiguous), and
+`region_all` matches `region_count` with n set to the region's size (they differ on
+boards the palette does not fill). `region_count`
 has no short negation and is said "It's not true that exactly ...". Clues that hold on
 every placement ("Mint is a cool color", "Mint and Teal are the same temperature") are left
 out. Region and neighbour kinds take qualities only, and families only through

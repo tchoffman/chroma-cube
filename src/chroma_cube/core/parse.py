@@ -173,6 +173,16 @@ _EXTRA_PROPERTY_TEXT: dict[str, list[tuple[str, str]]] = {
 }
 """Other ways of saying a property, beside the registry's own English."""
 
+_EXTRA_ATTRIBUTE_TEXT: dict[str, list[tuple[str, str]]] = {
+    "neighbours_some": [
+        ("Some cube next to {0} is a {value} color", "No cube next to {0} is a {value} color")
+    ],
+    "next_to_family": [
+        ("Some cube next to {0} is a shade of {value}", "No cube next to {0} is a shade of {value}")
+    ],
+}
+"""Other ways of saying an attribute clue, beside the registry's own English."""
+
 
 @dataclass(frozen=True)
 class _Filled:
@@ -255,7 +265,12 @@ def _templates() -> list[_Template]:
             templates.append(_Template(_words(negated), _property_builder(kind, True), line))
     for kind, attribute_kind in ATTRIBUTE_KINDS.items():
         values = attribute_kind.values
-        sayings = ((attribute_kind.text, False), (attribute_kind.negated, True))
+        sayings: list[tuple[str | None, bool]] = [
+            (attribute_kind.text, False),
+            (attribute_kind.negated, True),
+        ]
+        for text, negated in _EXTRA_ATTRIBUTE_TEXT.get(kind, []):
+            sayings += [(text, False), (negated, True)]
         for saying, is_negated in sayings:
             if saying is not None:
                 build = _attribute_builder(kind, is_negated)

@@ -29,6 +29,7 @@ from chroma_cube.core.clues import (
     Region,
     attribute,
     attribute_clues,
+    regions,
 )
 from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.parse import parse_clue
@@ -57,7 +58,6 @@ top_row = Region("row", 0)
 def test_every_kind_is_registered() -> None:
     assert set(ATTRIBUTE_KINDS) == {
         "neighbours_all",
-        "neighbours_none",
         "neighbours_some",
         "next_to_family",
         "region_all",
@@ -111,11 +111,11 @@ def test_region_cells() -> None:
         # Mint's neighbours: cobalt, magenta, mustard, teal.
         (attribute("neighbours_all", "cool", color="mint"), VIOL),
         (attribute("neighbours_some", "cool", color="mint"), SAT),
-        (attribute("neighbours_none", "warm", color="mint"), VIOL),
-        (attribute("neighbours_none", "neutral", color="mint"), SAT),
+        (Not(attribute("neighbours_some", "warm", color="mint")), VIOL),
+        (Not(attribute("neighbours_some", "neutral", color="mint")), SAT),
         # Orange's neighbours: emerald and purple.
         (attribute("neighbours_all", "cool", color="orange"), SAT),
-        (attribute("neighbours_none", "warm", color="orange"), SAT),
+        (Not(attribute("neighbours_some", "warm", color="orange")), SAT),
         (attribute("neighbours_some", "dark", color="orange"), SAT),
         (attribute("neighbours_all", "dark", color="orange"), VIOL),
         (attribute("next_to_family", "blue", color="mint"), SAT),
@@ -254,10 +254,9 @@ def test_attribute_clues_with_initials_are_sound(case: tuple[Clue, Placement, Pa
             Not(attribute("neighbours_all", "cool", color="mint")),
             "Not every cube next to Mint is a cool color",
         ),
-        (attribute("neighbours_none", "warm", color="M"), "No cube next to M is a warm color"),
         (
-            Not(attribute("neighbours_none", "warm", color="mint")),
-            "Some cube next to Mint is a warm color",
+            Not(attribute("neighbours_some", "warm", color="M")),
+            "M doesn't sit next to a warm color",
         ),
         (attribute("neighbours_some", "dark", color="coral"), "Coral sits next to a dark color"),
         (
@@ -340,6 +339,43 @@ def test_parse_variants(text: str, clue: Clue) -> None:
     assert parse_clue(text, CLASSIC_PALETTE) == clue
 
 
+@pytest.mark.parametrize(
+    ("text", "clue"),
+    [
+        (
+            "No cube next to Mint is a warm color",
+            Not(attribute("neighbours_some", "warm", color="mint")),
+        ),
+        ("Some cube next to M is a dark color", attribute("neighbours_some", "dark", color="M")),
+        (
+            "no cube next to Teal is a shade of green",
+            Not(attribute("next_to_family", "green", color="teal")),
+        ),
+        (
+            "Some cube next to Teal is a shade of green",
+            attribute("next_to_family", "green", color="teal"),
+        ),
+    ],
+)
+def test_other_ways_of_saying_sits_next_to_parse_to_the_same_clue(text: str, clue: Clue) -> None:
+    assert parse_clue(text, CLASSIC_PALETTE) == clue
+
+
+def test_there_is_no_separate_none_kind() -> None:
+    # "No cube next to Mint is warm" is exactly "Mint doesn't sit next to a warm color".
+    with pytest.raises(ValueError):
+        attribute("neighbours_none", "warm", color="mint")
+
+
+def test_region_all_on_a_full_board_is_a_count_of_the_whole_region() -> None:
+    for region in regions(CLASSIC_BOARD):
+        size = len(region.cells(CLASSIC_BOARD))
+        for value in ("warm", "cool", "neutral", "light", "dark"):
+            every = attribute("region_all", value, region=region)
+            count = attribute("region_count", value, region=region, n=size)
+            assert ev(every) is ev(count)
+
+
 def test_short_repeat_of_an_attribute_clause() -> None:
     assert parse_clue("Mint sits next to a cool color, but Teal doesn't", CLASSIC_PALETTE) == And(
         (
@@ -384,7 +420,7 @@ def test_attribute_clue_shapes() -> None:
 @pytest.mark.parametrize(
     "clue",
     [
-        attribute("neighbours_none", "dark", color="B"),
+        Not(attribute("neighbours_some", "dark", color="B")),
         attribute("next_to_family", "pink", color="teal"),
         attribute("region_count", "cool", region=Region("column", 3), n=0),
         Not(attribute("region_all", "neutral", region=Region("edge"))),

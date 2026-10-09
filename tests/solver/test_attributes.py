@@ -26,8 +26,8 @@ from tests.solver.helpers import brute_force, puzzle, small_palette
 #   orange  purple  teal    white
 ONE_OF_EACH = (
     attribute("neighbours_all", "cool", color="orange"),
-    attribute("neighbours_none", "neutral", color="mint"),
     attribute("neighbours_some", "warm", color="mint"),
+    Not(attribute("neighbours_some", "neutral", color="mint")),
     attribute("next_to_family", "blue", color="mint"),
     attribute("region_all", "light", region=Region("row", 1)),
     attribute("region_count", "dark", region=Region("row", 0), n=3),
@@ -35,7 +35,8 @@ ONE_OF_EACH = (
 
 
 def test_the_clues_cover_every_kind_and_hold_on_the_solution() -> None:
-    assert {clue.kind for clue in ONE_OF_EACH} == set(ATTRIBUTE_KINDS)
+    kinds = {(clue.clue if isinstance(clue, Not) else clue).kind for clue in ONE_OF_EACH}
+    assert kinds == set(ATTRIBUTE_KINDS)
     for clue in ONE_OF_EACH:
         assert evaluate(clue, FULL, CLASSIC_BOARD, CLASSIC_PALETTE) is Truth.SATISFIED
 
@@ -124,7 +125,7 @@ def test_hints_place_the_cube_an_attribute_clue_is_about() -> None:
         ROW,
         THREE,
         [
-            attribute("neighbours_none", "neutral", color="cobalt"),
+            Not(attribute("neighbours_some", "neutral", color="cobalt")),
             attribute("region_count", "neutral", region=Region("column", 0), n=1),
         ],
     )
