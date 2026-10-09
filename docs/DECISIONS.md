@@ -268,6 +268,9 @@ several solutions and nothing forced gets no hint rather than a guess, and a wro
 that breaks nothing on such a card is not flagged. The uniqueness check runs with a budget
 of 50,000 trial placements, a quarter of the solver's default, so a key press answers
 quickly; a search that runs out counts as "not known to be unique" (see D28). Asking twice without moving counts once;
-the count survives a reset and shows in the win dialog. The status line wraps to three
+the count survives a reset, shows in the win dialog, and is saved with the in-progress
+board (an optional `hints` field in the board's entry, read as 0 when missing or malformed,
+so older progress files still load), so quitting and resuming does not reset it. A board
+with hints taken is kept even when its cubes are back at the givens. The status line wraps to three
 lines so the explanation is readable at 80 columns. We gave up deeper deductions (chains
 of two or more cubes) until a card needs them.

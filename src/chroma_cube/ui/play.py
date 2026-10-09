@@ -17,16 +17,21 @@ class PlayState:
     tray (picked up from a cell); it only moves when it is put down somewhere.
     """
 
-    def __init__(self, puzzle: Puzzle, placement: Placement | None = None) -> None:
-        """Start from `placement` (a board saved earlier), or else the card's givens."""
+    def __init__(
+        self, puzzle: Puzzle, placement: Placement | None = None, hints_used: int = 0
+    ) -> None:
+        """Start from `placement` (a board saved earlier), or else the card's givens.
+
+        `hints_used` carries over the hints taken on a saved board.
+        """
         self.puzzle = puzzle
         self.placement: Placement = puzzle.givens if placement is None else placement
         self.held: Color | None = None
         self.cursor = Cell(0, 0)
         self.hint: Hint | None = None
         """The hint on show; it goes away as soon as the tray changes."""
-        self.hints_used = 0
-        """Hints given on this card, kept through a reset."""
+        self.hints_used = hints_used
+        """Hints given on this card, kept through a reset and saved with the board."""
 
     # ------------------------------------------------------------------ queries
 

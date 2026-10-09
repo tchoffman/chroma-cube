@@ -254,3 +254,10 @@ def test_no_hint_when_nothing_is_forced() -> None:
     assert state.take_hint() == "No hint: nothing is forced yet."
     assert state.hint is None
     assert state.hints_used == 0
+
+
+def test_a_resumed_board_starts_with_the_hints_already_taken() -> None:
+    state = PlayState(CARD_1, CARD_1.givens, hints_used=2)
+    assert state.hints_used == 2
+    state.take_hint()
+    assert state.hints_used == 3

@@ -36,10 +36,12 @@ class ChromaCubeApp(App[None]):
     def open_card(self, index: int) -> None:
         """Play a card, picking up where the player left it if its board was saved."""
         puzzle = self.puzzles[index]
-        self.push_screen(PlayScreen(index, puzzle, self.progress.saved_board(puzzle)))
+        saved = self.progress.saved_board(puzzle)
+        hints = 0 if saved is None else self.progress.saved_hints(puzzle.id)
+        self.push_screen(PlayScreen(index, puzzle, saved, hints))
 
-    def board_changed(self, index: int, placement: Placement) -> None:
-        self.progress.save_board(self.puzzles[index], placement)
+    def board_changed(self, index: int, placement: Placement, hints: int = 0) -> None:
+        self.progress.save_board(self.puzzles[index], placement, hints)
 
     def card_solved(self, index: int, hints: int = 0) -> None:
         """Record the solve and its hints, forget its board, tick the card, offer the next."""
