@@ -4,16 +4,30 @@ import json
 import os
 import subprocess
 import sys
+import time
 from collections import Counter
 from dataclasses import replace
 
 import pytest
 
-from chroma_cube.core import CLASSIC_PALETTE, Board, Palette, Puzzle, puzzle_to_dict
+from chroma_cube.core import (
+    CLASSIC_PALETTE,
+    And,
+    AtLeast,
+    Board,
+    Color,
+    Exactly,
+    Or,
+    Palette,
+    Property,
+    Puzzle,
+    puzzle_to_dict,
+)
+from chroma_cube.core.parse import parse_clue
 from chroma_cube.generator import DIFFICULTIES, PROFILES, Difficulty, clue_features, generate
 from chroma_cube.generator.build import primary_kind
 from chroma_cube.generator.candidates import clue_colors
-from chroma_cube.solver import is_unique
+from chroma_cube.solver import is_unique, solve
 from tests.generator.helpers import SAMPLE_SEEDS, generated
 
 
@@ -108,12 +122,42 @@ def test_no_single_kind_dominates() -> None:
         assert counts.most_common(1)[0][1] <= max(2, (len(puzzle.clues) + 1) // 2)
 
 
-def test_clues_render_as_english() -> None:
+def test_clues_render_as_english_that_parses_back() -> None:
     for puzzle in _sample():
-        for text in puzzle.rendered_clues():
-            assert isinstance(text, str)
-            assert len(text) > 10
-            assert "{" not in text
+        for clue, text in zip(puzzle.clues, puzzle.rendered_clues(), strict=True):
+            assert parse_clue(text, puzzle.palette, puzzle.board) == clue, text
+
+
+def test_compound_clues_have_no_part_only_about_given_cubes() -> None:
+    for puzzle in _sample():
+        for clue in puzzle.clues:
+            if isinstance(clue, Or | Exactly | AtLeast | And):
+                for part in clue.clues:
+                    colors = clue_colors(part, puzzle.palette)
+                    assert not all(c in puzzle.givens.assignments for c in colors), (
+                        puzzle.id,
+                        puzzle.rendered_clues(),
+                    )
+
+
+def test_each_level_has_its_own_solution_for_the_same_seed() -> None:
+    solutions = {solve(generated(0, level)).solutions[0] for level in DIFFICULTIES}
+    assert len(solutions) == len(DIFFICULTIES)
+
+
+def test_hard_puzzles_vary_their_clue_families() -> None:
+    puzzles = [generated(seed, "hard") for seed in range(20)]
+    without_between = [
+        p for p in puzzles if not any("between" in clue_features(c) for c in p.clues)
+    ]
+    assert len(without_between) >= 5
+
+
+def test_no_cube_is_pinned_by_a_row_and_a_column_clue() -> None:
+    for puzzle in _sample():
+        rows = {c.color for c in puzzle.clues if isinstance(c, Property) and c.kind == "in_row"}
+        cols = {c.color for c in puzzle.clues if isinstance(c, Property) and c.kind == "in_col"}
+        assert not rows & cols, puzzle.id
 
 
 def test_other_boards_and_palettes() -> None:
@@ -125,15 +169,51 @@ def test_other_boards_and_palettes() -> None:
     assert is_unique(puzzle)
 
 
+def _wide_palette(size: int) -> Palette:
+    extra = [Color(f"extra{i}", f"Extra{i}", "#123456") for i in range(size - 12)]
+    return Palette(CLASSIC_PALETTE.colors + tuple(extra))
+
+
+@pytest.mark.parametrize(
+    ("board", "palette"),
+    [
+        (Board(2, 2), Palette(CLASSIC_PALETTE.colors[:4])),
+        (Board(4, 4), _wide_palette(16)),
+    ],
+)
+@pytest.mark.parametrize("difficulty", DIFFICULTIES)
+def test_small_and_large_boards_generate_or_refuse_quickly(
+    board: Board, palette: Palette, difficulty: Difficulty
+) -> None:
+    start = time.perf_counter()
+    try:
+        puzzle = generate(3, difficulty, board=board, palette=palette)
+    except ValueError:
+        pass
+    else:
+        assert is_unique(puzzle)
+    assert time.perf_counter() - start < 20
+
+
+@pytest.mark.parametrize("board", [Board(1, 2), Board(1, 3), Board(5, 5)])
+def test_boards_the_profiles_do_not_fit_are_refused(board: Board) -> None:
+    palette = (
+        _wide_palette(len(board))
+        if len(board) > 12
+        else Palette(CLASSIC_PALETTE.colors[: len(board)])
+    )
+    with pytest.raises(ValueError, match="board"):
+        generate(1, "hard", board=board, palette=palette)
+
+
 def test_palette_must_fill_the_board() -> None:
     with pytest.raises(ValueError, match="board"):
         generate(1, "easy", board=Board(2, 2))
 
 
 def test_generation_never_exceeds_the_solver_budget() -> None:
-    for seed in range(20, 23):
-        for level in DIFFICULTIES:
-            assert is_unique(generate(seed, level))
+    for puzzle in _sample():
+        assert is_unique(puzzle)
 
 
 def test_a_solver_that_always_gives_up_rejects_every_attempt(
@@ -145,3 +225,9 @@ def test_a_solver_that_always_gives_up_rejects_every_attempt(
     monkeypatch.setattr(build, "_MAX_ATTEMPTS", 5)
     with pytest.raises(RuntimeError, match="no hard puzzle"):
         generate(1, "hard")
+
+
+def test_some_expert_puzzles_use_an_alphabetical_rule() -> None:
+    rules = {"rows_alphabetical", "columns_alphabetical"}
+    expert = [generated(seed, "expert") for seed in SAMPLE_SEEDS]
+    assert any(rules & clue_features(clue) for p in expert for clue in p.clues)

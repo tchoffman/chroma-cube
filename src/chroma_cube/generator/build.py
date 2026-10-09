@@ -13,10 +13,12 @@ the same random stream, so a seed still maps to exactly one puzzle.
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import random
 from collections import Counter
 from collections.abc import Sequence
+from dataclasses import replace
 
 from chroma_cube.core.board import CLASSIC_BOARD, Board, Cell
 from chroma_cube.core.clues import (
@@ -46,7 +48,15 @@ from chroma_cube.generator.candidates import (
 from chroma_cube.generator.profiles import PROFILES, Difficulty, Profile
 from chroma_cube.solver import solve_clues
 
+_POSITIONS = PROFILES["easy"].features
+"""Every positional relation; easy uses only these."""
+
 _MAX_ATTEMPTS = 200
+_MAX_OTHER_BOARD_ATTEMPTS = 30
+_MIN_CELLS = 4
+_MAX_CELLS = 16
+_FAMILY_DROP = 0.6
+"""Chance that an attempt leaves out each non-positional clue family."""
 _MAX_NODES = 20_000
 """Solver budget per call. A clue set the solver cannot settle within it is dropped and
 the next attempt starts from a fresh solution, so no seed can stall on a hard search."""
@@ -86,8 +96,9 @@ def generate(
 ) -> Puzzle:
     """A new puzzle with exactly one solution. The same arguments always give the same puzzle.
 
-    Raises `ValueError` for an unknown difficulty or a palette that does not fill the
-    board, and `RuntimeError` if no attempt fits the profile (not seen on the classic tray).
+    Raises `ValueError` for an unknown difficulty, a palette that does not fill the board,
+    a board outside 4 to 16 cells, or a non-classic board on which no attempt fits the
+    profile; `RuntimeError` if no attempt fits on the classic tray (not seen in practice).
     """
     if difficulty not in PROFILES:
         raise ValueError(f"unknown difficulty {difficulty!r}; pick one of {list(PROFILES)}")
@@ -96,9 +107,10 @@ def generate(
             f"a {board.rows}x{board.cols} board needs {len(board)} colors, "
             f"the palette has {len(palette)}"
         )
-    rng = random.Random(seed)
-    profile = PROFILES[difficulty]
-    for _ in range(_MAX_ATTEMPTS):
+    profile = fit_profile(PROFILES[difficulty], board)
+    rng = random.Random(_seed_of(seed, difficulty, board, palette))
+    classic = board == CLASSIC_BOARD
+    for _ in range(_MAX_ATTEMPTS if classic else _MAX_OTHER_BOARD_ATTEMPTS):
         try:
             found = _attempt(rng, profile, difficulty, board, palette)
         except _GaveUp:
@@ -114,7 +126,47 @@ def generate(
                 clues=clues,
                 difficulty=difficulty,
             )
+    if not classic:
+        raise ValueError(
+            f"no {difficulty} puzzle fits a {board.rows}x{board.cols} board for seed {seed}"
+        )
     raise RuntimeError(f"no {difficulty} puzzle found for seed {seed}")
+
+
+def fit_profile(profile: Profile, board: Board) -> Profile:
+    """The profile scaled to the board: given and clue counts grow with the cell count.
+
+    The ranges are tuned for the classic twelve cells. Raises `ValueError` for a board
+    with fewer than 4 or more than 16 cells, where the scaled profile stops making sense
+    or the search gets too slow.
+    """
+    cells = len(board)
+    if not _MIN_CELLS <= cells <= _MAX_CELLS:
+        raise ValueError(
+            f"a {board.rows}x{board.cols} board has {cells} cells; "
+            f"the generator handles {_MIN_CELLS} to {_MAX_CELLS}"
+        )
+    if cells == len(CLASSIC_BOARD):
+        return profile
+    scale = cells / len(CLASSIC_BOARD)
+    most_givens = cells - 2
+
+    def scaled(low: int, high: int, floor: int, cap: int) -> tuple[int, int]:
+        new_low = min(max(floor, round(low * scale)), cap)
+        return new_low, min(max(new_low, round(high * scale)), cap)
+
+    return replace(
+        profile,
+        givens=scaled(*profile.givens, 0, most_givens),
+        clues=scaled(*profile.clues, 1, cells),
+    )
+
+
+def _seed_of(seed: int, difficulty: str, board: Board, palette: Palette) -> int:
+    """A stable seed for the random stream, different for every level, board and palette."""
+    ids = ",".join(color.id for color in palette)
+    key = f"{difficulty}:{seed}:{board.rows}x{board.cols}:{ids}"
+    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "big")
 
 
 def primary_kind(clue: Clue) -> str:
@@ -148,10 +200,14 @@ def _attempt(
     given_colors = rng.sample(list(palette), given_count)
     givens = Placement({color: solution.assignments[color] for color in given_colors})
 
+    features = _families(rng, profile)
+    if order is not None:
+        features |= {f"{order}_alphabetical"}
     pool = [
         clue
-        for clue in candidate_pool(rng, solution, board, palette, profile.features)
+        for clue in candidate_pool(rng, solution, board, palette, features)
         if not _only_about_givens(clue, givens, palette)
+        and not _has_hollow_part(clue, givens, palette)
     ]
     greedy = _Greedy(rng, profile, solution, givens, pool, board, palette)
     chosen = greedy.run()
@@ -163,6 +219,28 @@ def _attempt(
     if not _unique(board, palette, clues, givens):
         return None
     return givens, clues
+
+
+def _families(rng: random.Random, profile: Profile) -> frozenset[str]:
+    """The features this attempt may use: every positional one, and a random share of the rest.
+
+    Without this the strongest families (between, grouped "sits next to") would land on
+    every hard card. At least one signature feature always survives.
+    """
+    optional = sorted(profile.features - _POSITIONS)
+    kept = {feature for feature in optional if rng.random() >= _FAMILY_DROP}
+    signature = sorted(profile.signature)
+    if signature and not kept & profile.signature:
+        kept.add(rng.choice(signature))
+    return (profile.features & _POSITIONS) | frozenset(kept)
+
+
+def _has_hollow_part(clue: Clue, givens: Placement, palette: Palette) -> bool:
+    """A compound clue with a part only about given cubes: that part is settled already,
+    so the clue is a plainer clue in disguise."""
+    if not isinstance(clue, Or | And | Exactly | AtLeast):
+        return False
+    return any(_only_about_givens(part, givens, palette) for part in clue.clues)
 
 
 def _only_about_givens(clue: Clue, givens: Placement, palette: Palette) -> bool:
@@ -330,7 +408,7 @@ class _Greedy:
         """
         found: list[tuple[Cell, ...]] = []
         free_cells = [self.solution_cells[i] for i in self.free]
-        if len(self.free) < 2:
+        if len(self.free) < 2 or not self.chosen:
             return found
         for _ in range(_WALK_RESTARTS):
             self.rng.shuffle(free_cells)
@@ -362,6 +440,17 @@ class _Greedy:
         """Which chosen clues `cells` breaks, by position."""
         return [i for i, check in enumerate(self.chosen_checks) if not check(cells)]
 
+    def pins_a_cube(self, clue: Clue) -> bool:
+        """A row clue for a cube that already has a column clue, or the other way round,
+        would just be a given in disguise."""
+        if not isinstance(clue, Property) or clue.kind not in ("in_row", "in_col"):
+            return False
+        other = "in_col" if clue.kind == "in_row" else "in_row"
+        return any(
+            isinstance(c, Property) and c.kind == other and c.color == clue.color
+            for c in self.chosen
+        )
+
     def allowed(self, cells: tuple[Cell, ...]) -> bool:
         return all(check(cells) for check in self.chosen_checks)
 
@@ -379,11 +468,11 @@ class _Greedy:
         best: tuple[float, int] | None = None
         for i in range(len(self.pool)):
             cut = alive - (self.alive & self.masks[i]).bit_count()
-            if cut == 0:
+            if cut == 0 or self.pins_a_cube(self.pool[i]):
                 continue
             score = cut / alive
             score *= _REPEAT_PENALTY ** used[self.kinds[i]]
-            for feature in self.features[i] & _SPECIAL:
+            for feature in sorted(self.features[i] & _SPECIAL):
                 score *= _SPECIAL_PENALTY ** special[feature]
             if want_signature and self.features[i] & self.profile.signature:
                 score *= _SIGNATURE_BONUS

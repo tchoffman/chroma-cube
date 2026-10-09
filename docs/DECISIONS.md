@@ -294,12 +294,17 @@ are tight, a short local search for far-away rivals, and only then the solver. R
 seen on the way also let minimisation skip most solver calls (a removal is impossible if
 a known rival satisfies the clues that are left). Clues are checked on full placements
 with compiled closures rather than the three-valued evaluator, which is far slower for
-yes/no questions. Only `random.Random(seed)` drives choices and nothing iterates a set, so
-a seed gives the same puzzle in every process. An attempt that misses its profile is
-dropped and the next attempt continues the same random stream. A clue whose colors are
-all given, or that rules out no sampled rival (so is implied by what is already chosen),
-is never picked; a clue and its negation are never both true on the solution, so never
-both in the pool. We gave up exact "cuts the most solutions" scoring and puzzles whose
+yes/no questions. The random stream is seeded from a SHA-256 of the level, the seed, the
+board size and the palette ids, so the same seed gives a different answer at each level,
+and nothing that drives a choice iterates a set, so a seed gives the same puzzle in every
+process. An attempt that misses its profile, or whose clues the solver cannot settle
+within its 20,000-node budget, is dropped and the next attempt continues the same random
+stream. A clue whose colors are all given is never in the pool, and neither is an
+either/or, count or group with a part only about given cubes (that part is already
+settled, so the clue is a plainer clue in disguise). A clue that rules out no sampled
+rival (so is implied by what is already chosen) is never picked, nor is a row clue for a
+cube that already has a column clue (together they are a given). A clue and its negation
+are never both true on the solution, so never both in the pool. We gave up exact "cuts the most solutions" scoring and puzzles whose
 order of clues follows a teaching sequence.
 
 ## D33: Difficulty profiles (2026-10-08)
@@ -310,7 +315,10 @@ order of clues follows a teaching sequence.
 | hard   | 0–1    | 5–8   | knows, diagonal, between, initials, grouped relations      | knows/diagonal/between/initial |
 | expert | 0      | 3–8   | exactly/at least counts, alphabetical rows/columns         | a count or alphabetical rule |
 
-Within a puzzle each repeat of a clue family costs a factor, and so does each reuse of a
+Each attempt keeps every positional family and each other family with probability 0.4
+(at least one signature feature always survives). Without that, the strongest families
+("between", grouped "sits next to") landed on every hard card; now about a third of hard
+cards have no "between". Within a puzzle each repeat of a clue family costs a factor, and so does each reuse of a
 slow or heavy feature (initials, either/or, negation, counts, between), which keeps one
 kind from crowding the card and keeps the solver fast. Two in five expert puzzles start
 from a solution whose rows or columns are alphabetical, so the board rule can appear; on
@@ -319,3 +327,7 @@ but with no givens and only counts as its signature it needs seven or eight; the
 alphabetical expert puzzles do come out at about five. `rate(puzzle)` gives a simple
 score (three per cube to place plus each clue's heaviest feature weight) that rises from
 about 20 (easy) through 35 and 48 to 52 (expert).
+
+The ranges are tuned for the classic 12 cells. On another board the given and clue
+ranges scale with the cell count; boards under 4 or over 16 cells are refused with
+`ValueError`, as is a non-classic board where 30 attempts all miss the profile.
