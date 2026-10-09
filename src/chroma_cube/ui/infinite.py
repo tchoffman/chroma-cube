@@ -6,12 +6,13 @@ import random
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, ClassVar
 
-from textual import on, work
+from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
+from textual.worker import Worker, WorkerState
 
 from chroma_cube.core import Placement, Puzzle
 from chroma_cube.generator import Difficulty
@@ -75,36 +76,30 @@ class GeneratingScreen(ModalScreen[Puzzle | None]):
         super().__init__()
         self.spec = spec
         self.generate = generate
-        self.cancelled = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="modal"):
             yield Label(f"Generating {self.spec.title}…")
 
     def on_mount(self) -> None:
-        self.run_generator()
+        self.run_worker(self.run_generator, thread=True, exit_on_error=False)
 
-    @work(thread=True, exit_on_error=False)
-    def run_generator(self) -> None:
-        spec = self.spec
-        try:
-            puzzle = self.generate(spec.seed, spec.difficulty)
-        except Exception as error:  # report anything; a silent worker would hang the notice
-            self.app.call_from_thread(self.failed, error)
-            return
-        self.app.call_from_thread(self.finish, puzzle)
+    def run_generator(self) -> Puzzle:
+        return self.generate(self.spec.seed, self.spec.difficulty)
 
-    def finish(self, puzzle: Puzzle) -> None:
-        if not self.cancelled:
-            self.dismiss(puzzle)
-
-    def failed(self, error: Exception) -> None:
-        if not self.cancelled:
-            self.app.notify(f"Could not generate that puzzle: {error}", severity="error")
+    @on(Worker.StateChanged)
+    def worker_done(self, event: Worker.StateChanged) -> None:
+        """Close only once the worker has finished, so closing cannot cancel it mid-handover."""
+        worker = event.worker
+        if event.state is WorkerState.SUCCESS and isinstance(worker.result, Puzzle):
+            self.dismiss(worker.result)
+        elif event.state is WorkerState.ERROR:
+            message = f"Could not generate that puzzle: {worker.error}"
+            self.app.notify(message, severity="error")
             self.dismiss(None)
 
     def action_cancel(self) -> None:
-        self.cancelled = True
+        """Closing the screen cancels its worker; a result that arrives later is dropped."""
         self.dismiss(None)
 
 

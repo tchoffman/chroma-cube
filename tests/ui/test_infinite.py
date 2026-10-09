@@ -4,9 +4,11 @@ import threading
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from textual.pilot import Pilot
 from textual.widgets import Input, Label, OptionList
+from textual.worker import WorkerState
 
 from chroma_cube.core import CLASSIC_PALETTE, Cell, Placement, Puzzle
 from chroma_cube.generator import generate
@@ -44,9 +46,16 @@ def app(generate: object = None, progress: Progress | None = None) -> ChromaCube
 
 
 async def settle(pilot: Pilot[None]) -> None:
-    """Let the generator thread finish and its result reach the screen."""
+    """Let the generator thread finish and its result reach the screen.
+
+    Waits on the screen rather than on a fixed number of pauses, so a slow runner
+    cannot make the test look at the screen before the puzzle arrives.
+    """
     await pilot.app.workers.wait_for_complete()
-    await pilot.pause()
+    for _ in range(200):
+        if not isinstance(pilot.app.screen, GeneratingScreen):
+            break
+        await pilot.pause(0.01)
     await pilot.pause()
 
 
@@ -205,11 +214,40 @@ async def test_generating_shows_a_notice_and_keeps_the_ui_live() -> None:
     async with app(slow).run_test(size=SIZE) as pilot:
         await pilot.press("down", "enter", "enter")
         await pilot.pause()
-        assert isinstance(pilot.app.screen, GeneratingScreen)
-        assert "Generating" in str(pilot.app.screen.query_one(Label).content)
+        generating = pilot.app.screen
+        assert isinstance(generating, GeneratingScreen)
+        assert "Generating" in str(generating.query_one(Label).content)
+        [worker] = list(pilot.app.workers)
+        assert worker.state is WorkerState.RUNNING
         release.set()
         await settle(pilot)
         playing(pilot)
+        assert worker.state is WorkerState.SUCCESS
+
+
+async def test_the_puzzle_arrives_only_after_the_worker_has_finished() -> None:
+    """Closing the notice must not cancel the worker that is still handing over its result."""
+    states: list[WorkerState] = []
+    fake = FakeGenerator()
+
+    def generate(seed: int, difficulty: str) -> Puzzle:
+        return fake(seed, difficulty)
+
+    async with app(generate).run_test(size=SIZE) as pilot:
+        original = GeneratingScreen.dismiss
+
+        def dismiss(screen: GeneratingScreen, result: Puzzle | None = None) -> Any:
+            states.extend(worker.state for worker in screen.workers)
+            return original(screen, result)
+
+        GeneratingScreen.dismiss = dismiss  # type: ignore[method-assign,assignment]
+        try:
+            await pilot.press("down", "enter", "enter")
+            await settle(pilot)
+        finally:
+            GeneratingScreen.dismiss = original  # type: ignore[method-assign]
+        playing(pilot)
+        assert states == [WorkerState.SUCCESS]
 
 
 async def test_a_generator_failure_is_reported_and_play_continues() -> None:
@@ -288,3 +326,28 @@ async def test_home_counts_the_classic_cards_in_words() -> None:
     async with two.run_test(size=SIZE) as pilot:
         prompt = str(pilot.app.screen.query_one(OptionList).get_option_at_index(0).prompt)
         assert "the 2 hand-made cards" in prompt
+
+
+async def test_escape_while_generating_drops_the_late_puzzle() -> None:
+    release = threading.Event()
+    finished = threading.Event()
+    fake = FakeGenerator()
+
+    def slow(seed: int, difficulty: str) -> Puzzle:
+        release.wait(5)
+        try:
+            return fake(seed, difficulty)
+        finally:
+            finished.set()
+
+    async with app(slow).run_test(size=SIZE) as pilot:
+        await pilot.press("down", "enter", "enter")
+        await pilot.pause()
+        assert isinstance(pilot.app.screen, GeneratingScreen)
+        await pilot.press("escape")
+        assert isinstance(pilot.app.screen, DifficultyScreen)
+        release.set()
+        assert finished.wait(5)
+        for _ in range(5):
+            await pilot.pause(0.01)
+        assert isinstance(pilot.app.screen, DifficultyScreen)
