@@ -166,16 +166,19 @@ and four or more parts. We gave up the short form for those clues.
 `chroma_cube.progress.Progress` (pure, no Textual) keeps solved cards (solve count and a
 best-hints slot for when hints exist) and the cubes placed on the last card played. Only one
 in-progress board is kept: opening another card and moving a cube replaces it, and a board
-back at the givens or a solved card clears it. The file is `progress.json` in
-`CHROMA_CUBE_DATA_DIR` if set, else `%APPDATA%\chroma-cube` on Windows,
+back at the givens, or solving the card it belongs to, clears it. The file is
+`progress.json` in `CHROMA_CUBE_DATA_DIR` if set, else `%APPDATA%\chroma-cube` on Windows,
 `~/Library/Application Support/chroma-cube` on macOS (XDG variables are ignored there) and
-`$XDG_DATA_HOME/chroma-cube` or `~/.local/share/chroma-cube` elsewhere. The lookup is our own
-few lines rather than a `platformdirs` dependency. Reading never raises and never logs:
+`$XDG_DATA_HOME/chroma-cube` or `~/.local/share/chroma-cube` elsewhere. The lookup is our
+own few lines rather than a `platformdirs` dependency. Reading never raises and never logs:
 an unreadable file starts fresh, and the solved list and the board are checked separately,
 so a bad board does not cost the ticks and a bad solve entry is dropped alone. A saved board
 that no longer fits its card (unknown color, cell off the board or on a given) is ignored.
 Saves write a temporary file in the same directory and rename it over the old one; a save
 that fails (read-only disk, a directory in the way) is silently dropped so play goes on.
-The board is saved on every change, which is one small write per move. Tests point
-`CHROMA_CUBE_DATA_DIR` at a temporary directory through an autouse fixture, so no test
-touches real saves. We gave up any warning when saves are lost, and per-card boards.
+Before each write the store re-reads the file and merges its solved list (higher solve
+count, fewer hints), so two copies running at once keep each other's ticks; the board is not
+merged and whoever saves last owns it. The board is saved on every change, which is one
+small write per move. Tests point `CHROMA_CUBE_DATA_DIR` at a temporary directory through an
+autouse fixture, so no test touches real saves. We gave up any warning when saves are lost,
+per-card boards, and exact solve counts when two copies solve the same card at once.

@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -95,8 +96,15 @@ def test_a_board_back_at_the_givens_is_forgotten(tmp_path: Path) -> None:
 def test_clear_board_forgets_it(tmp_path: Path) -> None:
     progress = Progress(tmp_path)
     progress.save_board(DEMO, magenta_at(2, 1))
-    progress.clear_board()
+    progress.clear_board(DEMO.id)
     assert Progress(tmp_path).saved_board(DEMO) is None
+
+
+def test_clear_board_leaves_another_cards_board(tmp_path: Path) -> None:
+    progress = Progress(tmp_path)
+    progress.save_board(DEMO, magenta_at(2, 1))
+    progress.clear_board(OTHER.id)
+    assert Progress(tmp_path).saved_board(DEMO) == magenta_at(2, 1)
 
 
 @pytest.mark.parametrize(
@@ -127,7 +135,16 @@ def write(directory: Path, data: object) -> None:
 
 @pytest.mark.parametrize(
     "content",
-    ["", "{not json", "[]", "null", '"text"', "\xff\xfe", '{"solved": []}'],
+    [
+        "",
+        "{not json",
+        "[]",
+        "null",
+        '"text"',
+        "\xff\xfe",
+        '{"solved": []}',
+        pytest.param("[" * 100_000 + "]" * 100_000, id="deeply-nested"),
+    ],
 )
 def test_a_corrupt_file_starts_fresh(tmp_path: Path, content: str) -> None:
     (tmp_path / "progress.json").write_text(content, encoding="latin-1")
@@ -175,6 +192,50 @@ def test_the_data_dir_is_created_on_first_save(tmp_path: Path) -> None:
     directory = tmp_path / "a" / "b"
     Progress(directory).record_solve(DEMO.id)
     assert Progress(directory).is_solved(DEMO.id)
+
+
+def test_a_read_only_data_dir_drops_the_save_without_raising(tmp_path: Path) -> None:
+    if sys.platform == "win32" or os.geteuid() == 0:
+        pytest.skip("needs POSIX permissions and a non-root user")
+    directory = tmp_path / "locked"
+    directory.mkdir()
+    progress = Progress(directory)
+    directory.chmod(0o500)
+    try:
+        progress.record_solve(DEMO.id)
+        progress.save_board(DEMO, magenta_at(2, 1))
+        assert progress.is_solved(DEMO.id)
+        assert list(directory.iterdir()) == []
+    finally:
+        directory.chmod(0o700)
+
+
+# ------------------------------------------------------------------ two copies at once
+
+
+def test_two_copies_running_at_once_keep_each_others_solves(tmp_path: Path) -> None:
+    first, second = Progress(tmp_path), Progress(tmp_path)
+    first.record_solve(DEMO.id)
+    second.record_solve(OTHER.id)
+    reloaded = Progress(tmp_path)
+    assert reloaded.is_solved(DEMO.id)
+    assert reloaded.is_solved(OTHER.id)
+    assert second.is_solved(DEMO.id)
+
+
+def test_merging_keeps_more_solves_and_fewer_hints(tmp_path: Path) -> None:
+    first, second = Progress(tmp_path), Progress(tmp_path)
+    first.record_solve(DEMO.id, hints=5)
+    first.record_solve(DEMO.id, hints=4)
+    second.record_solve(DEMO.id, hints=2)
+    assert Progress(tmp_path).record(DEMO.id) == SolveRecord(solves=2, best_hints=2)
+
+
+def test_the_last_copy_to_save_owns_the_board(tmp_path: Path) -> None:
+    first, second = Progress(tmp_path), Progress(tmp_path)
+    first.save_board(DEMO, magenta_at(2, 1))
+    second.save_board(DEMO, magenta_at(0, 0))
+    assert Progress(tmp_path).saved_board(DEMO) == magenta_at(0, 0)
 
 
 # ------------------------------------------------------------------ atomic save
