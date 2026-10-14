@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
-from chroma_cube.core.board import Cell
+from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.colors import Color, Palette
 
 
@@ -22,6 +22,9 @@ class Placement:
 
     assignments: Mapping[Color, Cell] = field(default_factory=dict)
     _colors_by_cell: Mapping[Cell, Color] = field(init=False, repr=False, compare=False)
+    _free: dict[Board, tuple[Cell, ...]] = field(
+        init=False, repr=False, compare=False, default_factory=dict
+    )
 
     def __post_init__(self) -> None:
         by_color = dict(self.assignments)
@@ -45,10 +48,29 @@ class Placement:
     def color_at(self, cell: Cell) -> Color | None:
         return self._colors_by_cell.get(cell)
 
+    def free_cells(self, board: Board) -> tuple[Cell, ...]:
+        """The cells of `board` no color is on, in row-major order."""
+        free = self._free.get(board)
+        if free is None:
+            free = tuple(cell for cell in board if cell not in self._colors_by_cell)
+            self._free[board] = free
+        return free
+
     def with_color(self, color: Color, cell: Cell) -> Placement:
         if color in self.assignments:
             raise ValueError(f"{color.name} is already on {self.assignments[color]}")
-        return Placement({**self.assignments, color: cell})
+        if (there := self._colors_by_cell.get(cell)) is not None:
+            raise ValueError(f"{color.name} and {there.name} are both on {cell}")
+        # Both maps are known to agree, so skip rebuilding and rechecking them: the
+        # solver places millions of trial cubes while generating a puzzle.
+        child = object.__new__(Placement)
+        object.__setattr__(
+            child, "assignments", MappingProxyType({**self.assignments, color: cell})
+        )
+        by_cell = {**self._colors_by_cell, cell: color}
+        object.__setattr__(child, "_colors_by_cell", MappingProxyType(by_cell))
+        object.__setattr__(child, "_free", {})
+        return child
 
     def without(self, color: Color) -> Placement:
         if color not in self.assignments:

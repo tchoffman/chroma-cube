@@ -231,3 +231,25 @@ def test_some_expert_puzzles_use_an_alphabetical_rule() -> None:
     rules = {"rows_alphabetical", "columns_alphabetical"}
     expert = [generated(seed, "expert") for seed in SAMPLE_SEEDS]
     assert any(rules & clue_features(clue) for p in expert for clue in p.clues)
+
+
+@pytest.mark.parametrize("difficulty", DIFFICULTIES)
+def test_no_clue_set_is_solved_twice(
+    difficulty: Difficulty, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A finished attempt whose clues a solver call has already proved unique is not
+    checked again with the same search."""
+    import chroma_cube.generator.build as build
+
+    plain = build.solve_clues
+    asked: Counter[tuple[object, ...]] = Counter()
+
+    def counting(*args: object, **kwargs: object) -> object:
+        clues = tuple(args[2])  # type: ignore[call-overload]
+        asked[(clues, kwargs["givens"])] += 1
+        return plain(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(build, "solve_clues", counting)
+    generate(2, difficulty)
+    assert asked
+    assert max(asked.values()) == 1
