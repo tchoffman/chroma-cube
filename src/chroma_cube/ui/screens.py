@@ -23,6 +23,18 @@ if TYPE_CHECKING:
 CELL_MIN_HEIGHT = 3
 """A border and one line for the name."""
 CELL_MAX_HEIGHT = 5
+WIDE_FROM = 70
+"""The narrowest terminal that puts the clues beside the tray, whatever the board."""
+CLUES_MIN_WIDTH = 24
+"""Columns the clue list needs beside the tray."""
+_CELL_EXTRA = 4
+"""A tray cell's two border columns and the two of a given or held mark."""
+
+
+def tray_width(puzzle: Puzzle) -> int:
+    """Columns the tray needs for every color name in full, with a mark, plus its padding."""
+    longest = max(len(color.name) for color in puzzle.palette)
+    return puzzle.board.cols * (longest + _CELL_EXTRA) + 2
 
 
 def game(screen: Screen[Any]) -> ChromaCubeApp:
@@ -87,11 +99,6 @@ class PlayScreen(Screen[None]):
         Binding("pageup", "scroll_clues(-1)", "Clues", show=False),
         Binding("pagedown", "scroll_clues(1)", "Clues", key_display="PgDn"),
     ]
-    HORIZONTAL_BREAKPOINTS = [
-        (0, "-narrow"),
-        (70, "-wide"),
-    ]
-    """Below 70 columns the clues go under the tray instead of beside it."""
 
     def __init__(
         self, index: int, puzzle: Puzzle, placement: Placement | None = None, hints: int = 0
@@ -99,6 +106,10 @@ class PlayScreen(Screen[None]):
         super().__init__()
         self.index = index
         self.state = PlayState(puzzle, placement, hints)
+        self.tray_width = tray_width(puzzle)
+        """Columns the tray needs to show every name in full, marks included."""
+        self.wide_from = max(WIDE_FROM, self.tray_width + CLUES_MIN_WIDTH)
+        """From this terminal width the clues sit beside the tray, below it under the tray."""
 
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
@@ -128,7 +139,18 @@ class PlayScreen(Screen[None]):
         return f"Card {self.index + 1}: {self.state.puzzle.title}"
 
     def on_mount(self) -> None:
+        self._fit(self.app.size.width)
         self.refresh_view()
+
+    def on_resize(self, event: events.Resize) -> None:
+        self._fit(event.size.width)
+
+    def _fit(self, width: int) -> None:
+        """Clues beside the tray when both fit, else under it (the -narrow layout)."""
+        narrow = width < self.wide_from
+        self.set_class(narrow, "-narrow")
+        self.set_class(not narrow, "-wide")
+        self.query_one("#left").styles.min_width = None if narrow else self.tray_width
 
     # ------------------------------------------------------------------ drawing
 

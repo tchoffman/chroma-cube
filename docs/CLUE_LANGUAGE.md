@@ -123,7 +123,10 @@ are not clues. Neither are "Mint and Teal are the same temperature" and the like
 
 `attribute_clues(board, palette)` lists every attribute clue that names colors by id and
 fits the board, leaving out values no palette color has. A puzzle generator draws from it, so
-a new attribute kind reaches the generator without changes there.
+a new attribute kind reaches the generator without changes there. The generator reduces each one to what it
+means on a full board and offers one clue per meaning, so equivalent pairs (like the two
+above, or "every cube next to Mint is light" and "Mint doesn't sit next to a dark color")
+never both appear, and it leaves out ones that are a plainer clue in disguise (D43).
 
 ## Color references
 
