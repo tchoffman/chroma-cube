@@ -3,7 +3,8 @@
 The search keeps, for every unplaced color, the cells it could still go on. Attribute
 clues about a region or about a color named by id (and their negations) are read as
 counts over a group of cells, with each unplaced color limited to its candidates, so they
-rule cells out before their group fills up. Every other clue is checked by trial: a cell
+rule cells out before their group fills up; that reasoning, and probing a color on each
+of its cells with it, lives in `counts`. Every other clue is checked by trial: a cell
 stays a candidate only while putting the color there leaves every such clue that
 mentions the color not VIOLATED. A branch ends when a color has no candidates left or the
 colors cannot each have their own cell. Each step tries every cell of the color with the
@@ -20,19 +21,18 @@ in one order only, and each solution found is returned with every swap of them.
 
 Before searching, the clues are simplified (see `simplify`) so a clue that contradicts
 another is caught up front. The search also has a budget: it counts every trial
-placement of a color on a cell, and gives up once the count passes `max_nodes`.
+placement of a color on a cell, probes included, and gives up once the count passes
+`max_nodes`.
 """
 
 from __future__ import annotations
 
-import functools
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import permutations, product
 
 from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.clues import (
-    ATTRIBUTE_KINDS,
     And,
     AtLeast,
     AttributeClue,
@@ -49,6 +49,7 @@ from chroma_cube.core.colors import Color, Palette
 from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.puzzle import Puzzle
+from chroma_cube.solver.counts import CountPropagator
 from chroma_cube.solver.simplify import simplify
 
 DEFAULT_MAX_NODES = 200_000
@@ -209,16 +210,12 @@ class _Search:
             for color in colors_in(clue, palette):
                 mentions[color].append(index)
         self.mentions = {color: tuple(found) for color, found in mentions.items()}
-        self.counts = tuple(
-            fact
-            for index, clue in enumerate(clues)
-            if (fact := _CountFact.of(index, clue, board, palette)) is not None
-        )
+        self.twins = _twins(palette, clues, givens)
+        self.counter = CountPropagator(board, palette, clues, self.twins)
         # Trials skip count clues: `_propagate_counts` narrows by them with the candidates
         # in view, and every node and solution is still checked against the evaluator.
-        self.counted = {fact.index for fact in self.counts}
+        self.counted = self.counter.indices
         self.givens = givens
-        self.twins = _twins(palette, clues, givens)
 
     def run(self) -> Iterator[Placement]:
         givens = self.givens
@@ -226,7 +223,9 @@ class _Search:
         if live is None:
             return
         free = tuple(cell for cell in self.board if givens.color_at(cell) is None)
-        candidates = self._narrow(givens, {c: free for c in givens.unplaced(self.palette)}, live)
+        candidates = self._narrow(
+            givens, {c: free for c in givens.unplaced(self.palette)}, live, root=True
+        )
         if candidates is not None:
             for solution in self._extend(givens, candidates, live):
                 yield from _rearrangements(solution, self.twins)
@@ -274,12 +273,22 @@ class _Search:
         return tuple(undecided)
 
     def _narrow(
-        self, placement: Placement, candidates: Candidates, live: tuple[int, ...]
+        self,
+        placement: Placement,
+        candidates: Candidates,
+        live: tuple[int, ...],
+        *,
+        root: bool = False,
     ) -> dict[Color, tuple[Cell, ...]] | None:
         """Each color's candidates that are still free and break no clue; None on a dead end.
 
         A dead end is a color with no cell left, or no way to give every color its own
-        cell from its candidates (which includes a free cell no color can take)."""
+        cell from its candidates (which includes a free cell no color can take).
+
+        The attribute clues' counts then narrow further (see `counts`). At the root every
+        color is probed on every cell, since what that rules out holds for the whole
+        search; below it only colors with at most half the board's cells left are, as one
+        that could still go almost anywhere rarely loses a cell to a probe."""
         alive = set(live)
         narrowed: dict[Color, tuple[Cell, ...]] = {}
         for color, cells in candidates.items():
@@ -294,30 +303,18 @@ class _Search:
             if not kept:
                 return None
             narrowed[color] = kept
-        if not self._propagate_counts(placement, narrowed, alive):
+        widest = len(self.board) if root else len(self.board) // 2
+        if not self.counter.narrow(placement, narrowed, alive, self._charge, widest=widest):
             return None
         if not _has_matching(narrowed):
             return None
         return narrowed
 
-    def _propagate_counts(
-        self, placement: Placement, candidates: dict[Color, tuple[Cell, ...]], alive: set[int]
-    ) -> bool:
-        """Narrow `candidates` with the attribute clues' counts until nothing changes.
-
-        False when some count clue can no longer hold within the colors' candidates."""
-        changed = True
-        while changed:
-            changed = False
-            for fact in self.counts:
-                if fact.index in alive:
-                    outcome = fact.tighten(placement, self.board, candidates)
-                    if outcome is None:
-                        return False
-                    changed = changed or outcome
-            for group in self.twins:
-                changed = _keep_in_order(group, placement, candidates) or changed
-        return all(candidates.values())
+    def _charge(self, trials: int) -> None:
+        if self.budget is not None:
+            if self.budget < trials:
+                raise _OutOfBudget
+            self.budget -= trials
 
     def _allows(
         self, placement: Placement, color: Color, cell: Cell, checks: tuple[Clue, ...]
@@ -326,185 +323,13 @@ class _Search:
             if self.budget == 0:
                 raise _OutOfBudget
             self.budget -= 1
+        if not checks:
+            return True
         trial = placement.with_color(color, cell)
         return all(self._evaluate(clue, trial) is not Truth.VIOLATED for clue in checks)
 
     def _evaluate(self, clue: Clue, placement: Placement) -> Truth:
         return evaluate(clue, placement, self.board, self.palette)
-
-
-@dataclass(frozen=True)
-class _CountFact:
-    """An attribute clue (or its negation) the search decides from candidates.
-
-    Such a clue holds or not depending on how many cubes with its value (`matching`) and
-    without it (`others`) end up in a group of cells: a region, or the cells next to its
-    color. The evaluator treats every unplaced color as free to go to any free cell; here
-    each one is limited to its candidates, which lets the clue rule cells out before its
-    group fills up. The palette fills the board, so every empty cell in the group ends up
-    holding exactly one unplaced color, and that is the only thing assumed.
-    """
-
-    index: int
-    value: str
-    holds: Callable[[int, int], bool]
-    region: tuple[Cell, ...] | None
-    subject: Color | None
-
-    @staticmethod
-    def of(index: int, clue: Clue, board: Board, palette: Palette) -> _CountFact | None:
-        """The fact for an attribute clue, or its negation, about a region or a color named
-        by id; None for any other clue."""
-        positive = True
-        if isinstance(clue, Not):
-            positive, clue = False, clue.clue
-        if not isinstance(clue, AttributeClue):
-            return None
-        kind_holds = ATTRIBUTE_KINDS[clue.kind].holds
-        n = clue.n
-
-        def holds(matching: int, others: int) -> bool:
-            return kind_holds(matching, others, n) is positive
-
-        if clue.region is not None:
-            return _CountFact(index, clue.value, holds, clue.region.cells(board), None)
-        assert clue.color is not None
-        if clue.color.by_initial:
-            return None
-        return _CountFact(index, clue.value, holds, None, palette.by_id(clue.color.key))
-
-    def tighten(
-        self, placement: Placement, board: Board, candidates: dict[Color, tuple[Cell, ...]]
-    ) -> bool | None:
-        """Drop candidates that leave the clue no way to hold.
-
-        Returns None if nothing within the candidates can satisfy the clue, else whether
-        any candidate was dropped. Only counts are compared, so this may keep
-        arrangements that fail for other reasons, but it never drops a possible one."""
-        if self.region is not None:
-            return self._tighten_group(self.region, placement, candidates)
-        assert self.subject is not None
-        cell = placement.cell_of(self.subject)
-        if cell is not None:
-            return self._tighten_group(_neighbours(board, cell), placement, candidates)
-        # The color is not placed yet: keep the cells where its neighbours could still
-        # make the clue hold.
-        spots = candidates[self.subject]
-        others = {color: cells for color, cells in candidates.items() if color != self.subject}
-        kept = tuple(
-            spot
-            for spot in spots
-            if self._census(_neighbours(board, spot), placement, others, spot).possible()
-        )
-        if not kept:
-            return None
-        candidates[self.subject] = kept
-        return len(kept) < len(spots)
-
-    def _tighten_group(
-        self,
-        cells: tuple[Cell, ...],
-        placement: Placement,
-        candidates: dict[Color, tuple[Cell, ...]],
-    ) -> bool | None:
-        census = self._census(cells, placement, candidates, None)
-        if not census.possible():
-            return None
-        # Each color is tested against the census taken before any of them moved. A color
-        # moved in or out only narrows what is possible, so the older census is looser,
-        # never stricter, and what it rules out is still ruled out.
-        group = set(cells)
-        changed = False
-        for color in census.undecided:
-            if not census.possible(inside=color):
-                candidates[color] = tuple(c for c in candidates[color] if c not in group)
-            elif not census.possible(outside=color):
-                candidates[color] = tuple(c for c in candidates[color] if c in group)
-            else:
-                continue
-            changed = True
-        return changed
-
-    def _census(
-        self,
-        cells: tuple[Cell, ...],
-        placement: Placement,
-        candidates: Mapping[Color, tuple[Cell, ...]],
-        taken: Cell | None,
-    ) -> _Census:
-        """Count the group's cubes so far and the unplaced colors that must or may join it.
-        `taken` is a cell treated as filled (by the clue's own color) though not placed."""
-        group = set(cells)
-        placed = [0, 0]
-        empty = 0
-        for cell in cells:
-            color = placement.color_at(cell)
-            if color is None:
-                empty += 1
-            else:
-                placed[not color.has(self.value)] += 1
-        must = [0, 0]
-        may = [0, 0]
-        undecided: list[Color] = []
-        for color, spots in candidates.items():
-            inside = outside = 0
-            for spot in spots:
-                if spot in group:
-                    inside += 1
-                elif spot != taken:
-                    outside += 1
-            if inside == 0:
-                continue
-            side = int(not color.has(self.value))
-            if outside == 0:
-                must[side] += 1
-            else:
-                may[side] += 1
-                undecided.append(color)
-        return _Census(
-            self.value,
-            self.holds,
-            (placed[0], placed[1]),
-            empty,
-            (must[0], must[1]),
-            (may[0], may[1]),
-            tuple(undecided),
-        )
-
-
-@dataclass(frozen=True)
-class _Census:
-    """A group of cells for one count clue: how many matching and other cubes it holds
-    (`placed`), how many empty cells it has, and how many unplaced matching and other
-    colors must land in it (`must`) or may (`may`, the colors listed in `undecided`).
-    Each count pair is (matching, others)."""
-
-    value: str
-    holds: Callable[[int, int], bool]
-    placed: tuple[int, int]
-    empty: int
-    must: tuple[int, int]
-    may: tuple[int, int]
-    undecided: tuple[Color, ...]
-
-    def possible(self, *, inside: Color | None = None, outside: Color | None = None) -> bool:
-        """Whether some way of filling the empty cells satisfies the clue, optionally with
-        one undecided color moved inside or outside the group (pass at most one)."""
-        must, may = list(self.must), list(self.may)
-        moved = inside or outside
-        if moved is not None:
-            side = int(not moved.has(self.value))
-            may[side] -= 1
-            if inside is not None:
-                must[side] += 1
-        for extra_matching in range(may[0] + 1):
-            extra_others = self.empty - must[0] - must[1] - extra_matching
-            if 0 <= extra_others <= may[1] and self.holds(
-                self.placed[0] + must[0] + extra_matching,
-                self.placed[1] + must[1] + extra_others,
-            ):
-                return True
-        return False
 
 
 def _twins(
@@ -523,37 +348,6 @@ def _twins(
     return tuple(tuple(group) for group in groups.values() if len(group) > 1)
 
 
-def _keep_in_order(
-    group: tuple[Color, ...], placement: Placement, candidates: dict[Color, tuple[Cell, ...]]
-) -> bool:
-    """Keep each color of `group` on a later cell (row by row) than the one before it.
-    Returns whether a candidate was dropped."""
-
-    def span(color: Color) -> tuple[Cell, Cell]:
-        cell = placement.cell_of(color)
-        if cell is not None:
-            return cell, cell
-        cells = candidates[color]
-        return (min(cells), max(cells)) if cells else (_LAST, _FIRST)
-
-    changed = False
-    for before, after in zip(group, group[1:], strict=False):
-        low, _ = span(before)
-        _, high = span(after)
-        if after in candidates:
-            kept = tuple(c for c in candidates[after] if c > low)
-            changed = changed or len(kept) < len(candidates[after])
-            candidates[after] = kept
-        if before in candidates:
-            kept = tuple(c for c in candidates[before] if c < high)
-            changed = changed or len(kept) < len(candidates[before])
-            candidates[before] = kept
-    return changed
-
-
-_FIRST, _LAST = Cell(-1, -1), Cell(1 << 30, 1 << 30)
-
-
 def _rearrangements(
     solution: Placement, twins: tuple[tuple[Color, ...], ...]
 ) -> Iterator[Placement]:
@@ -565,11 +359,6 @@ def _rearrangements(
         for group, cells in zip(twins, choice, strict=True):
             assignments.update(zip(group, cells, strict=True))
         yield Placement(assignments)
-
-
-@functools.cache
-def _neighbours(board: Board, cell: Cell) -> tuple[Cell, ...]:
-    return board.orthogonal_neighbours(cell)
 
 
 def _holders(candidates: Candidates) -> dict[Cell, list[Color]]:

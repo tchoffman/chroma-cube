@@ -106,11 +106,16 @@ def test_the_solver_agrees_with_brute_force_on_attribute_clues(p: Puzzle) -> Non
     assert set(solve(p, limit=1000).solutions) == brute_force(p)
 
 
+SMALL_BOARDS = (Board(2, 2), Board(2, 3), Board(3, 2), Board(1, 5))
+LARGER_BOARDS = (Board(3, 3), Board(2, 4))
+
+
 @st.composite
-def planted_attribute_puzzles(draw: st.DrawFn) -> Puzzle:
+def planted_attribute_puzzles(draw: st.DrawFn, boards: tuple[Board, ...] = SMALL_BOARDS) -> Puzzle:
     """Mixed palettes drawn from the extended colors, clues mostly true on a planted
-    solution (so there are solutions to find), some givens, and a positional clue."""
-    board = draw(st.sampled_from([Board(2, 2), Board(2, 3), Board(3, 2), Board(1, 5)]))
+    solution (so there are solutions to find), some givens (enough to leave at most seven
+    cubes for the brute force), and a positional clue."""
+    board = draw(st.sampled_from(boards))
     palette = Palette(tuple(draw(st.permutations(EXTENDED_16.colors)))[: len(board)])
     cells = draw(st.permutations(list(board)))
     solution = Placement(dict(zip(palette.colors, cells, strict=True)))
@@ -121,14 +126,14 @@ def planted_attribute_puzzles(draw: st.DrawFn) -> Puzzle:
     )
     true = [c for c in pool if evaluate(c, solution, board, palette) is Truth.SATISFIED]
     false = [c for c in pool if evaluate(c, solution, board, palette) is Truth.VIOLATED]
-    clues: list[Clue] = draw(st.lists(st.sampled_from(true), min_size=1, max_size=6))
+    clues: list[Clue] = draw(st.lists(st.sampled_from(true), min_size=1, max_size=len(board)))
     clues += [Not(c) for c in draw(st.lists(st.sampled_from(false), max_size=2))]
     if draw(st.booleans()):
         clues.append(draw(st.sampled_from([Not(clues[0]), clues[0]])))
     if draw(st.booleans()):
         a, b = draw(st.permutations(palette.colors))[:2]
         clues.append(relation("next_to", a.id, b.id))
-    given_count = draw(st.integers(0, 2))
+    given_count = draw(st.integers(max(0, len(board) - 7), max(2, len(board) - 6)))
     givens = Placement(dict(list(solution.assignments.items())[:given_count]))
     return puzzle(board, palette, clues, givens)
 
@@ -138,6 +143,20 @@ def planted_attribute_puzzles(draw: st.DrawFn) -> Puzzle:
 def test_the_solver_agrees_with_brute_force_on_planted_attribute_puzzles(p: Puzzle) -> None:
     expected = brute_force(p)
     result = solve(p, limit=1000)
+    assert set(result.solutions) == expected
+    assert result.count == len(expected) and not result.truncated
+
+
+@settings(max_examples=25, deadline=None)
+@given(planted_attribute_puzzles(LARGER_BOARDS))
+def test_the_solver_agrees_with_brute_force_on_larger_planted_attribute_puzzles(
+    p: Puzzle,
+) -> None:
+    # Boards of eight and nine cells leave room for cubes with three or four neighbours
+    # and for candidates to be probed one cell at a time. They can have thousands of
+    # solutions, so the limit is set past the brute force's count.
+    expected = brute_force(p)
+    result = solve(p, limit=len(expected) + 1)
     assert set(result.solutions) == expected
     assert result.count == len(expected) and not result.truncated
 
@@ -278,3 +297,39 @@ def test_twenty_attribute_clues_on_an_empty_4x4_board_are_decided_quickly() -> N
     for found in result.solutions:
         assert all(evaluate(c, found, BOARD_4X4, EXTENDED_16) is Truth.SATISFIED for c in p.clues)
     assert elapsed < 5, f"took {elapsed:.2f}s"
+
+
+def test_forty_attribute_clues_on_an_empty_4x4_board_are_decided_quickly() -> None:
+    # Seed 5 used to exhaust the default budget: finding a second solution took about
+    # 3,000,000 trial placements.
+    _, p = _planted_attribute_puzzle(seed=5, clue_count=40)
+    start = time.perf_counter()
+    result = solve(p, limit=2)
+    elapsed = time.perf_counter() - start
+    assert not result.gave_up
+    assert result.count == 2 and result.truncated
+    for found in result.solutions:
+        assert all(evaluate(c, found, BOARD_4X4, EXTENDED_16) is Truth.SATISFIED for c in p.clues)
+    assert elapsed < 10, f"took {elapsed:.2f}s"
+
+
+def test_a_unique_attribute_heavy_4x4_puzzle_is_proved_unique_within_the_budget() -> None:
+    # The forty clues of seed 5 plus six more attribute clues that rule out its other
+    # solutions, and no givens: checked unique once with no budget. This used to give up.
+    solution, planted = _planted_attribute_puzzle(seed=5, clue_count=40)
+    clues = (
+        *planted.clues,
+        attribute("region_count", "dark", region=Region("row", 1), n=2),
+        attribute("next_to_family", "yellow", color="mint"),
+        attribute("next_to_family", "pink", color="orange"),
+        attribute("next_to_family", "green", color="teal"),
+        attribute("region_count", "cool", region=Region("row", 1), n=2),
+        attribute("region_count", "neutral", region=Region("column", 3), n=0),
+    )
+    p = puzzle(BOARD_4X4, EXTENDED_16, clues)
+    start = time.perf_counter()
+    result = solve(p, limit=2)
+    elapsed = time.perf_counter() - start
+    assert result.solutions == (solution,)
+    assert not result.truncated and not result.gave_up
+    assert elapsed < 10, f"took {elapsed:.2f}s"
