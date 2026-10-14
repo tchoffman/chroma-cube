@@ -4,7 +4,8 @@
 2. Build a pool of clues that are true on that solution (`candidate_pool`).
 3. Greedily add the clue that rules out the most other solutions, judged on a sample of
    them, until the solver finds no solution but the real one.
-4. Drop every clue the puzzle can do without, then check uniqueness one last time.
+4. Drop every clue the puzzle can do without, then check uniqueness one last time
+   unless a solver call has already proved exactly these clues unique.
 
 An attempt that misses the difficulty profile (too many clues, no signature clue, one
 kind of clue everywhere) is thrown away and the next attempt draws a new solution from
@@ -254,10 +255,13 @@ def _attempt(
     chosen = greedy.run()
     if chosen is None:
         return None
-    clues = _minimise(rng, profile, greedy, chosen)
+    clues, dropped = _minimise(rng, profile, greedy, chosen)
     if not _fits(profile, clues):
         return None
-    if not _unique(board, palette, clues, givens):
+    # The last clue minimisation dropped was dropped because the solver proved the rest
+    # unique, and greedy may already have listed no rival under the givens alone; either
+    # way a last check would repeat that very search to the same answer.
+    if not (dropped or greedy.proved) and not _unique(board, palette, clues, givens):
         return None
     return givens, clues
 
@@ -365,6 +369,9 @@ class _Greedy:
         """Every other solution sampled along the way, to rule out removals cheaply later."""
         self.masks: list[int] = []
         self.alive = 0
+        self.proved = False
+        """The solver listed every solution of the chosen clues under the givens alone and
+        found no rival: the chosen clues are proved unique."""
 
     def run(self) -> list[Clue] | None:
         limit = self.profile.clues[1] + _SLACK
@@ -428,7 +435,7 @@ class _Greedy:
             for other in self.walk():
                 found[other] = None
         if not found:
-            return solver_rivals(
+            rivals, self.proved = _solver_rivals(
                 self.rng,
                 self.board,
                 self.palette,
@@ -437,6 +444,7 @@ class _Greedy:
                 self.solution_cells,
                 _SOLVER_SAMPLE,
             )
+            return rivals
         return list(found)
 
     def walk(self) -> list[tuple[Cell, ...]]:
@@ -536,6 +544,19 @@ def solver_rivals(
     solution: tuple[Cell, ...],
     cap: int,
 ) -> list[tuple[Cell, ...]]:
+    """Up to `cap` solutions of the clues other than `solution` (see `_solver_rivals`)."""
+    return _solver_rivals(rng, board, palette, clues, givens, solution, cap)[0]
+
+
+def _solver_rivals(
+    rng: random.Random,
+    board: Board,
+    palette: Palette,
+    clues: Sequence[Clue],
+    givens: Placement,
+    solution: tuple[Cell, ...],
+    cap: int,
+) -> tuple[list[tuple[Cell, ...]], bool]:
     """Up to `cap` solutions of the clues other than `solution`, as `cells_of` tuples;
     empty if there are none.
 
@@ -549,17 +570,26 @@ def solver_rivals(
     goes on each of its other cells in turn, splitting further the same way, until one
     of them has rivals.
 
+    Also says whether the listing under `givens` alone finished with the real solution
+    and no rival, which proves the clues unique. An empty list reached any other way is
+    not such a proof: it can follow a listing that ran out of budget rather than one
+    with too many rivals.
+
     Raises `_GaveUp` if the budget runs out with a single color left to place.
     """
     colors = list(givens.unplaced(palette))
     real = {color: solution[palette.colors.index(color)] for color in colors}
 
+    saw_real = False
+
     def listing(fixed: Placement) -> list[tuple[Cell, ...]] | None:
         """Every rival under `fixed`, sorted; None if there are too many to list."""
+        nonlocal saw_real
         result = solve_clues(board, palette, clues, givens=fixed, limit=cap, max_nodes=_MAX_NODES)
         if result.truncated or result.gave_up:
             return None
-        others = (cells_of(s, palette) for s in result.solutions)
+        others = [cells_of(s, palette) for s in result.solutions]
+        saw_real = solution in others
         return sorted(other for other in others if other != solution)
 
     def split(fixed: Placement, color: Color, cells: list[Cell]) -> list[tuple[Cell, ...]]:
@@ -579,7 +609,9 @@ def solver_rivals(
 
     found = listing(givens)
     if found is not None:
-        return found
+        # Unique means the real solution was listed and nothing else: an empty list alone
+        # could also mean the clues have no solution at all.
+        return found, not found and saw_real
     rng.shuffle(colors)
 
     def given(k: int) -> Placement:
@@ -590,14 +622,14 @@ def solver_rivals(
         mid = (low + high) // 2
         found = listing(given(mid))
         if found:
-            return found
+            return found, False
         if found is None:
             low = mid
         else:
             high = mid
     color, fixed = colors[low], given(low)
     others = [cell for cell in board if fixed.color_at(cell) is None and cell != real[color]]
-    return split(fixed, color, others)
+    return split(fixed, color, others), False
 
 
 # --------------------------------------------------------------------------- minimise
@@ -605,8 +637,9 @@ def solver_rivals(
 
 def _minimise(
     rng: random.Random, profile: Profile, greedy: _Greedy, clues: list[Clue]
-) -> tuple[Clue, ...]:
-    """Drop each clue the puzzle stays unique without. Signature clues are tried last.
+) -> tuple[tuple[Clue, ...], bool]:
+    """Drop each clue the puzzle stays unique without, and say whether any was dropped.
+    Signature clues are tried last.
 
     A removal is ruled out without the solver when another solution seen during the
     greedy step, or a small reshuffle of the real one, satisfies every remaining clue.
@@ -631,7 +664,7 @@ def _minimise(
             removable = False
         if removable:
             kept.remove(i)
-    return tuple(clues[j] for j in sorted(kept))
+    return tuple(clues[j] for j in sorted(kept)), len(kept) < len(clues)
 
 
 def _reshuffles(cells: tuple[Cell, ...], free: Sequence[int]) -> list[tuple[Cell, ...]]:

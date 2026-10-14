@@ -1,6 +1,6 @@
 import pytest
 
-from chroma_cube.core import CLASSIC_PALETTE, Cell, Placement
+from chroma_cube.core import CLASSIC_PALETTE, Board, Cell, Placement
 
 coral = CLASSIC_PALETTE.by_id("coral")
 orange = CLASSIC_PALETTE.by_id("orange")
@@ -117,3 +117,22 @@ def test_placement_survives_pickle_and_deepcopy() -> None:
     for clone in (pickle.loads(pickle.dumps(placement)), copy.deepcopy(placement)):
         assert clone == placement
         assert clone.color_at(Cell(1, 1)) == orange
+
+
+def test_with_color_matches_a_placement_built_in_one_go() -> None:
+    grown = Placement({coral: Cell(0, 1)}).with_color(orange, Cell(1, 1))
+    built = Placement({coral: Cell(0, 1), orange: Cell(1, 1)})
+    assert grown == built
+    assert hash(grown) == hash(built)
+    assert vars(grown).keys() == vars(built).keys()
+    assert grown.color_at(Cell(1, 1)) == orange
+    assert grown.cell_of(orange) == Cell(1, 1)
+
+
+def test_free_cells_are_the_empty_ones_in_row_major_order() -> None:
+    board = Board(2, 2)
+    placement = Placement({coral: Cell(0, 1)})
+    assert placement.free_cells(board) == (Cell(0, 0), Cell(1, 0), Cell(1, 1))
+    grown = placement.with_color(orange, Cell(1, 0))
+    assert grown.free_cells(board) == (Cell(0, 0), Cell(1, 1))
+    assert placement.free_cells(board) == (Cell(0, 0), Cell(1, 0), Cell(1, 1))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -34,9 +35,7 @@ class Board:
             raise ValueError(f"a board needs at least one row and column, got {self}")
 
     def __iter__(self) -> Iterator[Cell]:
-        for row in range(self.rows):
-            for col in range(self.cols):
-                yield Cell(row, col)
+        return iter(_cells(self.rows, self.cols))
 
     def __len__(self) -> int:
         return self.rows * self.cols
@@ -60,12 +59,12 @@ class Board:
     def row(self, index: int) -> tuple[Cell, ...]:
         if not 0 <= index < self.rows:
             raise ValueError(f"row {index} is not on a board with {self.rows} rows")
-        return tuple(Cell(index, col) for col in range(self.cols))
+        return _cells(self.rows, self.cols)[index * self.cols : (index + 1) * self.cols]
 
     def column(self, index: int) -> tuple[Cell, ...]:
         if not 0 <= index < self.cols:
             raise ValueError(f"column {index} is not on a board with {self.cols} columns")
-        return tuple(Cell(row, index) for row in range(self.rows))
+        return _cells(self.rows, self.cols)[index :: self.cols]
 
     def orthogonal_neighbours(self, cell: Cell) -> tuple[Cell, ...]:
         """Cells sharing a side with `cell`."""
@@ -87,6 +86,13 @@ class Board:
     def _check(self, cell: Cell) -> None:
         if cell not in self:
             raise ValueError(f"{cell} is not on a {self.rows}x{self.cols} board")
+
+
+@functools.cache
+def _cells(rows: int, cols: int) -> tuple[Cell, ...]:
+    """Every cell of a `rows` x `cols` board in row-major order, built once per shape:
+    the solver walks the board millions of times while generating a puzzle."""
+    return tuple(Cell(row, col) for row in range(rows) for col in range(cols))
 
 
 CLASSIC_BOARD = Board(3, 4)
