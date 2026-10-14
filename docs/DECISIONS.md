@@ -580,8 +580,8 @@ they cut a lot ("exactly two light colors in the top row" rules out most of a ra
 sample), but they cannot tell apart two colors that share the value, so the close rivals
 remained and 71 of 87 attempts ran past the clue limit. They are never nested in
 either/or or counts, where the solver can only prune them through the evaluator (D41).
-Rating weighs them 3, and `region_count` 4. On seeds 1–20, 17 of 40 classic hard and
-expert puzzles carry one, and 53 of 80 on the larger boards. We gave up giving attribute clues a
+Rating weighs them 3, and `region_count` 4. On seeds 1–20, 18 of 40 classic hard and
+expert puzzles carry one, and 52 of 80 on the larger boards. We gave up giving attribute clues a
 signature bonus or making them a level's signature: the share came out without one.
 
 ## D44: Larger boards scale clues by information, and get extra givens (2026-10-14)
