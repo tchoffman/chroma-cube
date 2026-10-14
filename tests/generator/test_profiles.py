@@ -33,3 +33,17 @@ def test_easy_is_positions_only() -> None:
         "directly_left_of",
         "directly_right_of",
     }
+
+
+def test_larger_boards_get_more_givens_and_clues() -> None:
+    from chroma_cube.core import BOARD_4X4, BOARD_4X5
+    from chroma_cube.generator.build import fit_profile
+
+    assert fit_profile(PROFILES["expert"], BOARD_4X4).givens == (1, 1)
+    assert fit_profile(PROFILES["expert"], BOARD_4X5).givens == (2, 2)
+    assert fit_profile(PROFILES["hard"], BOARD_4X4).clues == (8, 12)
+    assert fit_profile(PROFILES["hard"], BOARD_4X5).clues == (11, 17)
+    for board in (BOARD_4X4, BOARD_4X5):
+        scaled = [fit_profile(PROFILES[level], board) for level in DIFFICULTIES]
+        for easier, harder in zip(scaled, scaled[1:], strict=False):
+            assert easier.givens[0] >= harder.givens[1]

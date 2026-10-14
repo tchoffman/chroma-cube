@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import itertools
+import math
 import random
 from collections import Counter
 from collections.abc import Sequence
@@ -24,6 +25,7 @@ from chroma_cube.core.board import CLASSIC_BOARD, Board, Cell
 from chroma_cube.core.clues import (
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     Exactly,
@@ -36,6 +38,7 @@ from chroma_cube.core.colors import CLASSIC_PALETTE, Palette
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.puzzle import Puzzle
 from chroma_cube.generator.candidates import (
+    ATTRIBUTE_FEATURES,
     Check,
     Order,
     candidate_pool,
@@ -45,6 +48,7 @@ from chroma_cube.generator.candidates import (
     compile_clue,
     random_solution,
 )
+from chroma_cube.generator.layouts import LAYOUTS
 from chroma_cube.generator.profiles import PROFILES, Difficulty, Profile
 from chroma_cube.solver import solve_clues
 
@@ -54,7 +58,10 @@ _POSITIONS = PROFILES["easy"].features
 _MAX_ATTEMPTS = 200
 _MAX_OTHER_BOARD_ATTEMPTS = 30
 _MIN_CELLS = 4
-_MAX_CELLS = 16
+_MAX_CELLS = 20
+_CELLS_PER_EXTRA_GIVEN = 4
+"""A board larger than the classic tray gets one more given for every this many extra
+cells: with none, proving a 4x5 expert puzzle unique often runs out of solver budget."""
 _FAMILY_DROP = 0.6
 """Chance that an attempt leaves out each non-positional clue family."""
 _MAX_NODES = 20_000
@@ -74,6 +81,11 @@ _JITTER = 0.2
 _SPECIAL = frozenset({"initial", "or", "not", "exactly", "at_least", "between"})
 """Features that make a clue slow for the solver or heavy to read; each reuse costs a factor."""
 _SPECIAL_PENALTY = 0.4
+_ATTRIBUTE_PENALTY = 0.4
+"""Each attribute clue already picked costs any further one this factor."""
+_MAX_ATTRIBUTE_CLUES = 2
+"""Attribute clues rule out many random rivals but few close ones, and many of them slow
+the solver, so a puzzle carries at most this many."""
 _ALPHABETICAL_SHARE = 0.4
 """How often an expert puzzle starts from a solution whose rows or columns are sorted."""
 
@@ -118,7 +130,7 @@ def generate(
         if found is not None:
             givens, clues = found
             return Puzzle(
-                id=f"gen-{difficulty}-{seed}",
+                id=puzzle_id(seed, difficulty, board, palette),
                 title=f"{rng.choice(_ADJECTIVES)} {rng.choice(_NOUNS)}",
                 board=board,
                 palette=palette,
@@ -133,8 +145,22 @@ def generate(
     raise RuntimeError(f"no {difficulty} puzzle found for seed {seed}")
 
 
+def puzzle_id(seed: int, difficulty: str, board: Board, palette: Palette) -> str:
+    """`gen-<difficulty>-<seed>` on the classic tray; other boards add their shape, and a
+    palette that is not the board's own adds a short digest of its color ids."""
+    if board == CLASSIC_BOARD and palette == CLASSIC_PALETTE:
+        return f"gen-{difficulty}-{seed}"
+    tag = f"{board.rows}x{board.cols}"
+    if not any(lay.board == board and lay.palette == palette for lay in LAYOUTS):
+        ids = ",".join(color.id for color in palette)
+        tag += "-" + hashlib.sha256(ids.encode()).hexdigest()[:6]
+    return f"gen-{tag}-{difficulty}-{seed}"
+
+
 def fit_profile(profile: Profile, board: Board) -> Profile:
-    """The profile scaled to the board: given and clue counts grow with the cell count.
+    """The profile scaled to the board: givens grow with the cell count, plus one for
+    every four cells past twelve, and clues with the information needed to pick one
+    placement out of all of them (the log of cells!).
 
     The ranges are tuned for the classic twelve cells. Raises `ValueError` for a board
     with fewer than 4 or more than 16 cells, where the scaled profile stops making sense
@@ -148,17 +174,20 @@ def fit_profile(profile: Profile, board: Board) -> Profile:
         )
     if cells == len(CLASSIC_BOARD):
         return profile
-    scale = cells / len(CLASSIC_BOARD)
     most_givens = cells - 2
 
-    def scaled(low: int, high: int, floor: int, cap: int) -> tuple[int, int]:
+    def scaled(low: int, high: int, scale: float, floor: int, cap: int) -> tuple[int, int]:
         new_low = min(max(floor, round(low * scale)), cap)
         return new_low, min(max(new_low, round(high * scale)), cap)
 
+    # Clues must tell apart cells! placements, so they scale with its logarithm.
+    information = math.lgamma(cells + 1) / math.lgamma(len(CLASSIC_BOARD) + 1)
+    low, high = scaled(*profile.givens, cells / len(CLASSIC_BOARD), 0, most_givens)
+    extra = max(0, cells - len(CLASSIC_BOARD)) // _CELLS_PER_EXTRA_GIVEN
     return replace(
         profile,
-        givens=scaled(*profile.givens, 0, most_givens),
-        clues=scaled(*profile.clues, 1, cells),
+        givens=(min(low + extra, most_givens), min(high + extra, most_givens)),
+        clues=scaled(*profile.clues, information, 1, cells),
     )
 
 
@@ -172,7 +201,12 @@ def _seed_of(seed: int, difficulty: str, board: Board, palette: Palette) -> int:
 def primary_kind(clue: Clue) -> str:
     """The family a clue belongs to, used to keep one family from crowding a puzzle."""
     match clue:
-        case Relation(kind=kind) | Property(kind=kind) | BoardRule(kind=kind):
+        case (
+            Relation(kind=kind)
+            | Property(kind=kind)
+            | BoardRule(kind=kind)
+            | AttributeClue(kind=kind)
+        ):
             return kind.removeprefix("directly_")
         case Not():
             return "not"
@@ -244,8 +278,12 @@ def _has_hollow_part(clue: Clue, givens: Placement, palette: Palette) -> bool:
 
 
 def _only_about_givens(clue: Clue, givens: Placement, palette: Palette) -> bool:
-    """A clue whose every possible color is already given tells the player nothing."""
-    if clue_features(clue) & {"rows_alphabetical", "columns_alphabetical"}:
+    """A clue whose every possible color is already given tells the player nothing.
+
+    Board rules and attribute clues also speak about cubes they do not name, so they are
+    never only about the givens; one the givens already settle rules out no rival and is
+    never picked."""
+    if clue_features(clue) & ({"rows_alphabetical", "columns_alphabetical"} | ATTRIBUTE_FEATURES):
         return False
     return all(color in givens.assignments for color in clue_colors(clue, palette))
 
@@ -464,6 +502,7 @@ class _Greedy:
         used = Counter(self.kinds[i] for i in self.picked)
         special = Counter(f for i in self.picked for f in self.features[i] & _SPECIAL)
         have = frozenset().union(*(self.features[i] for i in self.picked))
+        attributes = sum(bool(self.features[i] & ATTRIBUTE_FEATURES) for i in self.picked)
         want_signature = bool(self.profile.signature) and not have & self.profile.signature
         best: tuple[float, int] | None = None
         for i in range(len(self.pool)):
@@ -471,6 +510,10 @@ class _Greedy:
             if cut == 0 or self.pins_a_cube(self.pool[i]):
                 continue
             score = cut / alive
+            if self.features[i] & ATTRIBUTE_FEATURES:
+                if attributes == _MAX_ATTRIBUTE_CLUES:
+                    continue
+                score *= _ATTRIBUTE_PENALTY**attributes
             score *= _REPEAT_PENALTY ** used[self.kinds[i]]
             for feature in sorted(self.features[i] & _SPECIAL):
                 score *= _SPECIAL_PENALTY ** special[feature]

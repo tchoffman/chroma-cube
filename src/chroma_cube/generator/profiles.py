@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from chroma_cube.core.clues import ATTRIBUTE_KINDS
+
 Difficulty = Literal["easy", "medium", "hard", "expert"]
 
 DIFFICULTIES: tuple[Difficulty, ...] = ("easy", "medium", "hard", "expert")
@@ -48,6 +50,8 @@ _CRYPTIC = frozenset({"knows", "diagonal", "between", "initial", "and"})
 _COUNTING_AND_RULES = frozenset(
     {"exactly", "at_least", "rows_alphabetical", "columns_alphabetical"}
 )
+_ATTRIBUTES = frozenset(ATTRIBUTE_KINDS)
+"""Clues about warm / cool, light / dark and hue families next to a color or in a region."""
 
 PROFILES: dict[Difficulty, Profile] = {
     "easy": Profile(givens=(5, 7), clues=(3, 5), features=_POSITIONS),
@@ -60,13 +64,13 @@ PROFILES: dict[Difficulty, Profile] = {
     "hard": Profile(
         givens=(0, 1),
         clues=(5, 8),
-        features=_POSITIONS | _REGIONS_AND_LOGIC | _CRYPTIC,
+        features=_POSITIONS | _REGIONS_AND_LOGIC | _CRYPTIC | _ATTRIBUTES,
         signature=_CRYPTIC - {"and"},
     ),
     "expert": Profile(
         givens=(0, 0),
         clues=(3, 8),
-        features=_POSITIONS | _REGIONS_AND_LOGIC | _CRYPTIC | _COUNTING_AND_RULES,
+        features=_POSITIONS | _REGIONS_AND_LOGIC | _CRYPTIC | _ATTRIBUTES | _COUNTING_AND_RULES,
         signature=_COUNTING_AND_RULES,
     ),
 }
