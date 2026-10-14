@@ -21,9 +21,10 @@
   "givens": [],
   "clues": [
     {"type": "exactly", "n": 2, "clues": [{"type": "relation", "kind": "directly_below", "colors": ["teal", "magenta"]}, {"type": "relation", "kind": "left_of", "colors": ["mustard", "brown"]}, {"type": "relation", "kind": "between", "colors": ["mustard", "cobalt", "mint"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["white", "brown"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "emerald"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "orange"]}]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["white", "brown"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "emerald"]}]},
     {"type": "relation", "kind": "below", "colors": ["emerald", "mustard"]},
     {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["cobalt", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["cobalt", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["cobalt", "mustard"]}]},
-    {"type": "at_least", "n": 1, "clues": [{"type": "relation", "kind": "same_column", "colors": ["orange", "purple"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "C"]}]}
+    {"type": "at_least", "n": 1, "clues": [{"type": "relation", "kind": "same_column", "colors": ["orange", "purple"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "C"]}]},
+    {"type": "relation", "kind": "same_row", "colors": ["emerald", "orange"]}
   ]
 }

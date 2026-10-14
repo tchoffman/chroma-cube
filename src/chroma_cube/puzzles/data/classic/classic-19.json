@@ -2,7 +2,7 @@
   "id": "classic-19",
   "title": "Name Tags",
   "difficulty": "hard",
-  "notes": "",
+  "notes": "The same letter in different statements may or may not be the same cube. Two letters in one statement are two different cubes, so \"B is between Purple and B\" names both B colors: Black and Brown.",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},
@@ -20,12 +20,12 @@
   ],
   "givens": [],
   "clues": [
-    {"type": "relation", "kind": "diagonal", "colors": ["B", "B"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["orange", "black"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "mustard"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "cobalt"]}]},
-    {"type": "relation", "kind": "between", "colors": ["magenta", "M", "emerald"]},
-    {"type": "relation", "kind": "directly_below", "colors": ["coral", "teal"]},
-    {"type": "relation", "kind": "directly_right_of", "colors": ["emerald", "coral"]},
-    {"type": "relation", "kind": "knows", "colors": ["M", "white"]},
-    {"type": "relation", "kind": "left_of", "colors": ["white", "mint"]}
+    {"type": "relation", "kind": "between", "colors": ["B", "purple", "B"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "knows", "colors": ["cobalt", "black"]}, {"type": "relation", "kind": "knows", "colors": ["cobalt", "orange"]}, {"type": "relation", "kind": "knows", "colors": ["cobalt", "magenta"]}]},
+    {"type": "relation", "kind": "directly_below", "colors": ["mustard", "C"]},
+    {"type": "relation", "kind": "diagonal", "colors": ["orange", "M"]},
+    {"type": "relation", "kind": "above", "colors": ["emerald", "teal"]},
+    {"type": "property", "kind": "in_corner", "color": "cobalt"},
+    {"type": "relation", "kind": "directly_left_of", "colors": ["white", "mustard"]}
   ]
 }

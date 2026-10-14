@@ -14,6 +14,7 @@ from importlib.resources import files
 from chroma_cube.core import (
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Cell,
     Clue,
@@ -32,7 +33,7 @@ from chroma_cube.core import (
     puzzle_from_dict,
 )
 from chroma_cube.solver import solve
-from chroma_cube.solver.search import colors_in
+from chroma_cube.solver.search import colors_in, colors_named
 
 CARD_COUNT = 25
 
@@ -217,9 +218,10 @@ def _stuck(puzzle: Puzzle, placement: Placement, options: Options) -> bool:
 def clue_shape(clue: Clue) -> str:
     """The clue with its colors left out: what a player recognises as "the same clue".
 
-    A relation or property is its kind (a property in a row or column keeps the index),
-    with "*" when a color is named by initial. "not", "and", "or" wrap their parts, and a
-    count keeps its number; parts are sorted, so their order does not matter.
+    A relation, property or attribute clue is its kind (a property in a row or column
+    keeps the index), with "*" when a color is named by initial. "not", "and", "or" wrap
+    their parts, and a count keeps its number; parts are sorted, so their order does not
+    matter.
     """
     match clue:
         case Relation(kind=kind, colors=refs):
@@ -229,6 +231,8 @@ def clue_shape(clue: Clue) -> str:
             return kind + where + ("*" if color_ref.by_initial else "")
         case BoardRule(kind=kind):
             return kind
+        case AttributeClue(kind=kind, color=color_ref):
+            return kind + ("*" if color_ref is not None and color_ref.by_initial else "")
         case Not(clue=inner):
             return f"not({clue_shape(inner)})"
         case And(clues=subs):
@@ -264,18 +268,21 @@ _SEARCHED_COLORS = 6
 def opening_move(puzzle: Puzzle) -> Opening | None:
     """The tightest narrowing one clue makes on its own, starting from the givens.
 
-    For every clue and every unplaced cube it can be about, the cells where that cube can
-    go with the clue still true for some placing of the clue's other cubes. The opening is
+    For every clue and every unplaced cube it names, the cells where that cube can go with
+    the clue still true for some placing of the cubes the clue depends on. The opening is
     the clue and cube with the fewest such cells; on a tie, the earlier clue on the card,
-    then palette order. None when no clue on its own rules out any free cell.
+    then palette order. None when the best clue still leaves the cube more than half the
+    free cells: then no single clue gives a real first step, and the player has to put
+    clues together.
     """
     givens = puzzle.givens
     free = [cell for cell in puzzle.board if givens.color_at(cell) is None]
     best: Opening | None = None
     for index, clue in enumerate(puzzle.clues):
-        named = [c for c in puzzle.palette if c in colors_in(clue, puzzle.palette)]
-        unplaced = [c for c in named if c not in givens.assignments]
-        for color in unplaced:
+        named = colors_named(clue, puzzle.palette)
+        depends = colors_in(clue, puzzle.palette)
+        unplaced = [c for c in puzzle.palette if c in depends and c not in givens.assignments]
+        for color in (c for c in unplaced if c in named):
             others = [c for c in unplaced if c != color]
             rest = others if len(others) <= _SEARCHED_COLORS else []
             cells = frozenset(
@@ -283,8 +290,10 @@ def opening_move(puzzle: Puzzle) -> Opening | None:
                 for cell in free
                 if _can_hold(puzzle, clue, givens.with_color(color, cell), rest)
             )
-            if len(cells) < len(free) and (best is None or len(cells) < len(best.cells)):
+            if best is None or len(cells) < len(best.cells):
                 best = Opening(index, color, cells, clue_shape(clue))
+    if best is None or 2 * len(best.cells) > len(free):
+        return None
     return best
 
 

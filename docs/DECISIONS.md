@@ -506,20 +506,32 @@ compiler; the count reasoning covers only the attribute clues listed above.
 ## D42: A card's opening move is its tightest single-clue narrowing (2026-10-14)
 Tests ask that no two cards in a row open the same way, so "opening move" needs a
 definition a test can compute. `opening_move` takes each clue on its own, with the givens,
-and asks for every cube the clue is about which free cells it could still take (searching
-the placings of the clue's other cubes, so "X is diagonal to A, B and C" really does leave
-only the two middle cells). The opening is the clue and cube left with the fewest cells,
-the earlier clue on the card winning a tie, as a player reading top down would find it.
-Two openings are the same when the clue has the same shape (`clue_shape`: the clue with
-its colors left out) and leaves the same cells. We first tried the hint engine's first
-hint, but on an empty tray its one-cube look-ahead with three-valued clues finds nothing
-forced on cards 8 to 25 and falls back to revealing a cube from the solution, so every
-hard card "opened" with the same reveal. We gave up chained openings (two clues that only
-pin a cube together, as on card 8); the measure sees each clue alone.
+and for every cube the clue names asks which free cells it could still take (searching the
+placings of the cubes the clue depends on, so "X is diagonal to A, B and C" really does
+leave only the two middle cells; a clue that depends on more than six unplaced cubes is
+judged one cube at a time). The opening is the clue and cube left with the fewest cells.
+On a tie the earlier clue on the card wins, as a player reading top down would find it,
+then palette order. When even the best clue leaves the cube more than half the free cells
+there is no opening: the player has to put clues together first. Two openings are the same
+when the clue has the same shape (`clue_shape`: the clue with its colors left out) and
+leaves the same cells; every line-filling clue (D40) counts as one kind of opening wherever
+its line is, and "put clues together" is a kind of its own. We first tried the hint
+engine's first hint, but on an empty tray its one-cube look-ahead finds nothing forced on
+cards 8 to 25 and falls back to revealing a cube from the solution, so every hard card
+"opened" the same way. We gave up measuring chained openings; the measure sees each clue
+alone.
 
 "X is diagonal to A, B and C" is capped at three cards, like the line-filling clues in
-D40. Cards 15 to 17 may share at most two clue shapes pairwise, with mirror images ("left
-of" and "right of") and group sizes counted as one shape, and no shape on all three. The
-either/or on cards 9 and 10 must have both parts undecided by the givens, a stricter form
-of the generator's rule against a part about given cubes only (D32): a part about given
-cubes is always decided.
+D40, and "X sits next to A and B (and C)" at sixteen, down from eighteen. Sixteen is what
+the set meets after the hard cards were varied; fewer would mean rewriting easy and medium
+cards that teach with it. Cards 15 to 17 may share at most two clue shapes pairwise, with
+mirror images ("left of" and "right of") and group sizes counted as one shape, and no
+shape on all three.
+
+The either/or on cards 9 and 10 must leave both parts open after every deduction the other
+clues allow short of a guess: each cube's possible cells, cut clue by clue until each
+remaining cell can still be satisfied by the clue's other cubes in their own cells, with a
+cube placed whenever one cell or one cube is left. On a card with one solution the other
+clues always rule out the false part in the end, so "open" has to mean open to this
+reasoning. We gave up the hint engine's forced moves as the measure: they place nothing
+from the givens on cards 9 and 10, so the check could not fail.
