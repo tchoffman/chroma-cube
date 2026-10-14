@@ -2,7 +2,7 @@
   "id": "classic-08",
   "title": "Empty Tray",
   "difficulty": "medium",
-  "notes": "No cubes to start with: every cube is placed from the clues alone. Rows are named top, middle and bottom.",
+  "notes": "This is the first empty tray, and a big step up: take your time. No cubes to start with, so every cube is placed from the clues alone. Rows are named top, middle and bottom.",
   "board": {"rows": 3, "cols": 4},
   "palette": [
     {"id": "black", "name": "Black", "hex": "#1c1c1c"},

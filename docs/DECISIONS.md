@@ -502,3 +502,24 @@ still run out of the default budget after about 9 s here (main: about 75 s); wit
 search nodes, not their price. Brute-force property tests check the result on small
 boards with mixed palettes, givens and negations. We gave up a general constraint
 compiler; the count reasoning covers only the attribute clues listed above.
+
+## D42: A card's opening move is its tightest single-clue narrowing (2026-10-14)
+Tests ask that no two cards in a row open the same way, so "opening move" needs a
+definition a test can compute. `opening_move` takes each clue on its own, with the givens,
+and asks for every cube the clue is about which free cells it could still take (searching
+the placings of the clue's other cubes, so "X is diagonal to A, B and C" really does leave
+only the two middle cells). The opening is the clue and cube left with the fewest cells,
+the earlier clue on the card winning a tie, as a player reading top down would find it.
+Two openings are the same when the clue has the same shape (`clue_shape`: the clue with
+its colors left out) and leaves the same cells. We first tried the hint engine's first
+hint, but on an empty tray its one-cube look-ahead with three-valued clues finds nothing
+forced on cards 8 to 25 and falls back to revealing a cube from the solution, so every
+hard card "opened" with the same reveal. We gave up chained openings (two clues that only
+pin a cube together, as on card 8); the measure sees each clue alone.
+
+"X is diagonal to A, B and C" is capped at three cards, like the line-filling clues in
+D40. Cards 15 to 17 may share at most two clue shapes pairwise, with mirror images ("left
+of" and "right of") and group sizes counted as one shape, and no shape on all three. The
+either/or on cards 9 and 10 must have both parts undecided by the givens, a stricter form
+of the generator's rule against a part about given cubes only (D32): a part about given
+cubes is always decided.

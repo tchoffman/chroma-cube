@@ -23,7 +23,7 @@
     {"color": "teal", "row": 2, "col": 0}
   ],
   "clues": [
-    {"type": "or", "clues": [{"type": "relation", "kind": "same_row", "colors": ["coral", "teal"]}, {"type": "relation", "kind": "same_row", "colors": ["purple", "teal"]}]},
+    {"type": "or", "clues": [{"type": "relation", "kind": "same_row", "colors": ["coral", "purple"]}, {"type": "relation", "kind": "same_row", "colors": ["teal", "purple"]}]},
     {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["orange", "magenta"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "mint"]}, {"type": "relation", "kind": "next_to", "colors": ["orange", "teal"]}]},
     {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["white", "cobalt"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "coral"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "emerald"]}]},
     {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["brown", "emerald"]}, {"type": "relation", "kind": "right_of", "colors": ["brown", "magenta"]}]},

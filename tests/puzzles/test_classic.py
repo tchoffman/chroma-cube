@@ -7,13 +7,26 @@ from importlib.resources import files
 
 import pytest
 
-from chroma_cube.core import And, Cell, Clue, Puzzle, Relation, puzzle_from_dict, puzzle_to_dict
+from chroma_cube.core import (
+    And,
+    Cell,
+    Clue,
+    Or,
+    Puzzle,
+    Relation,
+    Truth,
+    evaluate,
+    puzzle_from_dict,
+    puzzle_to_dict,
+)
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.puzzles.classic import (
     DIFFICULTIES,
     classic_puzzle,
     clue_kinds,
+    clue_shape,
     difficulty_score,
+    opening_move,
     rate_card,
 )
 from chroma_cube.solver import DEFAULT_MAX_NODES, solve
@@ -202,6 +215,102 @@ def test_line_filling_clues_are_rare() -> None:
     assert max(counts.values()) <= 1, counts
     late = [n for n in NUMBERS if card(n).difficulty in ("hard", "expert")]
     assert sum(1 for n in late if counts[n] == 0) * 2 >= len(late), counts
+
+
+def diagonal_to_three(clue: Clue) -> bool:
+    """ "X is diagonal to A, B and C": only the two middle cells touch three cells at a
+    corner, so the clue alone puts X in the middle row."""
+    if not isinstance(clue, And) or len(clue.clues) < 3:
+        return False
+    relations = [sub for sub in clue.clues if isinstance(sub, Relation)]
+    return (
+        len(relations) == len(clue.clues)
+        and {r.kind for r in relations} == {"diagonal"}
+        and len({r.colors[0] for r in relations}) == 1
+    )
+
+
+def test_diagonal_to_three_is_on_at_most_three_cards() -> None:
+    found = [n for n in NUMBERS if any(diagonal_to_three(clue) for clue in card(n).clues)]
+    assert len(found) <= 3, found
+
+
+def test_opening_move_is_the_tightest_single_clue_narrowing() -> None:
+    first = opening_move(card(1))
+    assert first is not None
+    assert (first.clue, first.color.id, first.cells) == (3, "coral", frozenset({Cell(0, 1)}))
+    assert first.shape == "next_to"
+
+
+def test_opening_move_of_diagonal_to_three_is_the_middle() -> None:
+    puzzle = card(15)
+    clue = next(i for i, c in enumerate(puzzle.clues) if diagonal_to_three(c))
+    trimmed = Puzzle(
+        puzzle.id, puzzle.title, puzzle.board, puzzle.palette, puzzle.givens, (puzzle.clues[clue],)
+    )
+    move = opening_move(trimmed)
+    assert move is not None
+    assert move.cells == frozenset({Cell(1, 1), Cell(1, 2)})
+    assert move.shape == "and(diagonal,diagonal,diagonal)"
+
+
+def test_clue_shape_hides_colors_but_keeps_structure() -> None:
+    assert clue_shape(card(1).clues[2]) == "or(same_row,same_row)"
+    assert clue_shape(card(18).clues[0]) == "next_to*"
+
+
+def test_no_two_consecutive_cards_open_the_same_way() -> None:
+    moves = {n: opening_move(card(n)) for n in NUMBERS}
+    same = [
+        (n, moves[n])
+        for n in NUMBERS[1:]
+        if (a := moves[n - 1]) is not None
+        and (b := moves[n]) is not None
+        and (a.shape, a.cells) == (b.shape, b.cells)
+    ]
+    assert not same, same
+
+
+MIRRORED = {
+    "below": "above",
+    "right_of": "left_of",
+    "directly_below": "directly_above",
+    "directly_right_of": "directly_left_of",
+}
+
+
+def broad_shape(clue: Clue) -> str:
+    """A clue's shape with mirror images and group sizes merged: "X is left of A and B"
+    and "X is right of A, B and C" read as the same kind of clue."""
+    if isinstance(clue, Relation):
+        return MIRRORED.get(clue.kind, clue.kind) + (
+            "*" if any(r.by_initial for r in clue.colors) else ""
+        )
+    if isinstance(clue, And) and all(isinstance(sub, Relation) for sub in clue.clues):
+        return "group:" + ",".join(sorted({broad_shape(sub) for sub in clue.clues}))
+    return clue_shape(clue)
+
+
+def test_cards_15_to_17_are_built_differently() -> None:
+    shapes = {n: {broad_shape(clue) for clue in card(n).clues} for n in (15, 16, 17)}
+    for a, b in ((15, 16), (15, 17), (16, 17)):
+        assert len(shapes[a] & shapes[b]) <= 2, (a, b, shapes[a] & shapes[b])
+    assert not shapes[15] & shapes[16] & shapes[17], shapes
+
+
+@pytest.mark.parametrize("number", [9, 10])
+def test_either_or_teaching_cards_leave_both_branches_open(number: int) -> None:
+    puzzle = card(number)
+    either_ors = [clue for clue in puzzle.clues if isinstance(clue, Or)]
+    assert either_ors, f"{puzzle.id} has no either/or"
+    for clue in either_ors:
+        for part in clue.clues:
+            truth = evaluate(part, puzzle.givens, puzzle.board, puzzle.palette)
+            assert truth is Truth.UNKNOWN, f"{puzzle.id}: {part} is settled by the givens"
+
+
+def test_card_8_warns_that_it_is_the_first_empty_tray() -> None:
+    assert "first empty tray" in card(8).notes.lower()
 
 
 # ------------------------------------------------------------------ solving
