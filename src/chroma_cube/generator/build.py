@@ -8,7 +8,9 @@
 
 An attempt that misses the difficulty profile (too many clues, no signature clue, one
 kind of clue everywhere) is thrown away and the next attempt draws a new solution from
-the same random stream, so a seed still maps to exactly one puzzle.
+the same random stream, so a seed still maps to exactly one puzzle. The solver is only
+ever asked for every solution of a set of givens (`solver_rivals`), never for the first
+few it meets, so a change to how it searches does not change the puzzle a seed builds.
 """
 
 from __future__ import annotations
@@ -34,7 +36,7 @@ from chroma_cube.core.clues import (
     Property,
     Relation,
 )
-from chroma_cube.core.colors import CLASSIC_PALETTE, Palette
+from chroma_cube.core.colors import CLASSIC_PALETTE, Color, Palette
 from chroma_cube.core.placement import Placement
 from chroma_cube.core.puzzle import Puzzle
 from chroma_cube.generator.candidates import (
@@ -73,6 +75,9 @@ _SLACK = 1
 _RANDOM_DRAWS = 300
 _MAX_SAMPLE = 64
 _SOLVER_SAMPLE = 16
+_LIST_NODES = 5_000
+"""Solver budget when listing rivals. Running out only means "too many to list", so a
+smaller budget than `_MAX_NODES` just moves on sooner to a narrower question."""
 _WALK_RESTARTS = 4
 _WALK_STEPS = 600
 _WALK_UPHILL = 0.1
@@ -423,20 +428,15 @@ class _Greedy:
             for other in self.walk():
                 found[other] = None
         if not found:
-            result = solve_clues(
+            return solver_rivals(
+                self.rng,
                 self.board,
                 self.palette,
                 self.chosen,
-                givens=self.givens,
-                limit=_SOLVER_SAMPLE,
-                max_nodes=_MAX_NODES,
+                self.givens,
+                self.solution_cells,
+                _SOLVER_SAMPLE,
             )
-            for solution in result.solutions:
-                other = cells_of(solution, self.palette)
-                if other != self.solution_cells:
-                    found[other] = None
-            if result.gave_up and not found:
-                raise _GaveUp
         return list(found)
 
     def walk(self) -> list[tuple[Cell, ...]]:
@@ -525,6 +525,78 @@ class _Greedy:
             if best is None or score > best[0]:
                 best = (score, i)
         return None if best is None else best[1]
+
+
+def solver_rivals(
+    rng: random.Random,
+    board: Board,
+    palette: Palette,
+    clues: Sequence[Clue],
+    givens: Placement,
+    solution: tuple[Cell, ...],
+    cap: int,
+) -> list[tuple[Cell, ...]]:
+    """Up to `cap` solutions of the clues other than `solution`, as `cells_of` tuples;
+    empty if there are none.
+
+    Which ones depends only on `rng` and the puzzle data, never on the order the solver
+    searches in: the solver is only ever asked for every solution of a set of givens,
+    and a list that fits under `cap` is sorted. When there are more (or its budget runs
+    out before it knows), more of the real solution is given, color by color in a random
+    order, and bisection finds the fewest extra givens that leave a list that fits: the
+    rivals closest to the real solution. If those leave no rival, the last color added
+    goes on each of its other cells in turn, splitting further the same way, until one
+    of them has rivals.
+
+    Raises `_GaveUp` if the budget runs out with a single color left to place.
+    """
+    colors = list(givens.unplaced(palette))
+    real = {color: solution[palette.colors.index(color)] for color in colors}
+
+    def listing(fixed: Placement) -> list[tuple[Cell, ...]] | None:
+        """Every rival under `fixed`, sorted; None if there are too many to list."""
+        result = solve_clues(board, palette, clues, givens=fixed, limit=cap, max_nodes=_LIST_NODES)
+        if result.truncated or result.gave_up:
+            return None
+        others = (cells_of(s, palette) for s in result.solutions)
+        return sorted(other for other in others if other != solution)
+
+    def split(fixed: Placement, color: Color, cells: list[Cell]) -> list[tuple[Cell, ...]]:
+        """The rivals with `color` on the first of `cells`, in a random order, that has any."""
+        rng.shuffle(cells)
+        for cell in cells:
+            child = fixed.with_color(color, cell)
+            found = listing(child)
+            if found is None:
+                rest = child.unplaced(palette)
+                if not rest:
+                    raise _GaveUp
+                found = split(child, rest[0], [c for c in board if child.color_at(c) is None])
+            if found:
+                return found
+        return []
+
+    found = listing(givens)
+    if found is not None:
+        return found
+    rng.shuffle(colors)
+
+    def given(k: int) -> Placement:
+        return Placement({**givens.assignments, **{c: real[c] for c in colors[:k]}})
+
+    low, high = 0, len(colors)
+    while high - low > 1:
+        mid = (low + high) // 2
+        found = listing(given(mid))
+        if found:
+            return found
+        if found is None:
+            low = mid
+        else:
+            high = mid
+    color, fixed = colors[low], given(low)
+    others = [cell for cell in board if fixed.color_at(cell) is None and cell != real[color]]
+    return split(fixed, color, others)
 
 
 # --------------------------------------------------------------------------- minimise

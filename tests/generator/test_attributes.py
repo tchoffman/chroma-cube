@@ -3,10 +3,7 @@
 import hashlib
 import json
 import random
-import time
-from collections import Counter
 from dataclasses import replace
-from functools import cache
 
 import pytest
 
@@ -40,25 +37,10 @@ from chroma_cube.generator.candidates import (
 )
 from chroma_cube.generator.profiles import PROFILES
 from chroma_cube.solver import is_unique
-from tests.generator.helpers import SAMPLE_SEEDS, generated
+from tests.generator.helpers import BUILD_SECONDS, SAMPLE_SEEDS, extended, generated
 
 ATTRIBUTES = frozenset(ATTRIBUTE_KINDS)
 EXTENDED = [(BOARD_4X4, EXTENDED_16), (BOARD_4X5, EXTENDED_20)]
-
-
-BUILD_SECONDS: Counter[tuple[int, int]] = Counter()
-"""Time spent generating the cached larger-board puzzles, per board shape."""
-
-
-@cache
-def extended(seed: int, difficulty: Difficulty, rows: int, cols: int) -> Puzzle:
-    board, palette = {(4, 4): (BOARD_4X4, EXTENDED_16), (4, 5): (BOARD_4X5, EXTENDED_20)}[
-        (rows, cols)
-    ]
-    start = time.perf_counter()
-    puzzle = generate(seed, difficulty, board=board, palette=palette)
-    BUILD_SECONDS[(rows, cols)] += time.perf_counter() - start
-    return puzzle
 
 
 def _attribute_clues(puzzle: Puzzle) -> list[Clue]:

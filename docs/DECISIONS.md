@@ -675,3 +675,36 @@ at-least, and attribute clues whose subject is an initial. Brute-force property 
 also cover eight- and nine-cell boards with mixed palettes, and were run once at 3,000
 examples per strategy. We gave up conflict-directed backjumping and nogood recording:
 with probing the hard cases left take tens of nodes, so there is little search to skip.
+
+## D47: Rival solutions from the solver are listed in full, never taken first-found (2026-10-14)
+When random completions, reshuffles and the local search find no rival (D32), the
+generator used to take the solver's first 16 solutions. Which 16 depended on the order
+the solver searched in, so D46's pruning changed some seeds' puzzles, and so would any
+later solver change. Now the solver is only asked for *every* solution of a set of
+givens, up to 16; that list is the same whatever the search order, and it is sorted.
+When there are more than 16 (or a 5,000-node budget runs out first, read as "too
+many"), more of the real solution is given, color by color in a seeded random order,
+and bisection finds the fewest extra givens that leave a list that fits: the rivals
+closest to the real solution. If those givens leave no rival, the last color added is
+tried on each of its other cells in a seeded order, splitting further the same way,
+until one cell has rivals. A test reverses or shuffles the solver's branch order and
+checks twenty pinned seeds (all four levels on the classic tray, 4 × 4 and 4 × 5) build
+the same puzzle.
+
+When the first list fits, the rivals are the same set as before, so easy and medium
+puzzles (and so every daily) are unchanged: easy and medium seeds 0–99 and the dailies
+for 2026-10-01 to 2026-12-31 match main. Hard and expert seeds change once more: 24 of
+the 40 classic hard and expert seeds 0–19 build a different puzzle. Saved boards for
+those start afresh (D29).
+
+The price is generation time on hard and expert: one first-found call becomes about
+five listing calls, and the closer rivals they return send the greedy step back to the
+solver more often. On the D33 and D44 bars (classic seeds 100–104, larger boards seeds
+0–1) the totals go from 3.5 s to 7.8 s (classic), 5.5 s to 7.9 s (4 × 4) and 6.9 s to
+18.9 s (4 × 5), all still under their 18 s and 40 s bars. We tried listing eight times as
+many and sampling, expanding each listed rival by its reshuffles, a longer local search
+before bisecting, and splitting on every cell from the start: each was slower.
+
+Not covered: the uniqueness checks and the listing calls still have a node budget, and
+whether a call runs out of it does depend on search order. A seed whose puzzle sits
+right at that edge can still move; none of the 64 hard and expert seeds checked did.
