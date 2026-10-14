@@ -571,8 +571,8 @@ they cut a lot ("exactly two light colors in the top row" rules out most of a ra
 sample), but they cannot tell apart two colors that share the value, so the close rivals
 remained and 71 of 87 attempts ran past the clue limit. They are never nested in
 either/or or counts, where the solver can only prune them through the evaluator (D41).
-Rating weighs them 3, and `region_count` 4. About half of classic hard and expert seeds
-now carry one (see the PR for the measured share). We gave up giving attribute clues a
+Rating weighs them 3, and `region_count` 4. On seeds 1–20, 17 of 40 classic hard and
+expert puzzles carry one, and 53 of 80 on the larger boards. We gave up giving attribute clues a
 signature bonus or making them a level's signature: the share came out without one.
 
 ## D44: Larger boards scale clues by information, and get extra givens (2026-10-14)
@@ -585,7 +585,7 @@ log(cells!) / log(12!) (1.54 for 4 × 4, 2.12 for 4 × 5): 4 × 5 hard is 11 to 
 Givens still scale by cell count, plus one for every four cells past twelve (one on 4 × 4,
 two on 4 × 5). Without them a 4 × 5 expert attempt often ran out of solver budget while
 looking for rivals (18 of 23 attempts on three seeds, and 13 of 20 with attribute clues
-turned off, so the board size is the cause), the known gap after D41; with them the slowest of twenty 4 × 5 expert seeds takes about ten seconds. So expert on
+turned off, so the board size is the cause), the known gap after D41; with them the slowest of twenty 4 × 5 expert seeds takes about 11 seconds. So expert on
 4 × 5 starts with two cubes placed, still the fewest of its board's levels.
 
 Puzzle ids stay `gen-<difficulty>-<seed>` on the classic tray and become
