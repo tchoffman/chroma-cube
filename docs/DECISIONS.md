@@ -459,3 +459,46 @@ which fill a whole row or column at once, are capped at one per card and left of
 least half the hard and expert cards, so each card does not open the same way. We gave up
 a rating that matches a human solver closely; this one ignores which deductions are hard
 to spot.
+
+## D41: Attribute clues prune by counts over candidates, and look-alike colors are searched once (2026-10-14)
+Twenty attribute clues on an empty 4 × 4 board used to exhaust the search budget (about
+40 s here) without finding the solution planted in them: the evaluator assumes every
+unplaced color can go to any free cell, so a region or neighbour clue about unplaced
+colors rarely ruled anything out. The search now adds three things on top of D24, all of
+them pruning only, with the evaluator still deciding every node and every solution:
+
+- **Counts over candidates.** Each attribute clue, or its negation, about a region or
+  about a color named by id is read, as `ATTRIBUTE_KINDS` defines it, as a test on how
+  many matching and other cubes end up in a group of cells. With each color limited to
+  its candidate cells, some colors must land in the group and some may; if no split of
+  the "may" colors passes the test, the branch ends, and a color whose going in (or
+  staying out) fails the test loses those cells. For a neighbour clue whose color is
+  unplaced, each of its candidate cells is kept only if the cells around it could still
+  pass. Trial placements skip these clues, which is where the time went. Attribute clues
+  with an initial-letter subject, and attribute clues nested inside and / or / exactly /
+  at-least, are left to the evaluator.
+- **Every cell needs a color.** A branch also ends when the colors cannot each get their
+  own cell from their candidates (a matching check), and the search branches on the cell
+  with the fewest possible colors when that is fewer than the most constrained color's
+  cells. Full all-different filtering was tried and gave no measurable gain.
+- **Look-alike colors.** Colors that are not given, that no clue names (by id or
+  initial; a board rule names every color) and that share all three attributes cannot be
+  told apart by any clue, so only solutions that keep them in palette order across the
+  board are searched, and each is returned with every swap of them. The built-in palettes
+  have five such groups: Emerald/Mint (in every palette), Cobalt/Teal, White/Silver,
+  Purple/Indigo and the three-way Azure/Cyan/Denim, which alone gives 3! = 6 swaps. A
+  card with a unique solution must name all but at most one color of each group, so this
+  speeds up finding a second solution, not proving there is none.
+
+Measured on the same machine, all runs asking for two solutions (`limit=2`), which is
+what a uniqueness check does; on these boards the search found two, so they show "not
+unique" quickly rather than proving uniqueness. The 20-clue case from the review of the
+attribute clues (seed 0 of the test) goes from 40 s and no answer to about 0.8 s. Of 100
+such random cases (seeds 0–99) none give up and the slowest, seed 66, takes about 3.6 s;
+a reviewer measured that seed at about 7 s on another machine before the count step was
+made cheaper, so the figures depend on the machine. Known gap: 40 planted clues (seed 5)
+still run out of the default budget after about 9 s here (main: about 75 s); with a
+3,000,000 budget it finds two solutions in about 24 s. The cost there is the number of
+search nodes, not their price. Brute-force property tests check the result on small
+boards with mixed palettes, givens and negations. We gave up a general constraint
+compiler; the count reasoning covers only the attribute clues listed above.
