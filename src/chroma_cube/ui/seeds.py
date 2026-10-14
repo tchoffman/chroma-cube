@@ -1,4 +1,4 @@
-"""Which generated puzzle is being played: its difficulty, its seed and its title.
+"""Which generated puzzle is being played: its difficulty, seed, board and title.
 
 No Textual here, so the daily seed and typed seeds are tested on their own.
 """
@@ -9,7 +9,7 @@ import random
 from dataclasses import dataclass, replace
 from datetime import date
 
-from chroma_cube.generator import Difficulty
+from chroma_cube.generator import Difficulty, layout
 
 DAILY_DIFFICULTY: Difficulty = "medium"
 MAX_SEED_DIGITS = 18
@@ -51,10 +51,12 @@ class GameSpec:
     seed: int
     day: date | None = None
     """Set for the daily puzzle, whose seed comes from this date."""
+    layout: str = "classic"
+    """The key of the board and palette played on (see `chroma_cube.generator.LAYOUTS`)."""
 
     @classmethod
-    def infinite(cls, difficulty: Difficulty, seed: int) -> GameSpec:
-        return cls(difficulty, seed)
+    def infinite(cls, difficulty: Difficulty, seed: int, layout: str = "classic") -> GameSpec:
+        return cls(difficulty, seed, layout=layout)
 
     @classmethod
     def daily(cls, day: date) -> GameSpec:
@@ -68,12 +70,20 @@ class GameSpec:
     def title(self) -> str:
         if self.day is not None:
             return f"Daily · {self.day.isoformat()}"
-        return f"Infinite · {self.difficulty} · seed {self.seed}"
+        if self.layout == "classic":
+            return f"Infinite · {self.difficulty} · seed {self.seed}"
+        return f"Infinite · {self.shape} · {self.difficulty} · seed {self.seed}"
+
+    @property
+    def shape(self) -> str:
+        """The board as rows × columns, e.g. "4×5"."""
+        board = layout(self.layout).board
+        return f"{board.rows}×{board.cols}"
 
     def another(self, rng: random.Random) -> GameSpec:
-        """A fresh infinite puzzle of the same difficulty."""
-        return GameSpec.infinite(self.difficulty, random_seed(rng, avoid=self.seed))
+        """A fresh infinite puzzle of the same difficulty, on the same board."""
+        return GameSpec.infinite(self.difficulty, random_seed(rng, avoid=self.seed), self.layout)
 
     def with_seed(self, seed: int) -> GameSpec:
-        """The infinite puzzle with this seed, at the same difficulty."""
+        """The infinite puzzle with this seed, at the same difficulty and on the same board."""
         return replace(self, seed=seed, day=None)

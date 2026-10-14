@@ -235,7 +235,12 @@ count, fewer hints), so two copies running at once keep each other's ticks; the 
 merged and whoever saves last owns it. The board is saved on every change, which is one
 small write per move. Tests point `CHROMA_CUBE_DATA_DIR` at a temporary directory through an
 autouse fixture, so no test touches real saves. We gave up any warning when saves are lost,
-per-card boards, and exact solve counts when two copies solve the same card at once.
+per-card boards, and exact solve counts when two copies solve the same card at once. A saved
+board also stores a fingerprint of its puzzle (16 hex digits of SHA-256 over the puzzle's
+data without id and title), in an optional key so the file stays version 1, and is
+restored only onto a puzzle with the same fingerprint, so an edited card or a seed the
+generator now builds differently (D43) starts afresh; boards saved before fingerprints
+are kept, except generated hard and expert ones, whose puzzles D43 changed.
 
 ## D30: Shipped as a git-installable tool and a GitHub release, browser play optional (2026-10-08)
 Players install with `uv tool install` (or run once with `uvx`) straight from the repo, and
@@ -330,8 +335,9 @@ score (three per cube to place plus each clue's heaviest feature weight) that ri
 about 20 (easy) through 35 and 48 to 52 (expert).
 
 The ranges are tuned for the classic 12 cells. On another board the given and clue
-ranges scale with the cell count; boards under 4 or over 16 cells are refused with
-`ValueError`, as is a non-classic board where 30 attempts all miss the profile.
+ranges scale with the cell count (D44 changes how); boards under 4 or over 20 cells
+(16 before D44) are refused with `ValueError`, as is a non-classic board where 30
+attempts all miss the profile.
 
 ## D34: Generated puzzles are named by difficulty and seed; the daily seed is the date (2026-10-08)
 The app opens on a home screen: Classic cards, Infinite and Daily. An infinite puzzle is
@@ -535,3 +541,84 @@ cube placed whenever one cell or one cube is left. On a card with one solution t
 clues always rule out the false part in the end, so "open" has to mean open to this
 reasoning. We gave up the hint engine's forced moves as the measure: they place nothing
 from the givens on cards 9 and 10, so the check could not fail.
+
+## D43: Hard and expert puzzles may use attribute clues, one per meaning (2026-10-14)
+The hard and expert profiles add the five attribute kinds as clue features; each is kept
+or dropped per attempt like any other family (D33). Easy and medium never use them, so
+the daily puzzle (medium, classic) and every easy or medium seed stay exactly as they
+were; a test pins a few by hash. Hard and expert seeds on the classic tray do give new
+puzzles under the same ids.
+
+The pool takes every `attribute_clues` entry that is true on the solution, plus the
+negation of a false one when its kind has a short negated sentence ("Coral doesn't sit
+next to a dark color"); `region_count` has none, so "It's not true that exactly ..." is
+never generated. Before anything joins the pool it is reduced to what it means on a full
+board (`attribute_meaning`), and only the first clue of each meaning is kept, positive
+ones first. That covers the pairs D37 lists and the others we found:
+
+- `region_all(v, R)` and `region_count(v, R, n = size of R)`;
+- `neighbours_all(X, light)` and "X doesn't sit next to a dark color" (tone and
+  temperature split every palette);
+- a family and a quality that pick the same colors (grey and neutral in every built-in
+  palette), so `next_to_family` and `neighbours_some` meet;
+- a count of the colors with a value and the count of those without, and a count in the
+  center and the count on the edge (the board is full, so one fixes the other).
+
+A clue whose meaning is a plainer clue is left out: a neighbour clue only one color can
+satisfy ("Mint sits next to a shade of orange" is "Mint sits next to Orange"), a region
+count about one color ("is in" / "isn't in"), and clues that hold on every board or on
+none. The givens are taken into account too: with Coral and Purple given apart on 4 × 4,
+"Coral sits next to a shade of purple" only says "Coral sits next to Lavender", so it is
+left out, and so is a region count with at most one unplaced color that has the value
+(or lacks it). Sixty
+of what is left are sampled per attempt. Attribute and board-rule clues talk about cubes
+they do not name, so neither counts as "only about the givens" (D32).
+
+At most two attribute clues go on one puzzle, and the second costs a factor of 0.4 in
+the greedy score. Without the cap they took most slots on 4 × 4 hard: on random rivals
+they cut a lot ("exactly two light colors in the top row" rules out most of a random
+sample), but they cannot tell apart two colors that share the value, so the close rivals
+remained and 71 of 87 attempts ran past the clue limit. They are never nested in
+either/or or counts, where the solver can only prune them through the evaluator (D41).
+Rating weighs them 3, and `region_count` 4. On seeds 1–20, 18 of 40 classic hard and
+expert puzzles carry one, and 52 of 80 on the larger boards. We gave up giving attribute clues a
+signature bonus or making them a level's signature: the share came out without one.
+
+## D44: Larger boards scale clues by information, and get extra givens (2026-10-14)
+`LAYOUTS` names the three boards a generated puzzle can be played on: classic (3 × 4,
+twelve colors), `4x4` (`EXTENDED_16`) and `4x5` (`EXTENDED_20`). The generator now takes
+boards up to 20 cells. Scaling the classic profile by cell count (D33) gave 4 × 5 hard
+eight to thirteen clues, and the greedy step never got there: every attempt ran out of
+clues. A card must single out one of cells! placements, so clue ranges now scale by
+log(cells!) / log(12!) (1.54 for 4 × 4, 2.12 for 4 × 5): 4 × 5 hard is 11 to 17 clues.
+Givens still scale by cell count, plus one for every four cells past twelve (one on 4 × 4,
+two on 4 × 5). Without them a 4 × 5 expert attempt often ran out of solver budget while
+looking for rivals (18 of 23 attempts on three seeds, and 13 of 20 with attribute clues
+turned off, so the board size is the cause), the known gap after D41; with them the
+slowest of twenty 4 × 5 expert seeds takes about 11 seconds. So expert on
+4 × 5 starts with two cubes placed, still the fewest of its board's levels.
+
+Puzzle ids stay `gen-<difficulty>-<seed>` on the classic tray and become
+`gen-<rows>x<cols>-<difficulty>-<seed>` on the others (`gen-4x5-hard-17`), so progress
+and replay by seed never mix boards; a palette other than the board's own adds six hex
+digits of its color ids. The timing bar for a larger board is eight puzzles, two per
+level, in under 40 seconds, next to D33's twenty classic puzzles in 18.
+
+## D45: The board is picked beside the difficulty, and the play screen widens for it (2026-10-14)
+The infinite screen lists the difficulties and, under them, the boards, with a dot on the
+chosen one. Choosing a difficulty starts a puzzle on the dotted board; Tab moves to the
+board list, and choosing a board there moves the dot and the focus back to the
+difficulties, so the old path (Enter on a difficulty) is unchanged. A mouse click does the
+same. The choice lasts while the app runs and is not saved; daily stays classic.
+`n` and `s` keep the board, and the title names it when it is not classic
+("Infinite · 4×5 · hard · seed 17"). The app's generator is called with only the seed
+and difficulty on the classic tray, and with the board and palette otherwise.
+
+The play screen puts the clues beside the tray from 70 columns as before (D21), or from
+the width a tray needs to show every name in full with its mark, plus 24 for the clues,
+if that is wider. A 4 × 5 tray of the twenty colors needs 62, so at 80 × 24 its clues
+stack under the tray and show three lines at a time (PageDown scrolls), headed
+"Clues 1–3 of 13" while some are out of sight; at 100 × 30 they
+sit beside it. Number keys still reach only the first ten cubes in the strip; the rest
+are taken by first letter or mouse (D18). We gave up shrinking cell labels to keep the
+clues beside the tray at 80 columns, since "Lavender" would be cut.

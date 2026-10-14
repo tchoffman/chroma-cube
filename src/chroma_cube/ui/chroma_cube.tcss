@@ -7,6 +7,11 @@
     text-style: bold;
 }
 
+.list-heading {
+    padding: 1 1 0 1;
+    text-style: bold;
+}
+
 #cards {
     height: 1fr;
 }

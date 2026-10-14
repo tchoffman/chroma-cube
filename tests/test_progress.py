@@ -1,12 +1,13 @@
 import json
 import os
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from chroma_cube.core import Cell, Color, Placement, Puzzle
-from chroma_cube.progress import Progress, SolveRecord, default_data_dir
+from chroma_cube.progress import Progress, SolveRecord, default_data_dir, fingerprint
 from tests.conftest import DEMO
 
 OTHER = Puzzle(
@@ -82,6 +83,7 @@ def test_the_file_lists_only_the_cubes_the_player_placed(tmp_path: Path) -> None
     assert data["current"] == {
         "puzzle": DEMO.id,
         "cubes": [{"color": "magenta", "row": 2, "col": 1}],
+        "fingerprint": fingerprint(DEMO),
     }
 
 
@@ -356,3 +358,46 @@ def test_no_argument_uses_the_default_dir(tmp_path: Path, monkeypatch: pytest.Mo
     Progress().record_solve(DEMO.id)
     assert (tmp_path / "progress.json").exists()
     assert Progress().path == tmp_path / "progress.json"
+
+
+# ------------------------------------------------------------------ fingerprints
+
+
+def _legacy_board(tmp_path: Path, puzzle_id: str) -> None:
+    """A board saved before boards carried a fingerprint: Magenta at row 2, column 1."""
+    current = {"puzzle": puzzle_id, "cubes": [{"color": "magenta", "row": 2, "col": 1}]}
+    data = {"version": 1, "solved": {}, "current": current}
+    (tmp_path / "progress.json").write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_a_saved_board_carries_the_puzzles_fingerprint(tmp_path: Path) -> None:
+    Progress(tmp_path).save_board(DEMO, magenta_at(2, 1))
+    data = json.loads((tmp_path / "progress.json").read_text(encoding="utf-8"))
+    assert data["version"] == 1
+    assert data["current"]["fingerprint"] == fingerprint(DEMO)
+    assert len(fingerprint(DEMO)) == 16
+    assert Progress(tmp_path).saved_board(DEMO) == magenta_at(2, 1)
+
+
+def test_the_fingerprint_ignores_id_and_title_only() -> None:
+    assert fingerprint(replace(DEMO, id="x", title="y")) == fingerprint(DEMO)
+    assert fingerprint(replace(DEMO, clues=DEMO.clues[:-1])) != fingerprint(DEMO)
+
+
+def test_a_board_for_a_changed_puzzle_with_the_same_id_is_not_restored(tmp_path: Path) -> None:
+    Progress(tmp_path).save_board(DEMO, magenta_at(2, 1))
+    changed = replace(DEMO, clues=DEMO.clues[:-1])
+    assert Progress(tmp_path).saved_board(changed) is None
+
+
+@pytest.mark.parametrize("puzzle_id", ["gen-hard-17", "gen-expert-4"])
+def test_an_old_hard_or_expert_generated_board_is_ignored(tmp_path: Path, puzzle_id: str) -> None:
+    _legacy_board(tmp_path, puzzle_id)
+    assert Progress(tmp_path).saved_board(replace(DEMO, id=puzzle_id)) is None
+
+
+@pytest.mark.parametrize("puzzle_id", [DEMO.id, "gen-medium-20261008", "gen-easy-3"])
+def test_an_old_card_or_easy_or_medium_board_is_restored(tmp_path: Path, puzzle_id: str) -> None:
+    _legacy_board(tmp_path, puzzle_id)
+    puzzle = replace(DEMO, id=puzzle_id)
+    assert Progress(tmp_path).saved_board(puzzle) == magenta_at(2, 1)

@@ -12,6 +12,8 @@ _WEIGHTS = {
     "not": 2, "or": 2,
     "knows": 3, "diagonal": 3, "between": 3, "and": 3, "initial": 3,
     "exactly": 4, "at_least": 4, "rows_alphabetical": 4, "columns_alphabetical": 4,
+    "neighbours_all": 3, "neighbours_some": 3, "next_to_family": 3,
+    "region_all": 3, "region_count": 4,
 }  # fmt: skip
 """Extra effort a feature asks of the player; anything not listed (positions) weighs 1."""
 _FREE_CUBE = 3
