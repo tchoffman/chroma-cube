@@ -507,7 +507,8 @@ still run out of the default budget after about 9 s here (main: about 75 s); wit
 3,000,000 budget it finds two solutions in about 24 s. The cost there is the number of
 search nodes, not their price. Brute-force property tests check the result on small
 boards with mixed palettes, givens and negations. We gave up a general constraint
-compiler; the count reasoning covers only the attribute clues listed above.
+compiler; the count reasoning covers only the attribute clues listed above. D46 closes the
+seed-5 gap.
 
 ## D42: A card's opening move is its tightest single-clue narrowing (2026-10-14)
 Tests ask that no two cards in a row open the same way, so "opening move" needs a
@@ -622,3 +623,47 @@ stack under the tray and show three lines at a time (PageDown scrolls), headed
 sit beside it. Number keys still reach only the first ten cubes in the strip; the rest
 are taken by first letter or mouse (D18). We gave up shrinking cell labels to keep the
 clues beside the tray at 80 columns, since "Lavender" would be cut.
+
+## D46: Count clues are probed one cell at a time, on bit masks (2026-10-14)
+D41 left a known gap: 40 attribute clues on an empty 4 × 4 board (seed 5 of the test)
+ran out of the default budget after about 9 s, and no attribute-heavy board had been
+proved unique within it. Counting the search nodes showed the budget went on about 800
+nodes, each costing about 250 trial placements and 15 ms, so both the number of nodes and
+their price had to fall. Three changes, all pruning only; the evaluator still decides
+every node and every solution:
+
+- **Probing.** After the counts settle, a color is put on one of its cells (taking that
+  cell from every other color) and the counts are run again; if that ends in a dead
+  branch the cell is dropped. Run on every color at every node this took seed 5 from
+  about 1,800 nodes to 30, but cost about a second a node. So it is one pass, every color
+  at the root (what it rules out there holds for the whole search) and below the root
+  only colors with at most half the board's cells left, since one that could still go
+  almost anywhere rarely loses a cell to a probe. Repeating passes until nothing drops,
+  probing every color at every node, and switching probing on only after the first 20
+  to 100 nodes were all measured and were slower overall. Each probe counts as a trial placement in the
+  budget (D28).
+- **Both ends of a neighbour clue.** For a neighbour clue whose color is unplaced, each
+  other color now keeps a cell only if some cell of the clue's color lets the clue hold
+  with it there. "Purple sits next to a shade of purple" now keeps Lavender next to
+  Purple's cells, not only Purple next to Lavender's.
+- **Bit masks.** The count reasoning moved to `solver/counts.py` and works on cells and
+  colors numbered as bits of an int, testing each "may" color by whether it matches the
+  value (two tests per group rather than one per color) and memoising each clue's count
+  test. Alone, with the search unchanged, this made seed 5 about 2.5 times faster.
+
+Measured as CPU time on a loaded machine, `limit=2` as a uniqueness check asks, main
+against this change on the same runs: seed 5 goes from giving up after 10.9 s to finding
+two solutions (it has 109) in about 2 s. A unique board made from seed 5's 40 clues plus
+six attribute clues that rule out its other solutions, no givens, went from giving up
+after 12.9 s (23 s with a 3,000,000 budget) to proved unique in about 3 s. The 20-clue
+runs of seeds 0–99 go from 20.1 s in all, slowest 3.5 s, to about 18 s, slowest 1.5 s,
+but the median rises from 0.07 s to about 0.16 s: probing the root costs a tenth of a
+second on boards that were already quick. The 40-clue runs of seeds 0–99 go from 206 s
+in all with five giving up (seeds 5, 65, 71, 86 and 91) to about 49 s with none giving up,
+the slowest at about 3.3 s; three of them prove uniqueness on both.
+
+Left to the evaluator, as before: attribute clues nested inside and / or / exactly /
+at-least, and attribute clues whose subject is an initial. Brute-force property tests now
+also cover eight- and nine-cell boards with mixed palettes, and were run once at 3,000
+examples per strategy. We gave up conflict-directed backjumping and nogood recording:
+with probing the hard cases left take tens of nodes, so there is little search to skip.
