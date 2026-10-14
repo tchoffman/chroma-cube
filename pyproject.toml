@@ -1,6 +1,6 @@
 [project]
 name = "chroma-cube"
-version = "0.2.0"
+version = "0.3.0"
 description = "Digital Chroma Cube: the color-cube logic puzzle, with a clue language, solver and infinite puzzle generator"
 readme = "README.md"
 requires-python = ">=3.11"
