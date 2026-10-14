@@ -235,7 +235,12 @@ count, fewer hints), so two copies running at once keep each other's ticks; the 
 merged and whoever saves last owns it. The board is saved on every change, which is one
 small write per move. Tests point `CHROMA_CUBE_DATA_DIR` at a temporary directory through an
 autouse fixture, so no test touches real saves. We gave up any warning when saves are lost,
-per-card boards, and exact solve counts when two copies solve the same card at once.
+per-card boards, and exact solve counts when two copies solve the same card at once. A saved
+board also stores a fingerprint of its puzzle (16 hex digits of SHA-256 over the puzzle's
+data without id and title), in an optional key so the file stays version 1, and is
+restored only onto a puzzle with the same fingerprint, so an edited card or a seed the
+generator now builds differently (D43) starts afresh; boards saved before fingerprints
+are kept, except generated hard and expert ones, whose puzzles D43 changed.
 
 ## D30: Shipped as a git-installable tool and a GitHub release, browser play optional (2026-10-08)
 Players install with `uv tool install` (or run once with `uvx`) straight from the repo, and
@@ -331,8 +336,8 @@ about 20 (easy) through 35 and 48 to 52 (expert).
 
 The ranges are tuned for the classic 12 cells. On another board the given and clue
 ranges scale with the cell count (D44 changes how); boards under 4 or over 20 cells
-(16 before D44) are refused with
-`ValueError`, as is a non-classic board where 30 attempts all miss the profile.
+(16 before D44) are refused with `ValueError`, as is a non-classic board where 30
+attempts all miss the profile.
 
 ## D34: Generated puzzles are named by difficulty and seed; the daily seed is the date (2026-10-08)
 The app opens on a home screen: Classic cards, Infinite and Daily. An infinite puzzle is
@@ -561,7 +566,11 @@ ones first. That covers the pairs D37 lists and the others we found:
 
 A clue whose meaning is a plainer clue is left out: a neighbour clue only one color can
 satisfy ("Mint sits next to a shade of orange" is "Mint sits next to Orange"), a region
-count about one color ("is in" / "isn't in"), and clues that hold on every board. Sixty
+count about one color ("is in" / "isn't in"), and clues that hold on every board or on
+none. The givens are taken into account too: with Coral and Purple given apart on 4 × 4,
+"Coral sits next to a shade of purple" only says "Coral sits next to Lavender", so it is
+left out, and so is a region count with at most one unplaced color that has the value
+(or lacks it). Sixty
 of what is left are sampled per attempt. Attribute and board-rule clues talk about cubes
 they do not name, so neither counts as "only about the givens" (D32).
 
@@ -585,7 +594,8 @@ log(cells!) / log(12!) (1.54 for 4 × 4, 2.12 for 4 × 5): 4 × 5 hard is 11 to 
 Givens still scale by cell count, plus one for every four cells past twelve (one on 4 × 4,
 two on 4 × 5). Without them a 4 × 5 expert attempt often ran out of solver budget while
 looking for rivals (18 of 23 attempts on three seeds, and 13 of 20 with attribute clues
-turned off, so the board size is the cause), the known gap after D41; with them the slowest of twenty 4 × 5 expert seeds takes about 11 seconds. So expert on
+turned off, so the board size is the cause), the known gap after D41; with them the
+slowest of twenty 4 × 5 expert seeds takes about 11 seconds. So expert on
 4 × 5 starts with two cubes placed, still the fewest of its board's levels.
 
 Puzzle ids stay `gen-<difficulty>-<seed>` on the classic tray and become
@@ -607,7 +617,8 @@ and difficulty on the classic tray, and with the board and palette otherwise.
 The play screen puts the clues beside the tray from 70 columns as before (D21), or from
 the width a tray needs to show every name in full with its mark, plus 24 for the clues,
 if that is wider. A 4 × 5 tray of the twenty colors needs 62, so at 80 × 24 its clues
-stack under the tray and show three lines at a time (PageDown scrolls); at 100 × 30 they
+stack under the tray and show three lines at a time (PageDown scrolls), headed
+"Clues 1–3 of 13" while some are out of sight; at 100 × 30 they
 sit beside it. Number keys still reach only the first ten cubes in the strip; the rest
 are taken by first letter or mouse (D18). We gave up shrinking cell labels to keep the
 clues beside the tray at 80 columns, since "Lavender" would be cut.

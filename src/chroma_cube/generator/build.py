@@ -46,6 +46,7 @@ from chroma_cube.generator.candidates import (
     clue_colors,
     clue_features,
     compile_clue,
+    disguised_by_givens,
     random_solution,
 )
 from chroma_cube.generator.layouts import LAYOUTS
@@ -109,7 +110,7 @@ def generate(
     """A new puzzle with exactly one solution. The same arguments always give the same puzzle.
 
     Raises `ValueError` for an unknown difficulty, a palette that does not fill the board,
-    a board outside 4 to 16 cells, or a non-classic board on which no attempt fits the
+    a board outside 4 to 20 cells, or a non-classic board on which no attempt fits the
     profile; `RuntimeError` if no attempt fits on the classic tray (not seen in practice).
     """
     if difficulty not in PROFILES:
@@ -163,7 +164,7 @@ def fit_profile(profile: Profile, board: Board) -> Profile:
     placement out of all of them (the log of cells!).
 
     The ranges are tuned for the classic twelve cells. Raises `ValueError` for a board
-    with fewer than 4 or more than 16 cells, where the scaled profile stops making sense
+    with fewer than 4 or more than 20 cells, where the scaled profile stops making sense
     or the search gets too slow.
     """
     cells = len(board)
@@ -242,6 +243,7 @@ def _attempt(
         for clue in candidate_pool(rng, solution, board, palette, features)
         if not _only_about_givens(clue, givens, palette)
         and not _has_hollow_part(clue, givens, palette)
+        and not disguised_by_givens(clue, givens, board, palette)
     ]
     greedy = _Greedy(rng, profile, solution, givens, pool, board, palette)
     chosen = greedy.run()

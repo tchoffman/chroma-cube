@@ -238,10 +238,38 @@ def attribute_meaning(clue: Clue, board: Board, palette: Palette) -> Meaning | N
             if chosen is not having:
                 count = len(group) - count
             low, high = max(0, len(chosen) - len(other)), min(len(chosen), len(group))
-            if len(chosen) < 2 or low == high:
+            if len(chosen) < 2 or low == high or not low <= count <= high:
                 return None
             variants.append(("count", tuple(sorted(group)), tuple(sorted(chosen)), count))
     return (*min(variants, key=repr), negated)
+
+
+def disguised_by_givens(clue: Clue, givens: Placement, board: Board, palette: Palette) -> bool:
+    """Whether the givens turn an attribute clue (or its negation) into a plainer clue.
+
+    About a given color's neighbours, only the colors that could still sit next to it
+    count: given colors elsewhere cannot. If at most one is left, "Coral sits next to a
+    shade of purple" with Purple given far from Coral just says "Coral sits next to
+    Lavender". A region count is a plainer clue when at most one unplaced color has the
+    value, or at most one lacks it: the givens fix the rest of the count.
+    """
+    inner = clue.clue if isinstance(clue, Not) else clue
+    if not isinstance(inner, AttributeClue) or attribute_meaning(clue, board, palette) is None:
+        return False
+    having = {color.id for color in palette if color.has(inner.value)}
+    placed = {color.id: cell for color, cell in givens.assignments.items()}
+    if inner.color is not None:
+        subject = inner.color.key
+        where = placed.get(subject)
+        if where is None:
+            return False
+        around = set(board.orthogonal_neighbours(where))
+        everyone = {color.id for color in palette} - {subject}
+        some = having - {subject} if _shape(inner.kind) == "some" else everyone - having
+        possible = {c for c in some if c not in placed or placed[c] in around}
+        return len(possible) <= 1
+    unplaced = {color.id for color in palette} - set(placed)
+    return min(len(unplaced & having), len(unplaced - having)) <= 1
 
 
 def _shape(kind: str) -> str | None:

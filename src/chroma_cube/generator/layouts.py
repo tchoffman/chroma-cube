@@ -10,7 +10,8 @@ from chroma_cube.core.colors import CLASSIC_PALETTE, EXTENDED_16, EXTENDED_20, P
 
 @dataclass(frozen=True)
 class Layout:
-    """A board and its palette. `key` names it in puzzle ids and saved choices."""
+    """A board and its palette. `key` names the layout in the UI's game spec and picker;
+    puzzle ids name the board by its shape instead (`gen-4x5-hard-17`)."""
 
     key: str
     label: str

@@ -1,7 +1,11 @@
 """Attribute clues in the generator, and puzzles on the larger boards."""
 
+import hashlib
+import json
 import random
 import time
+from collections import Counter
+from dataclasses import replace
 from functools import cache
 
 import pytest
@@ -16,9 +20,11 @@ from chroma_cube.core import (
     Board,
     Not,
     Palette,
+    Placement,
     Puzzle,
     attribute_clues,
     evaluate,
+    puzzle_to_dict,
 )
 from chroma_cube.core.clues import ATTRIBUTE_KINDS, AttributeClue, Clue, Region, attribute
 from chroma_cube.core.evaluate import Truth
@@ -29,6 +35,7 @@ from chroma_cube.generator.candidates import (
     candidate_pool,
     cells_of,
     compile_clue,
+    disguised_by_givens,
     random_solution,
 )
 from chroma_cube.generator.profiles import PROFILES
@@ -39,12 +46,19 @@ ATTRIBUTES = frozenset(ATTRIBUTE_KINDS)
 EXTENDED = [(BOARD_4X4, EXTENDED_16), (BOARD_4X5, EXTENDED_20)]
 
 
+BUILD_SECONDS: Counter[tuple[int, int]] = Counter()
+"""Time spent generating the cached larger-board puzzles, per board shape."""
+
+
 @cache
 def extended(seed: int, difficulty: Difficulty, rows: int, cols: int) -> Puzzle:
     board, palette = {(4, 4): (BOARD_4X4, EXTENDED_16), (4, 5): (BOARD_4X5, EXTENDED_20)}[
         (rows, cols)
     ]
-    return generate(seed, difficulty, board=board, palette=palette)
+    start = time.perf_counter()
+    puzzle = generate(seed, difficulty, board=board, palette=palette)
+    BUILD_SECONDS[(rows, cols)] += time.perf_counter() - start
+    return puzzle
 
 
 def _attribute_clues(puzzle: Puzzle) -> list[Clue]:
@@ -169,6 +183,53 @@ def test_clues_that_are_plainer_clues_in_disguise_have_no_meaning() -> None:
     assert attribute_meaning(disguised[2], board, palette) is not None
 
 
+def test_a_count_that_cannot_hold_has_no_meaning() -> None:
+    # Ten edge cells and seven light colors: some edge cube is always dark.
+    never = attribute("region_all", "light", region=Region("edge"))
+    assert attribute_meaning(never, CLASSIC_BOARD, CLASSIC_PALETTE) is None
+    assert attribute_meaning(Not(never), CLASSIC_BOARD, CLASSIC_PALETTE) is None
+
+
+def test_givens_can_turn_an_attribute_clue_into_a_plain_one() -> None:
+    board, palette = BOARD_4X4, EXTENDED_16
+    coral, purple = palette.by_id("coral"), palette.by_id("purple")
+    apart = Placement({coral: board.row(0)[0], purple: board.row(3)[3]})
+    beside = Placement({coral: board.row(0)[0], purple: board.row(0)[1]})
+    # Purple and Lavender are the purples; with Purple given far away, only Lavender is left.
+    clue = attribute("next_to_family", "purple", color="coral")
+    assert attribute_meaning(clue, board, palette) is not None
+    assert disguised_by_givens(clue, apart, board, palette)
+    assert not disguised_by_givens(clue, beside, board, palette)
+    assert not disguised_by_givens(clue, Placement(), board, palette)
+    # The subject not given: nothing is known about its neighbours.
+    assert not disguised_by_givens(
+        attribute("next_to_family", "purple", color="mint"), apart, board, palette
+    )
+
+
+def test_givens_can_leave_a_region_count_about_one_cube() -> None:
+    board, palette = CLASSIC_BOARD, CLASSIC_PALETTE
+    black = palette.by_id("black")
+    corners = Region("corners")
+    # Black and White are the neutral colors; with Black given, the count is about White.
+    clue = attribute("region_count", "neutral", region=corners, n=1)
+    given = Placement({black: board.row(0)[0]})
+    assert disguised_by_givens(clue, given, board, palette)
+    assert not disguised_by_givens(clue, Placement(), board, palette)
+
+
+def test_generated_puzzles_hold_no_clue_the_givens_disguise() -> None:
+    puzzles = [
+        extended(seed, level, *shape)
+        for shape in [(4, 4), (4, 5)]
+        for level in ("hard", "expert")
+        for seed in range(2)
+    ]
+    for puzzle in puzzles:
+        for clue in puzzle.clues:
+            assert not disguised_by_givens(clue, puzzle.givens, puzzle.board, puzzle.palette)
+
+
 # --------------------------------------------------------------------------- generated
 
 
@@ -207,11 +268,6 @@ medium on the classic tray, so these must never change."""
 
 @pytest.mark.parametrize("key", sorted(CLASSIC_HASHES))
 def test_easy_and_medium_classic_puzzles_are_unchanged(key: str) -> None:
-    import hashlib
-    import json
-
-    from chroma_cube.core import puzzle_to_dict
-
     level, seed = key.split("-")
     puzzle = generate(int(seed), level)  # type: ignore[arg-type]
     digest = hashlib.sha256(json.dumps(puzzle_to_dict(puzzle), sort_keys=True).encode())
@@ -245,8 +301,6 @@ def test_larger_boards_generate_unique_puzzles_that_read_back(
 
 
 def test_larger_boards_are_minimal() -> None:
-    from dataclasses import replace
-
     for shape in [(4, 4), (4, 5)]:
         for level in ("hard", "expert"):
             puzzle = extended(0, level, *shape)
@@ -273,12 +327,13 @@ def test_larger_board_puzzles_use_attribute_clues() -> None:
     assert any(_attribute_clues(p) for p in puzzles)
 
 
-@pytest.mark.parametrize(("board", "palette"), EXTENDED, ids=["4x4", "4x5"])
-def test_larger_boards_are_fast_enough(board: Board, palette: Palette) -> None:
-    """Eight puzzles, two per level, inside the per-board bar (see the decisions log)."""
-    start = time.perf_counter()
-    for seed in range(200, 202):
+@pytest.mark.parametrize("shape", [(4, 4), (4, 5)], ids=["4x4", "4x5"])
+def test_larger_boards_are_fast_enough(shape: tuple[int, int]) -> None:
+    """Eight puzzles, two per level, inside the per-board bar (see the decisions log).
+
+    These are the puzzles the uniqueness tests check, timed when first built.
+    """
+    for seed in range(2):
         for level in DIFFICULTIES:
-            generate(seed, level, board=board, palette=palette)
-    elapsed = time.perf_counter() - start
-    assert elapsed < 40, f"8 puzzles took {elapsed:.1f}s"
+            extended(seed, level, *shape)
+    assert BUILD_SECONDS[shape] < 40, f"8 puzzles took {BUILD_SECONDS[shape]:.1f}s"

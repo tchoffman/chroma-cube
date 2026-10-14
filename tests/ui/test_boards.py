@@ -1,16 +1,24 @@
 """Infinite play on the larger boards: the board picker and the 4x4 and 4x5 play screens."""
 
+import json
 from dataclasses import replace
 from datetime import date
 from functools import cache
+from pathlib import Path
 from typing import Any
 
 import pytest
 from textual.pilot import Pilot
 from textual.widgets import Label, OptionList, Static
 
-from chroma_cube.core import BOARD_4X4, BOARD_4X5, EXTENDED_16, EXTENDED_20, Puzzle
-from chroma_cube.generator import generate, layout
+from chroma_cube.core import (
+    BOARD_4X4,
+    BOARD_4X5,
+    EXTENDED_16,
+    EXTENDED_20,
+    Puzzle,
+    puzzle_from_dict,
+)
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.home import DifficultyScreen
@@ -26,10 +34,14 @@ SIZE = (120, 40)
 TODAY = date(2026, 10, 8)
 
 
+DATA = Path(__file__).parent / "data"
+
+
 @cache
 def real(difficulty: str, key: str) -> Puzzle:
-    chosen = layout(key)
-    return generate(0, difficulty, board=chosen.board, palette=chosen.palette)  # type: ignore[arg-type]
+    """A puzzle the generator built for seed 0 on the larger boards, stored as JSON."""
+    path = DATA / f"{key}-{difficulty}.json"
+    return puzzle_from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
 class LayoutFake:
@@ -220,3 +232,17 @@ async def test_the_classic_tray_still_goes_wide_from_70_columns(width: int, narr
         await pilot.press("enter")
         await pilot.pause()
         assert pilot.app.screen.has_class("-narrow") is narrow
+
+
+async def test_the_clue_heading_says_how_many_clues_are_out_of_sight() -> None:
+    puzzle = real("hard", "4x5")
+    total = len(puzzle.clues)
+    async with ChromaCubeApp((puzzle,), start_on_cards=True).run_test(size=(80, 24)) as pilot:
+        await pilot.press("enter")
+        await pilot.pause()
+        heading = pilot.app.screen.query_one("#clues-heading", Label)
+        text = str(heading.content)
+        assert text.startswith("Clues 1–") and text.endswith(f" of {total}"), text
+        await pilot.resize_terminal(140, 50)
+        await pilot.pause()
+        assert str(heading.content) == "Clues"
