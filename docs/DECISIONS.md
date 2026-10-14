@@ -675,3 +675,44 @@ at-least, and attribute clues whose subject is an initial. Brute-force property 
 also cover eight- and nine-cell boards with mixed palettes, and were run once at 3,000
 examples per strategy. We gave up conflict-directed backjumping and nogood recording:
 with probing the hard cases left take tens of nodes, so there is little search to skip.
+
+## D47: Rival solutions from the solver are listed in full, never taken first-found (2026-10-14)
+When random completions, reshuffles and the local search find no rival (D32), the
+generator used to take the solver's first 16 solutions. Which 16 depended on the order
+the solver searched in, so D46's pruning changed some seeds' puzzles, and so would any
+later solver change. Now the solver is only asked for *every* solution of a set of
+givens, up to 16; that list is the same whatever the search order, and it is sorted.
+When there are more than 16, more of the real solution is given, color by color in a
+seeded random order, and bisection over how many to give stops at the first try that
+leaves a list that fits with a rival in it (not necessarily the fewest givens that
+would): rivals close to the real solution. If it ends with none, the last color added
+is tried on each of its other cells in a seeded order, splitting further the same way,
+until one cell has rivals.
+
+Running out of budget is the one solver answer that still depends on how it searches,
+so the generator's budget rises from 20,000 nodes to the solver's default 200,000, for
+the uniqueness checks and the listings alike. At 5,000 nodes for listing, a listing
+that ran out was read as "too many" and was common on hard and expert, so 3 of 20
+pinned seeds moved when the solver branched color-first or did without D46's probing;
+at 200,000 none do, and the reviewer's runs gave the same puzzles at 200,000 and
+1,000,000 on 36 seeds. Tests check twenty-four pinned seeds (every level on the classic
+tray, 4 × 4 and 4 × 5) under reversed and shuffled branch order, color-first branching
+and a solver without probing. The cost: a pathological attempt can now run about 6 s
+before the budget drops it, not 0.6 s; none did in 64 seeds.
+
+Classic easy and medium puzzles (and so every daily) are unchanged: when the first list
+fits, the rivals are the same set as before. Easy and medium seeds 0–99 and the dailies
+for 2026-10-01 to 2026-12-31 match main. Elsewhere seeds change once: 24 of the 40
+classic hard and expert seeds 0–19, and some medium seeds on the larger boards (4 × 4
+medium 1 and 2; 4 × 5 medium 1, 2, 5, 7 and 8, of seeds 0–9). Saved boards for those
+start afresh (D29).
+
+Generation is slower on hard and expert: one first-found call becomes several listing
+calls. On the D33 and D44 bars (classic seeds 100–104, larger boards seeds 0–1, CPU
+time) the totals go from 3.5 s to 6.9 s (classic), 5.5 s to 6.8 s (4 × 4) and 6.9 s to
+12.8 s (4 × 5), worst seed 4.9 s against 4.1 s, all well under the 18 s and 40 s bars.
+We tried listing eight times as many and sampling, expanding each listed rival by its
+reshuffles, a longer local search before bisecting, splitting on every cell from the
+start, and (in review) a seeded static search order, longer perturbations, warm-started
+bisection and releasing one color at a time from the full solution; each was slower or
+moved seeds.
