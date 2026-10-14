@@ -1,5 +1,6 @@
 """The solver handles clues about color attributes."""
 
+import random
 import time
 
 from hypothesis import given, settings
@@ -12,6 +13,8 @@ from chroma_cube.core import (
     EXTENDED_16,
     Board,
     Cell,
+    Clue,
+    Palette,
     Placement,
     Puzzle,
 )
@@ -101,6 +104,52 @@ def attribute_puzzles(draw: st.DrawFn) -> Puzzle:
 @given(attribute_puzzles())
 def test_the_solver_agrees_with_brute_force_on_attribute_clues(p: Puzzle) -> None:
     assert set(solve(p, limit=1000).solutions) == brute_force(p)
+
+
+@st.composite
+def planted_attribute_puzzles(draw: st.DrawFn) -> Puzzle:
+    """Mixed palettes drawn from the extended colors, clues mostly true on a planted
+    solution (so there are solutions to find), some givens, and a positional clue."""
+    board = draw(st.sampled_from([Board(2, 2), Board(2, 3), Board(3, 2), Board(1, 5)]))
+    palette = Palette(tuple(draw(st.permutations(EXTENDED_16.colors)))[: len(board)])
+    cells = draw(st.permutations(list(board)))
+    solution = Placement(dict(zip(palette.colors, cells, strict=True)))
+    pool = attribute_clues(board, palette) + tuple(
+        attribute("neighbours_some", value, color=color.initial)
+        for color in palette
+        for value in ("warm", "dark")
+    )
+    true = [c for c in pool if evaluate(c, solution, board, palette) is Truth.SATISFIED]
+    false = [c for c in pool if evaluate(c, solution, board, palette) is Truth.VIOLATED]
+    clues: list[Clue] = draw(st.lists(st.sampled_from(true), min_size=1, max_size=6))
+    clues += [Not(c) for c in draw(st.lists(st.sampled_from(false), max_size=2))]
+    if draw(st.booleans()):
+        clues.append(draw(st.sampled_from([Not(clues[0]), clues[0]])))
+    if draw(st.booleans()):
+        a, b = draw(st.permutations(palette.colors))[:2]
+        clues.append(relation("next_to", a.id, b.id))
+    given_count = draw(st.integers(0, 2))
+    givens = Placement(dict(list(solution.assignments.items())[:given_count]))
+    return puzzle(board, palette, clues, givens)
+
+
+@settings(max_examples=150, deadline=None)
+@given(planted_attribute_puzzles())
+def test_the_solver_agrees_with_brute_force_on_planted_attribute_puzzles(p: Puzzle) -> None:
+    expected = brute_force(p)
+    result = solve(p, limit=1000)
+    assert set(result.solutions) == expected
+    assert result.count == len(expected) and not result.truncated
+
+
+def test_colors_no_clue_tells_apart_still_give_every_solution() -> None:
+    # Cobalt and Teal are both cool, dark blues, White and Silver both light neutrals.
+    palette = Palette(tuple(EXTENDED_16.by_id(i) for i in ("cobalt", "teal", "white", "silver")))
+    clue = attribute("region_count", "dark", region=Region("row", 0), n=2)
+    p = puzzle(Board(2, 2), palette, [clue])
+    result = solve(p, limit=10)
+    assert len(result.solutions) == 4 and not result.truncated
+    assert set(result.solutions) == brute_force(p)
 
 
 def test_simplify_keeps_attribute_clues_as_whole_facts() -> None:
@@ -199,3 +248,33 @@ def test_a_4x4_attribute_puzzle_is_proved_unique_quickly() -> None:
     assert result.solutions == (solution,)
     assert not result.truncated and not result.gave_up
     assert elapsed < 3, f"took {elapsed:.2f}s"
+
+
+def _planted_attribute_puzzle(seed: int, clue_count: int) -> tuple[Placement, Puzzle]:
+    """A random 4x4 solution and `clue_count` attribute clues true on it, with no givens."""
+    rng = random.Random(seed)
+    cells = list(BOARD_4X4)
+    rng.shuffle(cells)
+    solution = Placement(dict(zip(EXTENDED_16.colors, cells, strict=True)))
+    true_clues = [
+        clue
+        for clue in attribute_clues(BOARD_4X4, EXTENDED_16)
+        if evaluate(clue, solution, BOARD_4X4, EXTENDED_16) is Truth.SATISFIED
+    ]
+    return solution, puzzle(BOARD_4X4, EXTENDED_16, rng.sample(true_clues, clue_count))
+
+
+def test_twenty_attribute_clues_on_an_empty_4x4_board_are_decided_quickly() -> None:
+    # Seed 0 is the clue set that used to exhaust the default budget after about 40 s
+    # without finding the solution planted in it.
+    solution, p = _planted_attribute_puzzle(seed=0, clue_count=20)
+    start = time.perf_counter()
+    result = solve(p, limit=2)
+    elapsed = time.perf_counter() - start
+    assert not result.gave_up
+    assert result.count >= 1
+    if not result.truncated:
+        assert result.solutions == (solution,)
+    for found in result.solutions:
+        assert all(evaluate(c, found, BOARD_4X4, EXTENDED_16) is Truth.SATISFIED for c in p.clues)
+    assert elapsed < 5, f"took {elapsed:.2f}s"
