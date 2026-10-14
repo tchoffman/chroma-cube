@@ -161,10 +161,10 @@ def _decide(
         # One color to try on each free cell: a free cell is never a placed one, so
         # every trial is a distinct set of cells.
         at = placed.index(None)
-        trial = list(placed)
+        before = tuple(cell for cell in placed[:at] if cell is not None)
+        after = tuple(cell for cell in placed[at + 1 :] if cell is not None)
         for cell in free:
-            trial[at] = cell
-            if holds(tuple(trial)):  # type: ignore[arg-type]
+            if holds((*before, cell, *after)):
                 seen_true = True
             else:
                 seen_false = True

@@ -124,6 +124,7 @@ def test_with_color_matches_a_placement_built_in_one_go() -> None:
     built = Placement({coral: Cell(0, 1), orange: Cell(1, 1)})
     assert grown == built
     assert hash(grown) == hash(built)
+    assert vars(grown).keys() == vars(built).keys()
     assert grown.color_at(Cell(1, 1)) == orange
     assert grown.cell_of(orange) == Cell(1, 1)
 

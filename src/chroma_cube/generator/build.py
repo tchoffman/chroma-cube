@@ -570,21 +570,26 @@ def _solver_rivals(
     goes on each of its other cells in turn, splitting further the same way, until one
     of them has rivals.
 
-    Also says whether the listing under `givens` alone finished with no rival, which
-    proves the clues unique. An empty list reached any other way is not such a proof:
-    it can follow a listing that ran out of budget rather than one with too many rivals.
+    Also says whether the listing under `givens` alone finished with the real solution
+    and no rival, which proves the clues unique. An empty list reached any other way is
+    not such a proof: it can follow a listing that ran out of budget rather than one
+    with too many rivals.
 
     Raises `_GaveUp` if the budget runs out with a single color left to place.
     """
     colors = list(givens.unplaced(palette))
     real = {color: solution[palette.colors.index(color)] for color in colors}
 
+    saw_real = False
+
     def listing(fixed: Placement) -> list[tuple[Cell, ...]] | None:
         """Every rival under `fixed`, sorted; None if there are too many to list."""
+        nonlocal saw_real
         result = solve_clues(board, palette, clues, givens=fixed, limit=cap, max_nodes=_MAX_NODES)
         if result.truncated or result.gave_up:
             return None
-        others = (cells_of(s, palette) for s in result.solutions)
+        others = [cells_of(s, palette) for s in result.solutions]
+        saw_real = solution in others
         return sorted(other for other in others if other != solution)
 
     def split(fixed: Placement, color: Color, cells: list[Cell]) -> list[tuple[Cell, ...]]:
@@ -604,7 +609,9 @@ def _solver_rivals(
 
     found = listing(givens)
     if found is not None:
-        return found, not found
+        # Unique means the real solution was listed and nothing else: an empty list alone
+        # could also mean the clues have no solution at all.
+        return found, not found and saw_real
     rng.shuffle(colors)
 
     def given(k: int) -> Placement:
