@@ -1,8 +1,15 @@
 """Count reasoning over candidates: what it rules out, and what it charges."""
 
+from itertools import permutations
+
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
 from chroma_cube.core import EXTENDED_16, Board, Cell, Clue, Color, Palette, Placement
-from chroma_cube.core.clues import Region, attribute
+from chroma_cube.core.clues import Not, Region, attribute, attribute_clues, relation
+from chroma_cube.core.evaluate import Truth, evaluate
 from chroma_cube.solver.counts import CountPropagator
+from chroma_cube.solver.search import _twins
 
 BOARD = Board(2, 3)
 SIX = Palette(
@@ -72,3 +79,70 @@ def test_probing_drops_a_cell_that_settles_into_a_dead_end_and_is_charged() -> N
     assert without[CORAL] == (Cell(0, 0), Cell(0, 2))
     assert probed[CORAL] == (Cell(0, 2),)
     assert nothing == 0 and charged > 0
+
+
+@st.composite
+def narrowing_cases(
+    draw: st.DrawFn,
+) -> tuple[Board, Palette, Placement, dict[Color, tuple[Cell, ...]], list[Clue], bool, int]:
+    """A planted solution, some of it placed, candidate cells for the rest that include
+    the planted cell, and attribute clues (some negated, some false) plus a relation."""
+    board = draw(st.sampled_from([Board(2, 2), Board(2, 3), Board(1, 5), Board(3, 3), Board(2, 4)]))
+    palette = Palette(tuple(draw(st.permutations(EXTENDED_16.colors)))[: len(board)])
+    cells = draw(st.permutations(list(board)))
+    solution = Placement(dict(zip(palette.colors, cells, strict=True)))
+    pool = attribute_clues(board, palette)
+    clues: list[Clue] = [
+        Not(clue) if draw(st.booleans()) else clue
+        for clue in draw(st.lists(st.sampled_from(pool), min_size=1, max_size=len(board)))
+    ]
+    if draw(st.booleans()):
+        a, b = draw(st.permutations(palette.colors))[:2]
+        clues.append(relation("next_to", a.id, b.id))
+    loose = draw(st.integers(1, min(6, len(board))))
+    order = draw(st.permutations(palette.colors))
+    placed = Placement({color: solution.assignments[color] for color in order[loose:]})
+    free = [cell for cell in board if placed.color_at(cell) is None]
+    candidates = {
+        color: tuple(
+            cell for cell in free if cell == solution.assignments[color] or draw(st.booleans())
+        )
+        for color in order[:loose]
+    }
+    twins = draw(st.booleans())
+    widest = draw(st.sampled_from([0, len(board) // 2, len(board)]))
+    return board, palette, placed, candidates, clues, twins, widest
+
+
+@settings(max_examples=200, deadline=None)
+@given(narrowing_cases())
+def test_narrowing_keeps_every_arrangement_within_the_candidates_that_satisfies_the_clues(
+    case: tuple[Board, Palette, Placement, dict[Color, tuple[Cell, ...]], list[Clue], bool, int],
+) -> None:
+    board, palette, placed, candidates, clues, use_twins, widest = case
+    twins = _twins(palette, clues, Placement()) if use_twins else ()
+    loose = list(candidates)
+    free = [cell for cell in board if placed.color_at(cell) is None]
+    order = {cell: i for i, cell in enumerate(board)}
+    solutions = []
+    for spots in permutations(free, len(loose)):
+        if any(spot not in candidates[color] for color, spot in zip(loose, spots, strict=True)):
+            continue
+        full = Placement({**placed.assignments, **dict(zip(loose, spots, strict=True))})
+        in_order = all(
+            order[full.assignments[a]] < order[full.assignments[b]]
+            for group in twins
+            for a, b in zip(group, group[1:], strict=False)
+        )
+        if in_order and all(
+            evaluate(clue, full, board, palette) is Truth.SATISFIED for clue in clues
+        ):
+            solutions.append(full)
+    counts = CountPropagator(board, palette, clues, twins)
+    narrowed = dict(candidates)
+    ok = counts.narrow(placed, narrowed, set(range(len(clues))), lambda _: None, widest=widest)
+    if solutions:
+        assert ok
+        for solution in solutions:
+            for color in loose:
+                assert solution.assignments[color] in narrowed[color]

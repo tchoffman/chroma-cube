@@ -660,7 +660,15 @@ runs of seeds 0–99 go from 20.1 s in all, slowest 3.5 s, to about 18 s, slowes
 but the median rises from 0.07 s to about 0.16 s: probing the root costs a tenth of a
 second on boards that were already quick. The 40-clue runs of seeds 0–99 go from 206 s
 in all with five giving up (seeds 5, 65, 71, 86 and 91) to about 49 s with none giving up,
-the slowest at about 3.3 s; three of them prove uniqueness on both.
+the slowest at about 3.3 s; a reviewer's run of the same sweep proved 13 of them unique on
+main and 14 with this change.
+
+Pruning harder changes the order in which the search meets solutions, so the generator,
+which builds puzzles around what the solver finds, can build a different puzzle from the
+same seed. In a reviewer's sample that happened for 2 of 120 classic seeds and 5 of 16
+extended hard and expert seeds. Saved boards are safe: one is restored only onto a puzzle
+with the same fingerprint (D29), so a seed that now builds a different puzzle starts
+afresh instead of restoring a board for the old one.
 
 Left to the evaluator, as before: attribute clues nested inside and / or / exactly /
 at-least, and attribute clues whose subject is an initial. Brute-force property tests now

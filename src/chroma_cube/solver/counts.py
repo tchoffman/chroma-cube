@@ -374,12 +374,12 @@ class _State:
                 holders[low.bit_length() - 1] |= color
         spots = masks[subject]
         kept = 0
-        # Colors that may still lose cells: none of the kept spots so far lets them sit
-        # anywhere, and `support` holds the cells some kept spot does allow.
-        open_ = 0
+        # Colors that may still lose cells: no kept spot so far has cleared all of their
+        # cells, and `support` holds the cells some kept spot does allow.
+        unsupported = 0
         for i in self.unplaced:
             if i != subject:
-                open_ |= 1 << i
+                unsupported |= 1 << i
         support = [0] * len(masks)
         rest = spots
         while rest:
@@ -398,16 +398,18 @@ class _State:
             if not census.possible():
                 continue
             kept |= spot
-            # A color that cannot reach the group, or must land in it, sits anywhere it
-            # can with the fact holding here.
-            open_ &= may_set
+            # A color that cannot reach the group, or must land in it, is cleared on every
+            # cell here except this spot, which the subject holds. Both that spot and a
+            # color whose only cell is the spot are left loose on purpose: the colors
+            # cannot share a cell, and the search's matching check catches that.
+            unsupported &= may_set
             for side, matches in ((fact.matching, True), (~fact.matching, False)):
-                movers = open_ & side
+                movers = unsupported & side
                 if not movers:
                     continue
                 can_in, can_out = census.moves(matches)
                 if can_in and can_out:
-                    open_ &= ~movers
+                    unsupported &= ~movers
                     continue
                 keep = group if can_in else ~(group | spot)
                 while movers:
@@ -419,9 +421,9 @@ class _State:
             return None
         changed = kept != spots
         masks[subject] = kept
-        while open_:
-            low = open_ & -open_
-            open_ ^= low
+        while unsupported:
+            low = unsupported & -unsupported
+            unsupported ^= low
             i = low.bit_length() - 1
             if support[i] != masks[i]:
                 masks[i] = support[i]
