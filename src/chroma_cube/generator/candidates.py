@@ -14,11 +14,13 @@ from typing import Literal
 
 from chroma_cube.core.board import Board, Cell
 from chroma_cube.core.clues import (
+    ATTRIBUTE_KINDS,
     BOARD_RULE_KINDS,
     PROPERTY_KINDS,
     RELATION_KINDS,
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Clue,
     ColorRef,
@@ -27,6 +29,7 @@ from chroma_cube.core.clues import (
     Or,
     Property,
     Relation,
+    attribute_clues,
 )
 from chroma_cube.core.colors import Color, Palette
 from chroma_cube.core.placement import Placement
@@ -49,6 +52,7 @@ _NOT_RELATION_SAMPLES = 30
 _INITIAL_SAMPLES = 40
 _COUNT_SAMPLES = 25
 _BETWEEN_FALSE_SAMPLES = 20
+_ATTRIBUTE_SAMPLES = 60
 
 
 def random_solution(
@@ -109,6 +113,8 @@ def compile_clue(clue: Clue, board: Board, palette: Palette) -> Check:
             return lambda cells: any(prop_test(board, cells[i], index) for i in spots)
         case BoardRule(kind=kind):
             return _board_rule(kind, board, palette)
+        case AttributeClue():
+            return _attribute(clue, board, palette)
         case Not(clue=inner):
             check = compile_clue(inner, board, palette)
             return lambda cells: not check(cells)
@@ -148,6 +154,137 @@ def _board_rule(kind: str, board: Board, palette: Palette) -> Check:
     return check
 
 
+def _attribute(clue: AttributeClue, board: Board, palette: Palette) -> Check:
+    """Count the cubes with the clue's value in its group of cells; the board is full."""
+    test = ATTRIBUTE_KINDS[clue.kind].holds
+    n = clue.n
+    matching = [i for i, color in enumerate(palette) if color.has(clue.value)]
+    if clue.region is not None:
+        group = frozenset(clue.region.cells(board))
+        size = len(group)
+
+        def in_region(cells: Sequence[Cell]) -> bool:
+            count = sum(cells[i] in group for i in matching)
+            return test(count, size - count, n)
+
+        return in_region
+    assert clue.color is not None
+    spots = [c[0] for c in _choices((clue.color,), palette)]
+    around = {cell: frozenset(board.orthogonal_neighbours(cell)) for cell in board}
+
+    def near(cells: Sequence[Cell]) -> bool:
+        for spot in spots:
+            group = around[cells[spot]]
+            count = sum(cells[i] in group for i in matching if i != spot)
+            if test(count, len(group) - count, n):
+                return True
+        return False
+
+    return near
+
+
+# --------------------------------------------------------------------------- meaning
+
+
+Meaning = tuple[object, ...]
+"""What an attribute clue says, in a form two equivalent clues share (see `attribute_meaning`)."""
+
+
+def attribute_meaning(clue: Clue, board: Board, palette: Palette) -> Meaning | None:
+    """What an attribute clue (or its negation) says on a full board, or None if it is not
+    worth saying.
+
+    Equivalent clues get the same meaning: "every cube next to Mint is light" and "Mint
+    doesn't sit next to a dark color"; `region_all` and `region_count` with n the region's
+    size; a family and a quality that pick the same colors; a count in a region and the
+    matching count of the other colors, or in the cells outside the region. None means the
+    clue names a color by initial, is not an attribute clue, holds on every board or never, or is
+    a plainer clue in disguise: a neighbour clue that only one color can satisfy is a
+    "sits next to", a region count about one color is "is in" or "isn't in".
+    """
+    negated = isinstance(clue, Not)
+    inner = clue.clue if isinstance(clue, Not) else clue
+    if not isinstance(inner, AttributeClue):
+        return None
+    everyone = frozenset(color.id for color in palette)
+    having = frozenset(color.id for color in palette if color.has(inner.value))
+    shape = _shape(inner.kind)
+    if inner.color is not None:
+        if inner.color.by_initial or shape is None:
+            return None
+        subject = inner.color.key
+        # Everything a neighbour clue says is "some neighbour is one of these", or not.
+        some = having - {subject} if shape == "some" else everyone - having - {subject}
+        if shape == "all":
+            negated = not negated
+        fewest = min(len(board.orthogonal_neighbours(cell)) for cell in board)
+        if len(some) < 2 or len(everyone - some - {subject}) < fewest:
+            return None
+        return ("near", subject, tuple(sorted(some)), negated)
+    assert inner.region is not None
+    cells = frozenset(inner.region.cells(board))
+    if shape == "all":
+        n = len(cells)
+    elif shape == "count" and inner.n is not None:
+        n = inner.n
+    else:
+        return None
+    rest = frozenset(board) - cells
+    variants = []
+    for group, other in ((cells, rest), (rest, cells)):
+        for chosen in (having, everyone - having):
+            # A count in one group fixes the count in the other: the board is full.
+            count = n if group is cells else len(having) - n
+            if chosen is not having:
+                count = len(group) - count
+            low, high = max(0, len(chosen) - len(other)), min(len(chosen), len(group))
+            if len(chosen) < 2 or low == high or not low <= count <= high:
+                return None
+            variants.append(("count", tuple(sorted(group)), tuple(sorted(chosen)), count))
+    return (*min(variants, key=repr), negated)
+
+
+def disguised_by_givens(clue: Clue, givens: Placement, board: Board, palette: Palette) -> bool:
+    """Whether the givens turn an attribute clue (or its negation) into a plainer clue.
+
+    About a given color's neighbours, only the colors that could still sit next to it
+    count: given colors elsewhere cannot. If at most one is left, "Coral sits next to a
+    shade of purple" with Purple given far from Coral just says "Coral sits next to
+    Lavender". A region count is a plainer clue when at most one unplaced color has the
+    value, or at most one lacks it: the givens fix the rest of the count.
+    """
+    inner = clue.clue if isinstance(clue, Not) else clue
+    if not isinstance(inner, AttributeClue) or attribute_meaning(clue, board, palette) is None:
+        return False
+    having = {color.id for color in palette if color.has(inner.value)}
+    placed = {color.id: cell for color, cell in givens.assignments.items()}
+    if inner.color is not None:
+        subject = inner.color.key
+        where = placed.get(subject)
+        if where is None:
+            return False
+        around = set(board.orthogonal_neighbours(where))
+        everyone = {color.id for color in palette} - {subject}
+        some = having - {subject} if _shape(inner.kind) == "some" else everyone - having
+        possible = {c for c in some if c not in placed or placed[c] in around}
+        return len(possible) <= 1
+    unplaced = {color.id for color in palette} - set(placed)
+    return min(len(unplaced & having), len(unplaced - having)) <= 1
+
+
+def _shape(kind: str) -> str | None:
+    """Read a kind's test as "all", "some" or "count", from its registry entry."""
+    spec = ATTRIBUTE_KINDS[kind]
+    if spec.counted:
+        return "count"
+    table = [spec.holds(m, o, None) for m in range(3) for o in range(3)]
+    if table == [o == 0 for m in range(3) for o in range(3)]:
+        return "all"
+    if table == [m > 0 for m in range(3) for o in range(3)]:
+        return "some"
+    return None
+
+
 # --------------------------------------------------------------------------- features
 
 
@@ -160,6 +297,8 @@ def clue_features(clue: Clue) -> frozenset[str]:
             return frozenset({kind}) | _initial((color_ref,))
         case BoardRule(kind=kind):
             return frozenset({kind})
+        case AttributeClue(kind=kind, color=color_ref):
+            return frozenset({kind}) | _initial(() if color_ref is None else (color_ref,))
         case Not(clue=inner):
             return frozenset({"not"}) | clue_features(inner)
         case And(clues=subs):
@@ -182,7 +321,10 @@ def _combined(name: str, subs: Iterable[Clue]) -> frozenset[str]:
 
 
 def clue_colors(clue: Clue, palette: Palette) -> tuple[Color, ...]:
-    """Every palette color the clue could be about, in palette order; none for board rules."""
+    """Every palette color the clue names, in palette order.
+
+    None for board rules and region clues, and only the subject of a clue about the cubes
+    next to a color."""
     found = _referenced(clue)
     return tuple(color for color in palette if color.id in found or (color.initial in found))
 
@@ -196,6 +338,8 @@ def _referenced(clue: Clue) -> set[str]:
             return {color_ref.key}
         case BoardRule():
             return set()
+        case AttributeClue(color=color_ref):
+            return set() if color_ref is None else {color_ref.key}
         case Not(clue=inner):
             return _referenced(inner)
         case And(clues=subs) | Or(clues=subs) | Exactly(clues=subs) | AtLeast(clues=subs):
@@ -221,6 +365,10 @@ def candidate_pool(
     that happen to hold.
     """
     return _PoolBuilder(rng, solution, board, palette, features).build()
+
+
+ATTRIBUTE_FEATURES = frozenset(ATTRIBUTE_KINDS)
+"""The clue features of attribute clues: their kind names."""
 
 
 class _PoolBuilder:
@@ -249,6 +397,7 @@ class _PoolBuilder:
         pool += self.initials()
         pool += self.counts()
         pool += self.groups()
+        pool += self.attributes()
         pool += [
             BoardRule(kind)
             for kind in BOARD_RULE_KINDS
@@ -397,6 +546,31 @@ class _PoolBuilder:
                     )
                 )
         return found
+
+    def attributes(self) -> list[Clue]:
+        """Attribute clues true on the solution, one per meaning, positive ones first.
+
+        A false clue joins as its negation when the kind has a short negated sentence.
+        Clues with no meaning (see `attribute_meaning`) are left out.
+        """
+        kinds = set(self.allowed(*ATTRIBUTE_KINDS))
+        if not kinds:
+            return []
+        true: list[Clue] = []
+        negated: list[Clue] = []
+        for clue in attribute_clues(self.board, self.palette):
+            if clue.kind not in kinds:
+                continue
+            if self.holds(clue):
+                true.append(clue)
+            elif ATTRIBUTE_KINDS[clue.kind].negated is not None and "not" in self.features:
+                negated.append(Not(clue))
+        found: dict[Meaning, Clue] = {}
+        for candidate in true + negated:
+            meaning = attribute_meaning(candidate, self.board, self.palette)
+            if meaning is not None and meaning not in found:
+                found[meaning] = candidate
+        return _sample(self.rng, list(found.values()), _ATTRIBUTE_SAMPLES)
 
 
 def _with_initial(rng: random.Random, clue: Clue, shared: dict[str, str]) -> Clue | None:

@@ -23,6 +23,18 @@ if TYPE_CHECKING:
 CELL_MIN_HEIGHT = 3
 """A border and one line for the name."""
 CELL_MAX_HEIGHT = 5
+WIDE_FROM = 70
+"""The narrowest terminal that puts the clues beside the tray, whatever the board."""
+CLUES_MIN_WIDTH = 24
+"""Columns the clue list needs beside the tray."""
+_CELL_EXTRA = 4
+"""A tray cell's two border columns and the two of a given or held mark."""
+
+
+def tray_width(puzzle: Puzzle) -> int:
+    """Columns the tray needs for every color name in full, with a mark, plus its padding."""
+    longest = max(len(color.name) for color in puzzle.palette)
+    return puzzle.board.cols * (longest + _CELL_EXTRA) + 2
 
 
 def game(screen: Screen[Any]) -> ChromaCubeApp:
@@ -87,11 +99,6 @@ class PlayScreen(Screen[None]):
         Binding("pageup", "scroll_clues(-1)", "Clues", show=False),
         Binding("pagedown", "scroll_clues(1)", "Clues", key_display="PgDn"),
     ]
-    HORIZONTAL_BREAKPOINTS = [
-        (0, "-narrow"),
-        (70, "-wide"),
-    ]
-    """Below 70 columns the clues go under the tray instead of beside it."""
 
     def __init__(
         self, index: int, puzzle: Puzzle, placement: Placement | None = None, hints: int = 0
@@ -99,6 +106,10 @@ class PlayScreen(Screen[None]):
         super().__init__()
         self.index = index
         self.state = PlayState(puzzle, placement, hints)
+        self.tray_width = tray_width(puzzle)
+        """Columns the tray needs to show every name in full, marks included."""
+        self.wide_from = max(WIDE_FROM, self.tray_width + CLUES_MIN_WIDTH)
+        """From this terminal width the clues sit beside the tray, below it under the tray."""
 
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
@@ -119,7 +130,7 @@ class PlayScreen(Screen[None]):
             clues = VerticalScroll(id="clues")
             clues.can_focus = False
             with clues:
-                yield Label("Clues", classes="heading")
+                yield Label("Clues", id="clues-heading", classes="heading")
                 yield from (ClueRow(sentence) for sentence in puzzle.rendered_clues())
         yield Static(HINT, id="message", markup=False)
         yield Footer()
@@ -128,7 +139,37 @@ class PlayScreen(Screen[None]):
         return f"Card {self.index + 1}: {self.state.puzzle.title}"
 
     def on_mount(self) -> None:
+        self._fit(self.app.size.width)
         self.refresh_view()
+        self.watch(self.query_one("#clues"), "scroll_y", self._count_clues, init=False)
+        self.call_after_refresh(self._count_clues)
+
+    def on_resize(self, event: events.Resize) -> None:
+        self._fit(event.size.width)
+        self.call_after_refresh(self._count_clues)
+
+    def _count_clues(self) -> None:
+        """Head the clues "Clues 1–3 of 14" while some of them are out of sight."""
+        clues = self.query_one("#clues", VerticalScroll)
+        rows = list(self.query(ClueRow))
+        top = clues.scroll_y
+        bottom = top + clues.scrollable_content_region.height
+        shown = [
+            index
+            for index, row in enumerate(rows, start=1)
+            if row.virtual_region.y >= top and row.virtual_region.y < bottom
+        ]
+        heading = "Clues"
+        if shown and len(shown) < len(rows):
+            heading = f"Clues {shown[0]}–{shown[-1]} of {len(rows)}"
+        self.query_one("#clues-heading", Label).update(heading)
+
+    def _fit(self, width: int) -> None:
+        """Clues beside the tray when both fit, else under it (the -narrow layout)."""
+        narrow = width < self.wide_from
+        self.set_class(narrow, "-narrow")
+        self.set_class(not narrow, "-wide")
+        self.query_one("#left").styles.min_width = None if narrow else self.tray_width
 
     # ------------------------------------------------------------------ drawing
 

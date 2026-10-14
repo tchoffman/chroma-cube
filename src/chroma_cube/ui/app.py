@@ -45,6 +45,8 @@ class ChromaCubeApp(App[None]):
         self.today = today
         """The player's local date, for the daily puzzle."""
         self.start_on_cards = start_on_cards
+        self.layout = "classic"
+        """The board last picked for infinite play, kept while the app runs."""
 
     def on_mount(self) -> None:
         self.push_screen(HomeScreen())

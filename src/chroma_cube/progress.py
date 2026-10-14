@@ -11,6 +11,7 @@ file whole, and a save that fails is dropped rather than interrupting the game.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import sys
@@ -20,12 +21,27 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeGuard
 
-from chroma_cube.core import Cell, Placement, Puzzle
+from chroma_cube.core import Cell, Placement, Puzzle, puzzle_to_dict
 
 APP_DIR = "chroma-cube"
 FILE_NAME = "progress.json"
 ENV_OVERRIDE = "CHROMA_CUBE_DATA_DIR"
 FORMAT_VERSION = 1
+_UNCHECKED_STALE = ("gen-hard-", "gen-expert-")
+"""Saved boards from before fingerprints whose puzzles the generator has since changed."""
+
+
+def fingerprint(puzzle: Puzzle) -> str:
+    """A short digest of everything about a puzzle but its id and title.
+
+    A saved board is restored only onto a puzzle with the same fingerprint, so a card that
+    was edited, or a seed the generator now turns into another puzzle, starts afresh.
+    """
+    data = puzzle_to_dict(puzzle)
+    data.pop("id", None)
+    data.pop("title", None)
+    text = json.dumps(data, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
 def default_data_dir(
@@ -80,6 +96,8 @@ class SavedBoard:
     puzzle_id: str
     cubes: tuple[SavedCube, ...]
     hints: int = 0
+    fingerprint: str | None = None
+    """The puzzle's `fingerprint` when saved; None for boards saved before there was one."""
 
 
 class Progress:
@@ -115,6 +133,11 @@ class Progress:
         board = self._board
         if board is None or board.puzzle_id != puzzle.id:
             return None
+        if board.fingerprint is None:
+            if board.puzzle_id.startswith(_UNCHECKED_STALE):
+                return None
+        elif board.fingerprint != fingerprint(puzzle):
+            return None
         placement = puzzle.givens
         for cube in board.cubes:
             try:
@@ -145,7 +168,7 @@ class Progress:
             if (cell := placement.cell_of(color)) is not None
             and puzzle.givens.cell_of(color) is None
         )
-        board = SavedBoard(puzzle.id, cubes, hints) if cubes or hints else None
+        board = SavedBoard(puzzle.id, cubes, hints, fingerprint(puzzle)) if cubes or hints else None
         if board != self._board:
             self._board = board
             self._save()
@@ -204,6 +227,11 @@ class Progress:
                     for cube in self._board.cubes
                 ],
                 **({"hints": self._board.hints} if self._board.hints else {}),
+                **(
+                    {"fingerprint": self._board.fingerprint}
+                    if self._board.fingerprint is not None
+                    else {}
+                ),
             },
         }
         try:
@@ -256,5 +284,10 @@ def _parse_board(raw: object) -> SavedBoard | None:
             parsed.append(SavedCube(color, row, col))
         else:
             return None
-    hints = raw.get("hints")
-    return SavedBoard(puzzle_id, tuple(parsed), hints if _is_count(hints, 0) else 0)
+    hints, mark = raw.get("hints"), raw.get("fingerprint")
+    return SavedBoard(
+        puzzle_id,
+        tuple(parsed),
+        hints if _is_count(hints, 0) else 0,
+        mark if isinstance(mark, str) else None,
+    )

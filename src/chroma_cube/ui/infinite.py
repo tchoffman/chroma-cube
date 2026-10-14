@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, ClassVar
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from textual import on
 from textual.app import ComposeResult
@@ -14,16 +14,26 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 from textual.worker import Worker, WorkerState
 
-from chroma_cube.core import Placement, Puzzle
-from chroma_cube.generator import Difficulty
+from chroma_cube.core import Board, Palette, Placement, Puzzle
+from chroma_cube.generator import Difficulty, layout
 from chroma_cube.ui.screens import PlayScreen, WinScreen
 from chroma_cube.ui.seeds import GameSpec, parse_seed
 
 if TYPE_CHECKING:
     from chroma_cube.ui.app import ChromaCubeApp
 
-Generate = Callable[[int, Difficulty], Puzzle]
-"""Makes the puzzle for a seed and a difficulty; the same arguments give the same puzzle."""
+
+class Generate(Protocol):
+    """Makes the puzzle for a seed and a difficulty; the same arguments give the same puzzle.
+
+    The board and palette are passed only when they are not the classic ones, so a
+    stand-in generator for the classic tray can take just the seed and the difficulty.
+    """
+
+    def __call__(
+        self, seed: int, difficulty: Difficulty, /, *, board: Board = ..., palette: Palette = ...
+    ) -> Puzzle: ...
+
 
 RNG = random.Random()
 """Where fresh seeds come from."""
@@ -85,7 +95,11 @@ class GeneratingScreen(ModalScreen[Puzzle | None]):
         self.run_worker(self.run_generator, thread=True, exit_on_error=False)
 
     def run_generator(self) -> Puzzle:
-        return self.generate(self.spec.seed, self.spec.difficulty)
+        spec = self.spec
+        if spec.layout == "classic":
+            return self.generate(spec.seed, spec.difficulty)
+        chosen = layout(spec.layout)
+        return self.generate(spec.seed, spec.difficulty, board=chosen.board, palette=chosen.palette)
 
     @on(Worker.StateChanged)
     def worker_done(self, event: Worker.StateChanged) -> None:
@@ -133,7 +147,7 @@ class GeneratedPlayScreen(PlayScreen):
             if seed is not None:
                 play_generated(self._game, self.spec.with_seed(seed), replace=True)
 
-        self.app.push_screen(SeedScreen(self.spec.difficulty), chosen)
+        self.app.push_screen(SeedScreen(self.spec), chosen)
 
     def _save_board(self) -> None:
         state = self.state
@@ -162,13 +176,15 @@ class SeedScreen(ModalScreen[int | None]):
     DEFAULT_CSS = f"SeedScreen {{ {_MODAL_CSS} }}"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Cancel")]
 
-    def __init__(self, difficulty: Difficulty) -> None:
+    def __init__(self, spec: GameSpec) -> None:
         super().__init__()
-        self.difficulty = difficulty
+        self.spec = spec
 
     def compose(self) -> ComposeResult:
+        spec = self.spec
+        board = "" if spec.layout == "classic" else f" {spec.shape}"
         with Vertical(id="modal"):
-            yield Label(f"Replay a {self.difficulty} puzzle by its seed")
+            yield Label(f"Replay a{board} {spec.difficulty} puzzle by its seed")
             yield Input(placeholder="e.g. 48213", id="seed")
             yield Label("", id="seed-error")
 

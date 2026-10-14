@@ -1,0 +1,265 @@
+{
+ "id": "gen-4x5-hard-0",
+ "title": "Distant Mosaic",
+ "difficulty": "hard",
+ "notes": "",
+ "board": {
+  "rows": 4,
+  "cols": 5
+ },
+ "palette": [
+  {
+   "id": "black",
+   "name": "Black",
+   "hex": "#1c1c1c"
+  },
+  {
+   "id": "brown",
+   "name": "Brown",
+   "hex": "#8b5a2b"
+  },
+  {
+   "id": "cobalt",
+   "name": "Cobalt",
+   "hex": "#0047ab"
+  },
+  {
+   "id": "coral",
+   "name": "Coral",
+   "hex": "#ff6f61"
+  },
+  {
+   "id": "emerald",
+   "name": "Emerald",
+   "hex": "#009b4d"
+  },
+  {
+   "id": "magenta",
+   "name": "Magenta",
+   "hex": "#e0218a"
+  },
+  {
+   "id": "mint",
+   "name": "Mint",
+   "hex": "#98ffb3"
+  },
+  {
+   "id": "mustard",
+   "name": "Mustard",
+   "hex": "#ccb800"
+  },
+  {
+   "id": "orange",
+   "name": "Orange",
+   "hex": "#ff8c00"
+  },
+  {
+   "id": "purple",
+   "name": "Purple",
+   "hex": "#9440d8"
+  },
+  {
+   "id": "teal",
+   "name": "Teal",
+   "hex": "#008080"
+  },
+  {
+   "id": "white",
+   "name": "White",
+   "hex": "#f5f5f5"
+  },
+  {
+   "id": "azure",
+   "name": "Azure",
+   "hex": "#5ec8ff"
+  },
+  {
+   "id": "garnet",
+   "name": "Garnet",
+   "hex": "#b3121f"
+  },
+  {
+   "id": "lavender",
+   "name": "Lavender",
+   "hex": "#d4a8ff"
+  },
+  {
+   "id": "silver",
+   "name": "Silver",
+   "hex": "#999999"
+  },
+  {
+   "id": "cyan",
+   "name": "Cyan",
+   "hex": "#00ffff"
+  },
+  {
+   "id": "denim",
+   "name": "Denim",
+   "hex": "#5580ff"
+  },
+  {
+   "id": "forest",
+   "name": "Forest",
+   "hex": "#335500"
+  },
+  {
+   "id": "indigo",
+   "name": "Indigo",
+   "hex": "#330055"
+  }
+ ],
+ "givens": [
+  {
+   "color": "mint",
+   "row": 1,
+   "col": 4
+  },
+  {
+   "color": "forest",
+   "row": 2,
+   "col": 3
+  }
+ ],
+ "clues": [
+  {
+   "type": "relation",
+   "kind": "between",
+   "colors": [
+    "black",
+    "lavender",
+    "forest"
+   ]
+  },
+  {
+   "type": "and",
+   "clues": [
+    {
+     "type": "relation",
+     "kind": "knows",
+     "colors": [
+      "brown",
+      "magenta"
+     ]
+    },
+    {
+     "type": "relation",
+     "kind": "knows",
+     "colors": [
+      "brown",
+      "silver"
+     ]
+    },
+    {
+     "type": "relation",
+     "kind": "knows",
+     "colors": [
+      "brown",
+      "cobalt"
+     ]
+    }
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "same_column",
+   "colors": [
+    "magenta",
+    "coral"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "directly_left_of",
+   "colors": [
+    "cobalt",
+    "emerald"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "knows",
+   "colors": [
+    "lavender",
+    "magenta"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "below",
+   "colors": [
+    "azure",
+    "orange"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "directly_right_of",
+   "colors": [
+    "indigo",
+    "white"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "above",
+   "colors": [
+    "cyan",
+    "denim"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "next_to",
+   "colors": [
+    "mustard",
+    "purple"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "same_row",
+   "colors": [
+    "purple",
+    "mint"
+   ]
+  },
+  {
+   "type": "relation",
+   "kind": "diagonal",
+   "colors": [
+    "lavender",
+    "garnet"
+   ]
+  },
+  {
+   "type": "attribute",
+   "kind": "region_count",
+   "value": "light",
+   "region": "column",
+   "index": 2,
+   "n": 2
+  },
+  {
+   "type": "and",
+   "clues": [
+    {
+     "type": "relation",
+     "kind": "next_to",
+     "colors": [
+      "mint",
+      "emerald"
+     ]
+    },
+    {
+     "type": "relation",
+     "kind": "next_to",
+     "colors": [
+      "mint",
+      "denim"
+     ]
+    }
+   ]
+  }
+ ]
+}
