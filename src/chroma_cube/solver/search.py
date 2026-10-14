@@ -1,10 +1,11 @@
 """Backtracking search with forward checking, pruned by three-valued clue evaluation.
 
-The search keeps, for every unplaced color, the cells it could still go on. A cell stays
-a candidate only while putting the color there leaves every clue that mentions the color
-not VIOLATED. Attribute clues are also read as counts over a group of cells, with each
-unplaced color limited to its candidates, so a region or neighbour clue rules cells out
-before its group fills up. A branch ends when a color has no candidates left or the
+The search keeps, for every unplaced color, the cells it could still go on. Attribute
+clues about a region or about a color named by id (and their negations) are read as
+counts over a group of cells, with each unplaced color limited to its candidates, so they
+rule cells out before their group fills up. Every other clue is checked by trial: a cell
+stays a candidate only while putting the color there leaves every such clue that
+mentions the color not VIOLATED. A branch ends when a color has no candidates left or the
 colors cannot each have their own cell. Each step tries every cell of the color with the
 fewest candidates, or every color of the cell with the fewest, whichever is fewer.
 
@@ -14,8 +15,8 @@ reasoning only drops cells that no arrangement within the candidates could use. 
 node and every solution is still checked with the evaluator, which stays the definition
 of what a clue means.
 
-Colors that no clue can tell apart (unnamed, same attributes) are searched in one order
-only, and each solution found is returned with every swap of them.
+Colors that no clue can tell apart (not given, not named, same attributes) are searched
+in one order only, and each solution found is returned with every swap of them.
 
 Before searching, the clues are simplified (see `simplify`) so a clue that contradicts
 another is caught up front. The search also has a budget: it counts every trial
@@ -24,6 +25,7 @@ placement of a color on a cell, and gives up once the count passes `max_nodes`.
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import permutations, product
@@ -127,9 +129,9 @@ def solve_clues(
     simplified = simplify(clues)
     if simplified is None:
         return SolveResult((), truncated=False)
-    search = _Search(board, palette, simplified, max_nodes)
+    search = _Search(board, palette, simplified, givens, max_nodes)
     try:
-        for solution in search.run(givens):
+        for solution in search.run():
             if len(found) == limit:
                 return SolveResult(tuple(found), truncated=True)
             found.append(solution)
@@ -191,7 +193,12 @@ class _OutOfBudget(Exception):
 
 class _Search:
     def __init__(
-        self, board: Board, palette: Palette, clues: tuple[Clue, ...], max_nodes: int | None
+        self,
+        board: Board,
+        palette: Palette,
+        clues: tuple[Clue, ...],
+        givens: Placement,
+        max_nodes: int | None,
     ) -> None:
         self.board = board
         self.palette = palette
@@ -210,10 +217,11 @@ class _Search:
         # Trials skip count clues: `_propagate_counts` narrows by them with the candidates
         # in view, and every node and solution is still checked against the evaluator.
         self.counted = {fact.index for fact in self.counts}
-        self.twins: tuple[tuple[Color, ...], ...] = ()
+        self.givens = givens
+        self.twins = _twins(palette, clues, givens)
 
-    def run(self, givens: Placement) -> Iterator[Placement]:
-        self.twins = _twins(self.palette, self.clues, givens)
+    def run(self) -> Iterator[Placement]:
+        givens = self.givens
         live = self._live(givens, tuple(range(len(self.clues))))
         if live is None:
             return
@@ -345,7 +353,8 @@ class _CountFact:
 
     @staticmethod
     def of(index: int, clue: Clue, board: Board, palette: Palette) -> _CountFact | None:
-        """The fact for an attribute clue or its negation naming one color; else None."""
+        """The fact for an attribute clue, or its negation, about a region or a color named
+        by id; None for any other clue."""
         positive = True
         if isinstance(clue, Not):
             positive, clue = False, clue.clue
@@ -370,14 +379,14 @@ class _CountFact:
         """Drop candidates that leave the clue no way to hold.
 
         Returns None if nothing within the candidates can satisfy the clue, else whether
-        a candidate was dropped (one per call). Only counts are compared, so this may keep
+        any candidate was dropped. Only counts are compared, so this may keep
         arrangements that fail for other reasons, but it never drops a possible one."""
         if self.region is not None:
             return self._tighten_group(self.region, placement, candidates)
         assert self.subject is not None
         cell = placement.cell_of(self.subject)
         if cell is not None:
-            return self._tighten_group(board.orthogonal_neighbours(cell), placement, candidates)
+            return self._tighten_group(_neighbours(board, cell), placement, candidates)
         # The color is not placed yet: keep the cells where its neighbours could still
         # make the clue hold.
         spots = candidates[self.subject]
@@ -385,7 +394,7 @@ class _CountFact:
         kept = tuple(
             spot
             for spot in spots
-            if self._census(board.orthogonal_neighbours(spot), placement, others, spot).possible()
+            if self._census(_neighbours(board, spot), placement, others, spot).possible()
         )
         if not kept:
             return None
@@ -401,17 +410,20 @@ class _CountFact:
         census = self._census(cells, placement, candidates, None)
         if not census.possible():
             return None
+        # Each color is tested against the census taken before any of them moved. A color
+        # moved in or out only narrows what is possible, so the older census is looser,
+        # never stricter, and what it rules out is still ruled out.
         group = set(cells)
+        changed = False
         for color in census.undecided:
-            matches = color.has(self.value)
-            if not census.possible(inside=color, matches=matches):
+            if not census.possible(inside=color):
                 candidates[color] = tuple(c for c in candidates[color] if c not in group)
-            elif not census.possible(outside=color, matches=matches):
+            elif not census.possible(outside=color):
                 candidates[color] = tuple(c for c in candidates[color] if c in group)
             else:
                 continue
-            return True
-        return False
+            changed = True
+        return changed
 
     def _census(
         self,
@@ -435,43 +447,56 @@ class _CountFact:
         may = [0, 0]
         undecided: list[Color] = []
         for color, spots in candidates.items():
-            usable = [spot for spot in spots if spot != taken]
-            inside = sum(1 for spot in usable if spot in group)
+            inside = outside = 0
+            for spot in spots:
+                if spot in group:
+                    inside += 1
+                elif spot != taken:
+                    outside += 1
             if inside == 0:
                 continue
             side = int(not color.has(self.value))
-            if inside == len(usable):
+            if outside == 0:
                 must[side] += 1
             else:
                 may[side] += 1
                 undecided.append(color)
-        return _Census(self.holds, placed, empty, must, may, undecided)
+        return _Census(
+            self.value,
+            self.holds,
+            (placed[0], placed[1]),
+            empty,
+            (must[0], must[1]),
+            (may[0], may[1]),
+            tuple(undecided),
+        )
 
 
 @dataclass(frozen=True)
 class _Census:
     """A group of cells for one count clue: how many matching and other cubes it holds
     (`placed`), how many empty cells it has, and how many unplaced matching and other
-    colors must land in it (`must`) or may (`may`, the colors listed in `undecided`)."""
+    colors must land in it (`must`) or may (`may`, the colors listed in `undecided`).
+    Each count pair is (matching, others)."""
 
+    value: str
     holds: Callable[[int, int], bool]
-    placed: list[int]
+    placed: tuple[int, int]
     empty: int
-    must: list[int]
-    may: list[int]
-    undecided: list[Color]
+    must: tuple[int, int]
+    may: tuple[int, int]
+    undecided: tuple[Color, ...]
 
-    def possible(
-        self, *, inside: Color | None = None, outside: Color | None = None, matches: bool = False
-    ) -> bool:
+    def possible(self, *, inside: Color | None = None, outside: Color | None = None) -> bool:
         """Whether some way of filling the empty cells satisfies the clue, optionally with
-        one undecided color moved inside or outside the group."""
+        one undecided color moved inside or outside the group (pass at most one)."""
         must, may = list(self.must), list(self.may)
-        side = int(not matches)
-        if inside is not None or outside is not None:
+        moved = inside or outside
+        if moved is not None:
+            side = int(not moved.has(self.value))
             may[side] -= 1
-        if inside is not None:
-            must[side] += 1
+            if inside is not None:
+                must[side] += 1
         for extra_matching in range(may[0] + 1):
             extra_others = self.empty - must[0] - must[1] - extra_matching
             if 0 <= extra_others <= may[1] and self.holds(
@@ -540,6 +565,11 @@ def _rearrangements(
         for group, cells in zip(twins, choice, strict=True):
             assignments.update(zip(group, cells, strict=True))
         yield Placement(assignments)
+
+
+@functools.cache
+def _neighbours(board: Board, cell: Cell) -> tuple[Cell, ...]:
+    return board.orthogonal_neighbours(cell)
 
 
 def _holders(candidates: Candidates) -> dict[Cell, list[Color]]:
