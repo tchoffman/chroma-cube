@@ -18,13 +18,16 @@
     {"id": "teal", "name": "Teal", "hex": "#008080"},
     {"id": "white", "name": "White", "hex": "#f5f5f5"}
   ],
-  "givens": [],
+  "givens": [
+    {"color": "orange", "row": 2, "col": 0}
+  ],
   "clues": [
-    {"type": "relation", "kind": "between", "colors": ["black", "brown", "coral"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["mustard", "coral"]}, {"type": "relation", "kind": "diagonal", "colors": ["mustard", "emerald"]}, {"type": "relation", "kind": "diagonal", "colors": ["mustard", "teal"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["orange", "black"]}, {"type": "relation", "kind": "diagonal", "colors": ["orange", "purple"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["cobalt", "coral"]}, {"type": "relation", "kind": "left_of", "colors": ["cobalt", "white"]}]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "right_of", "colors": ["emerald", "mint"]}, {"type": "relation", "kind": "right_of", "colors": ["emerald", "orange"]}]},
-    {"type": "relation", "kind": "above", "colors": ["mustard", "orange"]}
+    {"type": "and", "clues": [{"type": "relation", "kind": "knows", "colors": ["orange", "mint"]}, {"type": "relation", "kind": "knows", "colors": ["orange", "magenta"]}, {"type": "relation", "kind": "knows", "colors": ["orange", "teal"]}]},
+    {"type": "property", "kind": "in_col", "color": "brown", "index": 1},
+    {"type": "relation", "kind": "directly_right_of", "colors": ["black", "purple"]},
+    {"type": "relation", "kind": "directly_left_of", "colors": ["magenta", "cobalt"]},
+    {"type": "relation", "kind": "below", "colors": ["coral", "white"]},
+    {"type": "relation", "kind": "diagonal", "colors": ["mustard", "teal"]},
+    {"type": "property", "kind": "in_row", "color": "white", "index": 1}
   ]
 }

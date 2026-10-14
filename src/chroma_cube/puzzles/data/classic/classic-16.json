@@ -20,11 +20,12 @@
   ],
   "givens": [],
   "clues": [
-    {"type": "relation", "kind": "between", "colors": ["orange", "mint", "teal"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "diagonal", "colors": ["mustard", "black"]}, {"type": "relation", "kind": "diagonal", "colors": ["mustard", "cobalt"]}, {"type": "relation", "kind": "diagonal", "colors": ["mustard", "coral"]}]},
-    {"type": "relation", "kind": "between", "colors": ["white", "black", "coral"]},
-    {"type": "and", "clues": [{"type": "relation", "kind": "left_of", "colors": ["white", "black"]}, {"type": "relation", "kind": "left_of", "colors": ["white", "magenta"]}]},
-    {"type": "or", "clues": [{"type": "relation", "kind": "above", "colors": ["emerald", "mint"]}, {"type": "relation", "kind": "above", "colors": ["orange", "mint"]}]},
-    {"type": "or", "clues": [{"type": "relation", "kind": "above", "colors": ["black", "brown"]}, {"type": "relation", "kind": "above", "colors": ["emerald", "brown"]}]}
+    {"type": "relation", "kind": "between", "colors": ["black", "mint", "magenta"]},
+    {"type": "and", "clues": [{"type": "relation", "kind": "next_to", "colors": ["white", "orange"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "coral"]}, {"type": "relation", "kind": "next_to", "colors": ["white", "cobalt"]}]},
+    {"type": "relation", "kind": "right_of", "colors": ["emerald", "teal"]},
+    {"type": "relation", "kind": "directly_below", "colors": ["orange", "brown"]},
+    {"type": "relation", "kind": "directly_left_of", "colors": ["coral", "magenta"]},
+    {"type": "relation", "kind": "knows", "colors": ["orange", "purple"]},
+    {"type": "or", "clues": [{"type": "relation", "kind": "same_row", "colors": ["white", "teal"]}, {"type": "property", "kind": "in_center", "color": "cobalt"}]}
   ]
 }

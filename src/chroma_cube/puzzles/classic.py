@@ -6,12 +6,15 @@ Each card is one JSON file under `data/classic/`, in the format of `puzzle_to_di
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
 
 from chroma_cube.core import (
     And,
     AtLeast,
+    AttributeClue,
     BoardRule,
     Cell,
     Clue,
@@ -30,6 +33,7 @@ from chroma_cube.core import (
     puzzle_from_dict,
 )
 from chroma_cube.solver import solve
+from chroma_cube.solver.search import colors_in, colors_named
 
 CARD_COUNT = 25
 
@@ -209,3 +213,98 @@ def _stuck(puzzle: Puzzle, placement: Placement, options: Options) -> bool:
         return True
     taken = {cell for cells in options.values() for cell in cells}
     return any(placement.color_at(cell) is None and cell not in taken for cell in puzzle.board)
+
+
+def clue_shape(clue: Clue) -> str:
+    """The clue with its colors left out: what a player recognises as "the same clue".
+
+    A relation, property or attribute clue is its kind (a property in a row or column
+    keeps the index), with "*" when a color is named by initial. "not", "and", "or" wrap
+    their parts, and a count keeps its number; parts are sorted, so their order does not
+    matter.
+    """
+    match clue:
+        case Relation(kind=kind, colors=refs):
+            return kind + ("*" if any(r.by_initial for r in refs) else "")
+        case Property(kind=kind, color=color_ref, index=index):
+            where = "" if index is None else str(index)
+            return kind + where + ("*" if color_ref.by_initial else "")
+        case BoardRule(kind=kind):
+            return kind
+        case AttributeClue(kind=kind, color=color_ref):
+            return kind + ("*" if color_ref is not None and color_ref.by_initial else "")
+        case Not(clue=inner):
+            return f"not({clue_shape(inner)})"
+        case And(clues=subs):
+            return f"and({_shapes(subs)})"
+        case Or(clues=subs):
+            return f"or({_shapes(subs)})"
+        case Exactly(n=n, clues=subs):
+            return f"exactly{n}({_shapes(subs)})"
+        case AtLeast(n=n, clues=subs):
+            return f"at_least{n}({_shapes(subs)})"
+    raise TypeError(f"not a clue: {clue!r}")
+
+
+def _shapes(clues: tuple[Clue, ...]) -> str:
+    return ",".join(sorted(clue_shape(sub) for sub in clues))
+
+
+@dataclass(frozen=True)
+class Opening:
+    """A card's first move: clue number `clue` (from 0) on its own, with the givens, leaves
+    `color` only `cells`."""
+
+    clue: int
+    color: Color
+    cells: frozenset[Cell]
+    shape: str
+
+
+_SEARCHED_COLORS = 6
+"""A clue naming more unplaced colors than this is judged one cube at a time."""
+
+
+def opening_move(puzzle: Puzzle) -> Opening | None:
+    """The tightest narrowing one clue makes on its own, starting from the givens.
+
+    For every clue and every unplaced cube it names, the cells where that cube can go with
+    the clue still true for some placing of the cubes the clue depends on. The opening is
+    the clue and cube with the fewest such cells; on a tie, the earlier clue on the card,
+    then palette order. None when the best clue still leaves the cube more than half the
+    free cells: then no single clue gives a real first step, and the player has to put
+    clues together.
+    """
+    givens = puzzle.givens
+    free = [cell for cell in puzzle.board if givens.color_at(cell) is None]
+    best: Opening | None = None
+    for index, clue in enumerate(puzzle.clues):
+        named = colors_named(clue, puzzle.palette)
+        depends = colors_in(clue, puzzle.palette)
+        unplaced = [c for c in puzzle.palette if c in depends and c not in givens.assignments]
+        for color in (c for c in unplaced if c in named):
+            others = [c for c in unplaced if c != color]
+            rest = others if len(others) <= _SEARCHED_COLORS else []
+            cells = frozenset(
+                cell
+                for cell in free
+                if _can_hold(puzzle, clue, givens.with_color(color, cell), rest)
+            )
+            if best is None or len(cells) < len(best.cells):
+                best = Opening(index, color, cells, clue_shape(clue))
+    if best is None or 2 * len(best.cells) > len(free):
+        return None
+    return best
+
+
+def _can_hold(puzzle: Puzzle, clue: Clue, placement: Placement, rest: Sequence[Color]) -> bool:
+    """Some placing of the cubes in `rest` on free cells leaves `clue` not broken."""
+    truth = evaluate(clue, placement, puzzle.board, puzzle.palette)
+    if truth is not Truth.UNKNOWN or not rest:
+        return truth is not Truth.VIOLATED
+    color, others = rest[0], rest[1:]
+    return any(
+        _can_hold(puzzle, clue, placement.with_color(color, cell), others)
+        for cell in puzzle.board
+        if placement.color_at(cell) is None
+    )
