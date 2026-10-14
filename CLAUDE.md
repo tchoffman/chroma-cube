@@ -29,7 +29,7 @@ they are) before changing anything.
 ## Commands
 ```bash
 uv sync --all-groups
-uv run pytest -q
+uv run pytest -q -n auto   # parallel, as CI runs it; drop -n auto to debug one test
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run chroma-cube
 ```

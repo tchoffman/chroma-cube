@@ -7,9 +7,11 @@ import sys
 import time
 from collections import Counter
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
+import chroma_cube.generator.build as build
 from chroma_cube.core import (
     CLASSIC_PALETTE,
     And,
@@ -27,7 +29,7 @@ from chroma_cube.core.parse import parse_clue
 from chroma_cube.generator import DIFFICULTIES, PROFILES, Difficulty, clue_features, generate
 from chroma_cube.generator.build import primary_kind
 from chroma_cube.generator.candidates import clue_colors
-from chroma_cube.solver import is_unique, solve
+from chroma_cube.solver import is_unique, solve, solve_clues
 from tests.generator.helpers import SAMPLE_SEEDS, generated
 
 
@@ -231,3 +233,58 @@ def test_some_expert_puzzles_use_an_alphabetical_rule() -> None:
     rules = {"rows_alphabetical", "columns_alphabetical"}
     expert = [generated(seed, "expert") for seed in SAMPLE_SEEDS]
     assert any(rules & clue_features(clue) for p in expert for clue in p.clues)
+
+
+@pytest.mark.parametrize("difficulty", DIFFICULTIES)
+def test_no_clue_set_is_solved_twice(
+    difficulty: Difficulty, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A finished attempt whose clues a solver call has already proved unique is not
+    checked again with the same search."""
+    plain = solve_clues
+    asked: Counter[tuple[Any, ...]] = Counter()
+
+    def counting(*args: Any, **kwargs: Any) -> Any:
+        asked[(tuple(args[2]), kwargs["givens"])] += 1
+        return plain(*args, **kwargs)
+
+    monkeypatch.setattr(build, "solve_clues", counting)
+    generate(2, difficulty)
+    assert asked
+    assert max(asked.values()) == 1
+
+
+@pytest.mark.parametrize("difficulty", DIFFICULTIES)
+@pytest.mark.parametrize("seed", range(3))
+def test_every_puzzle_follows_a_proof_of_its_exact_clues(
+    seed: int, difficulty: Difficulty, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Whether or not the last uniqueness check runs, the clues an attempt returns were
+    proved unique, with those givens, by a solver call made during that attempt."""
+    proofs: set[tuple[Any, ...]] = set()
+    plain_unique, plain_rivals, plain_attempt = build._unique, build._solver_rivals, build._attempt
+
+    def unique(*args: Any) -> bool:
+        proved = plain_unique(*args)
+        if proved:
+            proofs.add((tuple(args[2]), args[3]))
+        return proved
+
+    def rivals(*args: Any) -> Any:
+        found, proved = plain_rivals(*args)
+        if proved:
+            proofs.add((tuple(args[3]), args[4]))
+        return found, proved
+
+    def attempt(*args: Any) -> Any:
+        proofs.clear()
+        found = plain_attempt(*args)
+        if found is not None:
+            givens, clues = found
+            assert (tuple(clues), givens) in proofs
+        return found
+
+    monkeypatch.setattr(build, "_unique", unique)
+    monkeypatch.setattr(build, "_solver_rivals", rivals)
+    monkeypatch.setattr(build, "_attempt", attempt)
+    generate(seed, difficulty)

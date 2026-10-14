@@ -716,3 +716,43 @@ reshuffles, a longer local search before bisecting, splitting on every cell from
 start, and (in review) a seeded static search order, longer perturbations, warm-started
 bisection and releasing one color at a time from the full solution; each was slower or
 moved seeds.
+
+## D48: Generation gets faster without changing a seed, and the tests run in parallel (2026-10-14)
+D47 made hard and expert generation 1.2 to 2 times slower. A profile of 4 × 5 hard and
+expert seeds 0–1 put three quarters of the time in the solver's trial placements, and
+most of that in the evaluator walking the board, not in how many listings the generator
+asks for. So the speed-up goes to the price of each trial, and the generator asks the
+solver exactly the same questions as before; every seed builds the same puzzle, and the
+24 pinned seeds and the four solver-variant tests are untouched.
+
+- **Evaluator.** A relation or property whose colors are all placed is decided with one
+  test, and one with a single color to place tries it on each free cell without building
+  the cross product or checking that the cells differ. Kleene "or" no longer negates
+  twice, and negation no longer builds a table on every call.
+- **Board and placement.** A board builds its cells once per shape instead of on every
+  walk, and a placement keeps its free cells per board. Placing one more cube copies the
+  two maps it already has rather than rebuilding and rechecking them.
+- **No second proof.** An attempt used to end with one more uniqueness check. When the
+  last clue minimisation dropped was dropped because the solver proved the rest unique,
+  or the generator's own listing under the givens alone found no rival, that check
+  repeats the very same search to the same answer, so it is skipped. It still runs when
+  the generator's "no rival" came from bisection, which can follow a listing that ran out
+  of budget rather than one with too many rivals.
+
+On the D33 and D44 bars (CPU time, same machine, same runs) main goes to this change as
+7.0 s to 3.9 s (classic, worst seed 2.2 s to 1.1 s), 6.8 s to 3.4 s (4 × 4, 2.3 s to
+1.1 s) and 12.8 s to 6.8 s (4 × 5, 4.9 s to 2.8 s), against 3.5 s, 5.5 s and 6.9 s before
+D47.
+
+We tried warm-started bisection again (keep the last color order and start where the
+last bisection ended, the lead from D47's review): on top of these changes it took
+4.1 s, 5.1 s and 7.7 s (worst 4.5 s), slower than without it, and moved 5 of the 24
+pinned seeds, since it lists different rivals. Reusing a
+finished listing for later calls whose givens and clues contain it (its rivals, filtered
+by the new clues, are exactly what the solver would list) gave the same rivals on every
+call checked but saved only a tenth to a sixth of listing time, so it was left out.
+
+The suite runs on pytest-xdist workers (`-n auto` in CI), each building its own share of
+the cached sample puzzles; every test still runs on both Python versions, the pinned and
+order tests included. Locally the suite took about 210 s on main, about 140 s with the
+faster generator on one process, and about 40 s on workers.

@@ -48,7 +48,7 @@ def evaluate(clue: Clue, placement: Placement, board: Board, palette: Palette) -
     match clue:
         case Relation(kind=kind, colors=refs):
             holds = RELATION_KINDS[kind].holds
-            return _primitive(refs, lambda cells: holds(cells), placement, board, palette)
+            return _primitive(refs, holds, placement, board, palette)
         case Property(kind=kind, color=color_ref, index=index):
             prop_holds = PROPERTY_KINDS[kind].holds
             return _primitive(
@@ -84,8 +84,11 @@ def evaluate(clue: Clue, placement: Placement, board: Board, palette: Palette) -
 # --------------------------------------------------------------------------- logic
 
 
+_NEGATED = {SAT: VIOL, VIOL: SAT, UNK: UNK}
+
+
 def _negate(truth: Truth) -> Truth:
-    return {SAT: VIOL, VIOL: SAT, UNK: UNK}[truth]
+    return _NEGATED[truth]
 
 
 def _all(truths: Iterable[Truth]) -> Truth:
@@ -99,7 +102,13 @@ def _all(truths: Iterable[Truth]) -> Truth:
 
 
 def _any(truths: Iterable[Truth]) -> Truth:
-    return _negate(_all(_negate(truth) for truth in truths))
+    result = VIOL
+    for truth in truths:
+        if truth is SAT:
+            return SAT
+        if truth is UNK:
+            result = UNK
+    return result
 
 
 def _count(
@@ -142,12 +151,27 @@ def _decide(
     board: Board,
 ) -> Truth:
     """Try every way of putting the unplaced colors on free cells and see if they agree."""
-    free = [cell for cell in board if placement.color_at(cell) is None]
-    options = [
-        (cell,) if (cell := placement.cell_of(color)) is not None else tuple(free)
-        for color in colors
-    ]
+    placed = [placement.cell_of(color) for color in colors]
+    if None not in placed:
+        # Every color is placed, so there is one way and the cells are already distinct.
+        return SAT if holds(tuple(cell for cell in placed if cell is not None)) else VIOL
+    free = placement.free_cells(board)
     seen_true = seen_false = False
+    if placed.count(None) == 1:
+        # One color to try on each free cell: a free cell is never a placed one, so
+        # every trial is a distinct set of cells.
+        at = placed.index(None)
+        before = tuple(cell for cell in placed[:at] if cell is not None)
+        after = tuple(cell for cell in placed[at + 1 :] if cell is not None)
+        for cell in free:
+            if holds((*before, cell, *after)):
+                seen_true = True
+            else:
+                seen_false = True
+            if seen_true and seen_false:
+                return UNK
+        return SAT if seen_true else VIOL
+    options = [(cell,) if cell is not None else free for cell in placed]
     for cells in product(*options):
         if len(set(cells)) != len(cells):
             continue
@@ -195,7 +219,7 @@ def _attribute(clue: AttributeClue, placement: Placement, board: Board, palette:
 
     unplaced = placement.unplaced(palette)
     matching = sum(1 for color in unplaced if color.has(value))
-    free = tuple(cell for cell in board if placement.color_at(cell) is None)
+    free = placement.free_cells(board)
     pool = _Pool(len(free), matching, len(unplaced) - matching)
 
     if clue.region is not None:
