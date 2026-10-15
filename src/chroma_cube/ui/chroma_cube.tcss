@@ -33,47 +33,39 @@
     grid-gutter: 0;
 }
 
+/* Each cell draws its own well and cube (see ui/cube.py); these components give the
+   frame, the well floor and its shadowed inner wall, each over the page behind the tray,
+   so they work on light and dark themes. The frame turns to the state color around the
+   cursor, the held cube and a hint. */
 TrayCell {
     width: 1fr;
     height: 1fr;
-    border: round #808080;
-    content-align: center middle;
-    text-align: center;
     text-style: bold;
-    text-wrap: nowrap;
-    text-overflow: ellipsis;
 }
 
-TrayCell.empty {
-    border: dashed $foreground 30%;
+TrayCell > .tray-cell--frame {
+    background: $foreground 30%;
 }
 
-TrayCell.dark {
-    border: round #d0d0d0;
+TrayCell > .tray-cell--floor {
+    background: black 20%;
 }
 
-TrayCell.given {
-    border: double #808080;
+TrayCell > .tray-cell--shadow {
+    background: black 55%;
 }
 
-TrayCell.given.dark {
-    border: double #d0d0d0;
+/* $warning is the same orange as $accent in the default themes, so the held ring is blue. */
+#tray TrayCell.held > .tray-cell--frame {
+    background: $primary;
 }
 
-#tray TrayCell.held {
-    border: thick $warning;
+#tray TrayCell.hinted > .tray-cell--frame {
+    background: $success;
 }
 
-#tray TrayCell.hinted {
-    border: thick $success;
-}
-
-#tray TrayCell.cursor {
-    border: heavy $accent;
-}
-
-#tray TrayCell.held.cursor {
-    border: thick $accent;
+#tray TrayCell.cursor > .tray-cell--frame {
+    background: $accent;
 }
 
 .heading {
@@ -91,10 +83,7 @@ TrayCell.given.dark {
 PaletteChip {
     width: 1fr;
     height: 1;
-    content-align: center middle;
     text-style: bold;
-    text-wrap: nowrap;
-    text-overflow: ellipsis;
 }
 
 PaletteChip.held {

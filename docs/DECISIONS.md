@@ -756,3 +756,41 @@ The suite runs on pytest-xdist workers (`-n auto` in CI), each building its own 
 the cached sample puzzles; every test still runs on both Python versions, the pinned and
 order tests included. Locally the suite took about 210 s on main, about 140 s with the
 faster generator on one process, and about 40 s on workers.
+
+## D49: Cubes are drawn as lit blocks in wells of a tray frame (2026-10-14)
+Cubes, empty wells and palette chips are drawn by hand (`ui/cube.py`) instead of as a
+colored box with a border (D19). Each terminal cell is treated as four quadrants, so edges
+half a cell thick can be drawn with half-block and quadrant characters (▀ ▄ ▌ ▐ ▖ ▗ ▘ ▝),
+each cell in at most two colors.
+
+- **Cube.** The front face is the cube's own color with its name centred, bold, in the
+  D19 contrast color. Above it a lit top (mixed 45% toward white), on its right a shaded
+  side (40% toward black) and below a darker bottom (55%). The top and bottom are half a
+  row thick on cells of 3 and 4 rows and a full row on 5, so the look grows with the cell
+  between `CELL_MIN_HEIGHT` and `CELL_MAX_HEIGHT`. White, Mint and Cyan cannot get much
+  lighter, so their lit top is faint; their side and bottom carry the depth, and the
+  frame outlines them. Black and Indigo cannot get much darker, so the lit top carries
+  theirs.
+- **Tray.** Each cell draws a frame half a cell thick around its well, so neighbouring
+  cells share one bar and the tray reads as one frame with a well per cell. The frame is
+  the foreground at 30% over the page, so it is mid-grey on both dark and light themes. An
+  empty well is the page darkened 20%, with its top and left inner walls darkened 55%,
+  which reads as a hole lit from the top left.
+- **Given cubes** sit pressed into their well: no lit top but a top edge in shadow (30%
+  toward black) and flat side and bottom in the face color, plus the `▪` pin mark from
+  D19. A loose cube stands proud of the tray; a given one does not.
+- **States** color the frame ring around the cell instead of the border: cursor `$accent`,
+  hint `$success`, held `$primary`, cursor over all. Held used to be `$warning`, but in
+  Textual's default themes that is the same orange as `$accent`, and it was only the
+  border style that told them apart. The `▸` mark on a held cube stays.
+- **Palette chips** are one line: a lit strip on the left, the face, a shaded strip on the
+  right. When a chip is too narrow for its text the strips go first, then the text is cut
+  with an ellipsis, so names are never cut for the sake of decoration.
+- Colors from the stylesheet are component classes on `TrayCell`
+  (`tray-cell--frame`, `--floor`, `--shadow`), blended over what is behind the tray, not
+  over the cell's own background, which stays the cube's color.
+
+The shade characters (░ ▒ ▓) were left out: they are dithered patterns whose look varies
+by font, and they blend the two colors instead of drawing an edge. Cell sizes and
+`tray_width()` are unchanged; the two columns it allows for a cell's border now hold the
+frame's half columns on either side and the cube's shaded side.
