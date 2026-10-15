@@ -1,12 +1,13 @@
-"""The pieces of the play screen: tray cells, palette chips and clue rows."""
+"""The pieces of the play screen: tray cells and palette chips (clue rows live on the card)."""
 
 from __future__ import annotations
 
 from textual.message import Message
 from textual.widgets import Static
 
-from chroma_cube.core import Cell, Color, Truth
-from chroma_cube.ui.swatch import STATUS_MARKERS, is_dark, text_color
+from chroma_cube.core import Cell, Color
+from chroma_cube.ui.card import ClueRow as ClueRow
+from chroma_cube.ui.swatch import is_dark, text_color
 
 GIVEN_MARK = "▪"
 """Before a given cube's name, in the same contrasting text color."""
@@ -76,22 +77,3 @@ class PaletteChip(Static):
 
     def on_click(self) -> None:
         self.post_message(self.Clicked(self.color))
-
-
-class ClueRow(Static):
-    """One clue with a marker saying whether it holds yet."""
-
-    def __init__(self, sentence: str) -> None:
-        super().__init__(markup=False, classes="clue")
-        self.sentence = sentence
-        self.truth = Truth.UNKNOWN
-        self.text = ""
-        self.show(Truth.UNKNOWN)
-
-    def show(self, truth: Truth, *, hinted: bool = False) -> None:
-        self.truth = truth
-        self.text = f"{STATUS_MARKERS[truth]} {self.sentence}"
-        for value in Truth:
-            self.set_class(value is truth, value.value)
-        self.set_class(hinted, "hinted")
-        self.update(self.text)

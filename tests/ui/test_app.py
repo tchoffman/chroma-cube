@@ -73,7 +73,9 @@ async def test_the_card_shows_givens_palette_and_clues() -> None:
         chips = [chip for chip in pilot.app.screen.query(PaletteChip) if chip.display]
         assert sorted(chip.color.id for chip in chips) == sorted(SOLUTION)
         rows = list(pilot.app.screen.query(ClueRow))
-        assert [row.text for row in rows] == [f"· {text}" for text in DEMO.rendered_clues()]
+        assert [row.text for row in rows] == [
+            f"·  {number}  {text}" for number, text in enumerate(DEMO.rendered_clues(), start=1)
+        ]
 
 
 async def test_place_a_cube_by_keyboard_and_see_a_clue_flip() -> None:
