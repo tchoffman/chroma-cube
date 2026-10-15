@@ -14,8 +14,9 @@ from textual.widgets import Button, Footer, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
 from chroma_cube.core import Placement, Puzzle
+from chroma_cube.ui.card import ClueCard, ClueRow
 from chroma_cube.ui.play import PlayState
-from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
+from chroma_cube.ui.widgets import PaletteChip, TrayCell
 
 if TYPE_CHECKING:
     from chroma_cube.ui.app import ChromaCubeApp
@@ -114,7 +115,6 @@ class PlayScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         puzzle = self.state.puzzle
         board = puzzle.board
-        yield Label(self.heading(), id="card-title")
         with Horizontal(id="play"):
             with Vertical(id="left"):
                 tray = Grid(*(TrayCell(cell) for cell in board), id="tray")
@@ -127,42 +127,20 @@ class PlayScreen(Screen[None]):
                 palette = Grid(*(PaletteChip(color) for color in puzzle.palette), id="palette")
                 palette.styles.grid_size_columns = board.cols
                 yield palette
-            clues = VerticalScroll(id="clues")
-            clues.can_focus = False
-            with clues:
-                yield Label("Clues", id="clues-heading", classes="heading")
-                yield from (ClueRow(sentence) for sentence in puzzle.rendered_clues())
+            yield ClueCard(self.heading(), puzzle)
         yield Static(HINT, id="message", markup=False)
         yield Footer()
 
     def heading(self) -> str:
-        return f"Card {self.index + 1}: {self.state.puzzle.title}"
+        """The name in the top edge of the clue card."""
+        return f"Card {self.index + 1} · {self.state.puzzle.title}"
 
     def on_mount(self) -> None:
         self._fit(self.app.size.width)
         self.refresh_view()
-        self.watch(self.query_one("#clues"), "scroll_y", self._count_clues, init=False)
-        self.call_after_refresh(self._count_clues)
 
     def on_resize(self, event: events.Resize) -> None:
         self._fit(event.size.width)
-        self.call_after_refresh(self._count_clues)
-
-    def _count_clues(self) -> None:
-        """Head the clues "Clues 1–3 of 14" while some of them are out of sight."""
-        clues = self.query_one("#clues", VerticalScroll)
-        rows = list(self.query(ClueRow))
-        top = clues.scroll_y
-        bottom = top + clues.scrollable_content_region.height
-        shown = [
-            index
-            for index, row in enumerate(rows, start=1)
-            if row.virtual_region.y >= top and row.virtual_region.y < bottom
-        ]
-        heading = "Clues"
-        if shown and len(shown) < len(rows):
-            heading = f"Clues {shown[0]}–{shown[-1]} of {len(rows)}"
-        self.query_one("#clues-heading", Label).update(heading)
 
     def _fit(self, width: int) -> None:
         """Clues beside the tray when both fit, else under it (the -narrow layout)."""

@@ -105,10 +105,23 @@ PaletteChip.hinted {
     text-style: bold reverse;
 }
 
-#clues {
+/* The clue card: the card's name in the top edge, its tier and clue count in the bottom
+   edge, numbered clues with a marker gutter, and the note at the foot. */
+
+#card {
     width: 2fr;
     height: 1fr;
+    border: round $foreground 50%;
+    border-title-style: bold;
+    border-title-color: $foreground;
+    border-subtitle-color: $text-muted;
+    background: $boost;
+}
+
+#clues {
+    height: 1fr;
     padding: 0 1;
+    scrollbar-size-vertical: 1;
 }
 
 ClueRow {
@@ -116,20 +129,24 @@ ClueRow {
 }
 
 ClueRow.satisfied {
-    color: $success;
+    color: $text-muted;
 }
 
 ClueRow.violated {
     color: $error;
-}
-
-ClueRow.unknown {
-    color: $text-muted;
+    text-style: bold;
+    background: $error 15%;
 }
 
 ClueRow.hinted {
     text-style: bold;
     background: $success 15%;
+}
+
+#card-note {
+    border-top: dashed $foreground 30%;
+    color: $text-muted;
+    text-style: italic;
 }
 
 /* Hint explanations run long, so the status line wraps onto up to four lines. */
@@ -165,9 +182,9 @@ PlayScreen.-narrow .heading {
     padding: 0;
 }
 
-PlayScreen.-narrow #clues {
+PlayScreen.-narrow #card {
     width: 1fr;
-    min-height: 3;
+    min-height: 5;
 }
 
 PlayScreen.-narrow ClueRow {
