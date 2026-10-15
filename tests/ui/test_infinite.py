@@ -66,7 +66,8 @@ def playing(pilot: Pilot[None]) -> GeneratedPlayScreen:
 
 
 def title(pilot: Pilot[None]) -> str:
-    return str(pilot.app.screen.query_one("#card-title", Label).content)
+    """The name in the top edge of the clue card."""
+    return str(pilot.app.screen.query_one("#card").border_title)
 
 
 async def start_infinite(pilot: Pilot[None], difficulty: str = "easy") -> None:

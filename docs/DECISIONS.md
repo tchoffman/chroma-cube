@@ -802,3 +802,22 @@ The shade characters (░ ▒ ▓) were left out: they are dithered patterns who
 by font, and they blend the two colors instead of drawing an edge. Cell sizes and
 `tray_width()` are unchanged; the two columns it allows for a cell's border now hold the
 frame's half columns on either side and the cube's shaded side.
+
+## D50: The clues sit on a card, named in its top edge and counted in its bottom edge (2026-10-14)
+The clue list is now a bordered card (`ClueCard`). Its top edge carries the screen's
+heading, so the line above the tray is gone: "Card 8 · Empty Tray" for a classic card,
+the seed title ("Infinite · 4×5 · hard · seed 17", "Daily · 2026-10-08") for a generated
+one. Its bottom edge carries the tier and a count: "Medium · 6 clues", or
+"Hard · Clues 1–3 of 13" while some clues are out of sight (the old "Clues 1–3 of N"
+heading, D45), plus "note ↓" while the note is below the fold. Putting both into the
+border costs no rows, so at 80 × 24 a 4 × 5 card still shows three clues, as before. On
+infinite puzzles the tier repeats the difficulty already in the title; we kept it, so
+the daily puzzle, whose title has no difficulty, still shows one.
+
+Each clue is a gutter (marker, then its number) and the sentence, which wraps under
+itself rather than under the marker. The markers are the same dot, tick and cross, and
+the row keeps its `unknown`, `satisfied` and `violated` classes. An open clue is plain
+text; a satisfied one is dimmed with a green tick, so it reads as checked off; a violated
+one is bold red on a red tint with a red cross. We chose dimming over strike-through so a
+checked clue stays easy to re-read when a later move breaks it. The card's note follows
+the last clue in italics under a dashed rule, and scrolls with the clues.
