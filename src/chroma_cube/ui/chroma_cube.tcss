@@ -174,6 +174,98 @@ PlayScreen.-narrow ClueRow {
     padding: 0;
 }
 
+/* The shell screens: home, the card list, the infinite picker and the win dialog.
+   One accent, the classic magenta cube, marks titles, the focused panel and its cursor;
+   cube colors themselves appear only as cubes (the wordmark, tier badges, the win row). */
+
+$cube-accent: #e0218a;
+
+.shell #list-title {
+    color: $cube-accent;
+}
+
+.shell OptionList {
+    border: tall $cube-accent 30%;
+    border-title-color: $cube-accent;
+    border-title-style: bold;
+    border-subtitle-color: $text-muted;
+}
+
+.shell OptionList:focus {
+    border: tall $cube-accent;
+}
+
+.shell OptionList:focus > .option-list--option-highlighted {
+    color: #ffffff;
+    background: $cube-accent;
+    text-style: bold;
+}
+
+HomeScreen {
+    align: center middle;
+}
+
+#home {
+    width: 64;
+    max-width: 100%;
+    height: auto;
+    padding: 0 1;
+}
+
+Wordmark {
+    width: 100%;
+    height: auto;
+    content-align: center top;
+}
+
+#tagline {
+    width: 100%;
+    margin: 1 0;
+    text-align: center;
+    text-style: italic;
+    color: $text-muted;
+}
+
+HomeScreen.-short #tagline {
+    display: none;
+}
+
+#modes {
+    height: auto;
+    padding: 0 2;
+}
+
+#list-header {
+    height: 1;
+    padding: 0 1;
+}
+
+#list-header #list-title {
+    width: 1fr;
+    padding: 0;
+}
+
+#solved-count {
+    color: $success;
+    text-style: bold;
+}
+
+#infinite-help {
+    padding: 0 1;
+    color: $text-muted;
+}
+
+#pickers {
+    height: auto;
+    padding: 1 0 0 0;
+}
+
+#pickers OptionList {
+    width: auto;
+    min-width: 20;
+    margin: 0 1 0 0;
+}
+
 WinScreen {
     align: center middle;
 }
@@ -183,20 +275,41 @@ WinScreen {
     max-width: 100%;
     height: auto;
     padding: 1 2;
-    border: thick $success;
+    border: thick $cube-accent;
     background: $surface;
+}
+
+#win Label {
+    width: 100%;
+    text-align: center;
 }
 
 #win-title {
     text-style: bold;
+    color: $cube-accent;
+    margin: 1 0 0 0;
+}
+
+#win-card {
+    text-style: bold;
+    margin: 0 0 1 0;
+}
+
+#win-hints {
+    color: $text-muted;
+}
+
+#win-cheer {
     color: $success;
+    text-style: italic;
 }
 
 #win-buttons {
     height: auto;
     padding: 1 0 0 0;
+    align-horizontal: center;
 }
 
 #win-buttons Button {
-    margin: 0 1 0 0;
+    margin: 0 1;
 }

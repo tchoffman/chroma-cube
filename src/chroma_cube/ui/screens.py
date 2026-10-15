@@ -9,12 +9,14 @@ from textual import events, on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
+from textual.content import Content
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
-from chroma_cube.core import Placement, Puzzle
+from chroma_cube.core import CLASSIC_PALETTE, Placement, Puzzle
 from chroma_cube.ui.play import PlayState
+from chroma_cube.ui.swatch import text_color
 from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
 
 if TYPE_CHECKING:
@@ -48,13 +50,78 @@ def game(screen: Screen[Any]) -> ChromaCubeApp:
 
 HINT = "Type a color's first letter or its number to take it, then Enter on a cell."
 
+CUBE_COLORS = tuple(
+    CLASSIC_PALETTE.by_id(color).hex
+    for color in (
+        "coral",
+        "orange",
+        "mustard",
+        "mint",
+        "emerald",
+        "teal",
+        "cobalt",
+        "purple",
+        "magenta",
+        "brown",
+    )
+)
+"""The classic cubes the shell screens decorate with, warm to cool; black and white are
+left out because each vanishes on one of the themes."""
+
+TIER_COLORS = {
+    tier: CLASSIC_PALETTE.by_id(color).hex
+    for tier, color in (
+        ("easy", "emerald"),
+        ("medium", "mustard"),
+        ("hard", "orange"),
+        ("expert", "purple"),
+    )
+}
+"""Each difficulty tier's badge color, a classic cube that reads on dark and light themes."""
+
+
+def cube(text: str, hex_color: str) -> Content:
+    """`text` on a cube of `hex_color`, in black or white, whichever reads."""
+    return Content.styled(text, f"bold {text_color(hex_color)} on {hex_color}")
+
+
+TIER_WIDTH = max(len(tier) for tier in TIER_COLORS) + 2
+
+
+def tier_badge(tier: str, width: int = 0) -> Content:
+    """A tier as a colored badge at least `width` wide; nothing for a card without one."""
+    color = TIER_COLORS.get(tier)
+    return Content("") if color is None else cube(f" {tier} ".center(width), color)
+
+
+def cube_row(glyph: str = "■") -> Content:
+    """One glyph per decorative cube color, a space apart."""
+    return Content(" ").join(Content.styled(glyph, color) for color in CUBE_COLORS)
+
+
+def legend() -> Content:
+    """What the marks on a card row mean: the solved tick and the four tier badges."""
+    return Content.assemble(
+        ("✓", "bold $success"), " solved  ", *(tier_badge(tier) for tier in TIER_COLORS)
+    )
+
 
 class CardListScreen(Screen[None]):
-    """Every card, with a tick on the ones ever solved."""
+    """Every card with its number, title, tier and a tick on the ones ever solved.
+
+    The cursor starts on the first unsolved card, and moves on to the next unsolved card
+    when the player comes back having solved the one under it.
+    """
+
+    DEFAULT_CLASSES: ClassVar[str] = "shell"
 
     def compose(self) -> ComposeResult:
-        yield Label("Chroma Cube: choose a card", id="list-title")
-        yield OptionList(*self._options(), id="cards")
+        with Horizontal(id="list-header"):
+            yield Label("Classic cards", id="list-title")
+            yield Label(self._count(), id="solved-count")
+        cards = OptionList(*self._options(), id="cards")
+        cards.border_subtitle = legend()
+        yield cards
         yield Footer()
 
     def _options(self) -> list[Option]:
@@ -64,18 +131,45 @@ class CardListScreen(Screen[None]):
             for index, puzzle in enumerate(app.puzzles)
         ]
 
-    def _prompt(self, index: int, puzzle: Puzzle) -> str:
-        tick = "✓" if self._game.is_solved(puzzle) else " "
-        return f"{index + 1:>2}  {tick}  {puzzle.title}"
+    def _prompt(self, index: int, puzzle: Puzzle) -> Content:
+        width = max(len(card.title) for card in self._game.puzzles)
+        solved = self._game.is_solved(puzzle)
+        return Content.assemble(
+            (f"{index + 1:>2}  ", "dim"),
+            ("✓" if solved else " ", "bold $success"),
+            f"  {puzzle.title:<{width}}  ",
+            tier_badge(puzzle.difficulty, TIER_WIDTH),
+        )
+
+    def _count(self) -> str:
+        puzzles = self._game.puzzles
+        solved = sum(self._game.is_solved(puzzle) for puzzle in puzzles)
+        return f"{solved} of {len(puzzles)} solved"
+
+    def _first_unsolved(self, start: int = 0) -> int:
+        """The first unsolved card from `start` on, wrapping round; 0 when all are solved."""
+        puzzles = self._game.puzzles
+        for step in range(len(puzzles)):
+            index = (start + step) % len(puzzles)
+            if not self._game.is_solved(puzzles[index]):
+                return index
+        return 0
 
     @property
     def _game(self) -> ChromaCubeApp:
         return game(self)
 
+    def on_mount(self) -> None:
+        self.query_one(OptionList).highlighted = self._first_unsolved()
+
     def on_screen_resume(self) -> None:
         cards = self.query_one(OptionList)
         for index, puzzle in enumerate(self._game.puzzles):
             cards.replace_option_prompt_at_index(index, self._prompt(index, puzzle))
+        self.query_one("#solved-count", Label).update(self._count())
+        current = cards.highlighted
+        if current is not None and self._game.is_solved(self._game.puzzles[current]):
+            cards.highlighted = self._first_unsolved(current)
         cards.focus()
 
     @on(OptionList.OptionSelected)
@@ -284,7 +378,10 @@ class PlayScreen(Screen[None]):
 
 
 class WinScreen(ModalScreen[str]):
-    """Shown when a card is solved; dismisses with "next" or "back"."""
+    """Shown when a card is solved: the card's name, the hints used and a cheer.
+
+    Dismisses with the id of the button chosen, "next" or "back".
+    """
 
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss('back')", "Back")]
 
@@ -296,9 +393,12 @@ class WinScreen(ModalScreen[str]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="win"):
-            yield Label(f"Solved! {self.card_title}", id="win-title")
+            yield Label(cube_row(), id="win-cubes")
+            yield Label("Solved!", id="win-title")
+            yield Label(self.card_title, id="win-card", markup=False)
             yield Label("Every cube is placed and every clue holds.")
             yield Label(_hint_count(self.hints), id="win-hints")
+            yield Label(cheer(self.hints), id="win-cheer")
             with Horizontal(id="win-buttons"):
                 yield from self.buttons()
 
@@ -313,6 +413,13 @@ class WinScreen(ModalScreen[str]):
     @on(Button.Pressed)
     def choose(self, event: Button.Pressed) -> None:
         self.dismiss(event.button.id)
+
+
+def cheer(hints: int) -> str:
+    """A cheerful line for the win: one for a solve without hints, one for the rest."""
+    if hints == 0:
+        return "A clean solve, all on your own!"
+    return "Nicely worked out. Fewer hints next time?"
 
 
 def _hint_count(hints: int) -> str:
