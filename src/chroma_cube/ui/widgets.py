@@ -1,4 +1,4 @@
-"""The pieces of the play screen: tray cells, palette chips and clue rows."""
+"""The pieces of the play screen: tray cells and palette chips (clue rows live on the card)."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from typing import ClassVar
 from textual.message import Message
 from textual.strip import Strip
 from textual.widget import Widget
-from textual.widgets import Static
 
-from chroma_cube.core import Cell, Color, Truth
+from chroma_cube.core import Cell, Color
+from chroma_cube.ui.card import ClueRow as ClueRow
 from chroma_cube.ui.cube import chip_line, cube_cell, well_cell
-from chroma_cube.ui.swatch import STATUS_MARKERS, cube_tints, text_color
+from chroma_cube.ui.swatch import cube_tints, text_color
 
 GIVEN_MARK = "▪"
 """Before a given cube's name, in the same contrasting text color."""
@@ -160,22 +160,3 @@ def _background(widget: Widget, component: str) -> str:
     assert isinstance(parent, Widget), widget
     behind = parent.background_colors[1]
     return (behind + widget.get_component_styles(component).background).hex6.lower()
-
-
-class ClueRow(Static):
-    """One clue with a marker saying whether it holds yet."""
-
-    def __init__(self, sentence: str) -> None:
-        super().__init__(markup=False, classes="clue")
-        self.sentence = sentence
-        self.truth = Truth.UNKNOWN
-        self.text = ""
-        self.show(Truth.UNKNOWN)
-
-    def show(self, truth: Truth, *, hinted: bool = False) -> None:
-        self.truth = truth
-        self.text = f"{STATUS_MARKERS[truth]} {self.sentence}"
-        for value in Truth:
-            self.set_class(value is truth, value.value)
-        self.set_class(hinted, "hinted")
-        self.update(self.text)

@@ -20,6 +20,7 @@ from chroma_cube.ui.home import DifficultyScreen, HomeScreen
 from chroma_cube.ui.infinite import GeneratedPlayScreen, GeneratingScreen, SeedScreen
 from chroma_cube.ui.screens import CardListScreen, WinScreen
 from tests.conftest import DEMO
+from tests.ui.drawn import card_edges
 
 SIZE = (120, 40)
 TODAY = date(2026, 10, 8)
@@ -66,7 +67,8 @@ def playing(pilot: Pilot[None]) -> GeneratedPlayScreen:
 
 
 def title(pilot: Pilot[None]) -> str:
-    return str(pilot.app.screen.query_one("#card-title", Label).content)
+    """The name drawn in the top edge of the clue card."""
+    return card_edges(pilot.app)[0]
 
 
 async def start_infinite(pilot: Pilot[None], difficulty: str = "easy") -> None:
@@ -114,7 +116,7 @@ async def test_infinite_generates_a_puzzle_of_the_chosen_difficulty() -> None:
         [(seed, difficulty)] = generate.calls
         assert difficulty == "hard"
         assert screen.spec.seed == seed
-        assert title(pilot) == f"Infinite · hard · seed {seed}"
+        assert title(pilot) == f"Seed {seed}"
         await pilot.press("escape")
         assert isinstance(pilot.app.screen, DifficultyScreen)
 
@@ -142,7 +144,7 @@ async def test_a_typed_seed_replays_that_puzzle() -> None:
         await pilot.press(*"48213", "enter")
         await settle(pilot)
         screen = playing(pilot)
-        assert title(pilot) == "Infinite · easy · seed 48213"
+        assert title(pilot) == "Seed 48213"
         assert screen.state.puzzle == generate(48213, "easy")
 
 

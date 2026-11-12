@@ -52,6 +52,12 @@ def test_titles() -> None:
     assert daily.is_daily and not GameSpec.infinite("easy", 1).is_daily
 
 
+def test_card_names_put_the_seed_first_and_leave_the_tier_to_the_card() -> None:
+    assert GameSpec.infinite("hard", 48213).card_name == "Seed 48213"
+    assert GameSpec.infinite("easy", 7, "4x5").card_name == "Seed 7 · 4×5"
+    assert GameSpec.daily(date(2026, 10, 8)).card_name == "Daily · 2026-10-08"
+
+
 def test_another_keeps_the_difficulty_and_changes_the_seed() -> None:
     spec = GameSpec.infinite("expert", 3)
     other = spec.another(random.Random(0))

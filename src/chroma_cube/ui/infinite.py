@@ -132,7 +132,7 @@ class GeneratedPlayScreen(PlayScreen):
         self.spec = spec
 
     def heading(self) -> str:
-        return self.spec.title
+        return self.spec.card_name
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action in ("another", "enter_seed"):
