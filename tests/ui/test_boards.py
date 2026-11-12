@@ -27,6 +27,7 @@ from chroma_cube.ui.screens import PlayScreen
 from chroma_cube.ui.seeds import GameSpec
 from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
 from tests.conftest import DEMO
+from tests.ui.drawn import card_edges
 from tests.ui.test_infinite import settle
 from tests.ui.test_layout import assert_reachable
 
@@ -77,8 +78,8 @@ def chosen_marks(pilot: Pilot[None]) -> list[bool]:
 
 
 def title(pilot: Pilot[None]) -> str:
-    """The name in the top edge of the clue card."""
-    return str(pilot.app.screen.query_one("#card").border_title)
+    """The name drawn in the top edge of the clue card."""
+    return card_edges(pilot.app)[0]
 
 
 async def test_the_difficulty_screen_offers_the_three_boards() -> None:
@@ -106,7 +107,7 @@ async def test_a_board_is_picked_by_keyboard() -> None:
         assert isinstance(screen, GeneratedPlayScreen)
         [(seed, difficulty, key)] = fake.calls
         assert (difficulty, key) == ("medium", "4x5")
-        assert title(pilot) == f"Infinite · 4×5 · medium · seed {seed}"
+        assert title(pilot) == f"Seed {seed} · 4×5"
         assert screen.state.puzzle.board == BOARD_4X5
 
 

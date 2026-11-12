@@ -1,6 +1,8 @@
 """The clues sit on a card: a bordered panel with the card's name, tier, numbered clues and note."""
 
+import re
 from dataclasses import replace
+from datetime import date
 
 import pytest
 from textual.app import App
@@ -11,8 +13,11 @@ from chroma_cube.core import Truth
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.card import ClueCard, HangingIndent
+from chroma_cube.ui.infinite import GeneratedPlayScreen
+from chroma_cube.ui.seeds import GameSpec
 from chroma_cube.ui.widgets import ClueRow
 from tests.conftest import DEMO
+from tests.ui.drawn import card_edges
 from tests.ui.test_boards import real
 
 CARDS = classic_puzzles()
@@ -39,8 +44,7 @@ async def test_a_classic_card_is_headed_by_its_number_and_title_and_footed_by_it
     async with ChromaCubeApp(puzzles, start_on_cards=True).run_test(size=(100, 30)) as pilot:
         await pilot.press("end", "enter")
         await pilot.pause()
-        assert str(card(pilot.app).border_title) == "Card 8 · Empty Tray"
-        assert footer(pilot.app).startswith("Medium · ")
+        assert card_edges(pilot.app) == ("8 · Empty Tray", "Medium · 6 clues")
 
 
 async def test_clues_are_numbered_after_their_marker() -> None:
@@ -103,10 +107,10 @@ async def test_the_footer_says_which_clues_are_in_sight_on_a_small_terminal() ->
     async with ChromaCubeApp((puzzle,), start_on_cards=True).run_test(size=(80, 24)) as pilot:
         await pilot.press("enter")
         await pilot.pause()
-        assert footer(pilot.app) == f"Hard · Clues 1–3 of {total}"
+        assert card_edges(pilot.app)[1] == f"Hard · Clues 1–3 of {total}"
         await pilot.press("pagedown")
         await pilot.pause()
-        assert footer(pilot.app).startswith("Hard · Clues 4–")
+        assert card_edges(pilot.app)[1] == f"Hard · Clues 4–6 of {total}"
 
 
 async def test_the_footer_points_to_a_note_that_is_out_of_sight() -> None:
@@ -115,7 +119,52 @@ async def test_the_footer_points_to_a_note_that_is_out_of_sight() -> None:
     async with ChromaCubeApp((with_note,), start_on_cards=True).run_test(size=(80, 24)) as pilot:
         await pilot.press("enter")
         await pilot.pause()
-        assert footer(pilot.app) == f"Hard · {total} clues · note ↓"
-        await pilot.press("pagedown")
+        assert card_edges(pilot.app)[1] == f"Hard · {total} clues · note ↓"
+        await pilot.press("pagedown", "pagedown")
         await pilot.pause()
-        assert "note" not in footer(pilot.app)
+        bottom = card_edges(pilot.app)[1]
+        assert re.fullmatch(rf"Hard · Clues [2-6]–{total} of {total}", bottom), bottom
+
+
+@pytest.mark.parametrize("number", range(1, len(CARDS) + 1))
+async def test_every_classic_card_shows_its_name_and_count_in_full_at_80x24(number: int) -> None:
+    puzzle = CARDS[number - 1]
+    clues = len(puzzle.clues)
+    async with ChromaCubeApp(CARDS, start_on_cards=True).run_test(size=(80, 24)) as pilot:
+        pilot.app.open_card(number - 1)
+        await pilot.pause()
+        top, bottom = card_edges(pilot.app)
+        assert top == f"{number} · {puzzle.title}"
+        tier = puzzle.difficulty.capitalize()
+        pattern = rf"({tier} · )?({clues} clues|Clues 1–\d+ of {clues})( · note ↓)?"
+        assert re.fullmatch(pattern, bottom), bottom
+
+
+async def test_a_long_footer_drops_the_tier_before_the_note_marker() -> None:
+    puzzle = CARDS[20]
+    async with ChromaCubeApp((puzzle,), start_on_cards=True).run_test(size=(80, 24)) as pilot:
+        await pilot.press("enter")
+        await pilot.pause()
+        assert card_edges(pilot.app)[1] == "Clues 1–5 of 6 · note ↓"
+
+
+@pytest.mark.parametrize(
+    ("spec", "size", "name"),
+    [
+        (GameSpec.infinite("expert", 48213), (80, 24), "Seed 48213"),
+        (GameSpec.daily(date(2026, 10, 8)), (80, 24), "Daily · 2026-10-08"),
+        (GameSpec.infinite("hard", 99999, "4x5"), (100, 30), "Seed 99999 · 4×5"),
+        (GameSpec.infinite("hard", 99999, "4x5"), (80, 24), "Seed 99999 · 4×5"),
+    ],
+    ids=["infinite", "daily", "4x5-wide", "4x5-narrow"],
+)
+async def test_generated_cards_show_the_seed_in_full(
+    spec: GameSpec, size: tuple[int, int], name: str
+) -> None:
+    puzzle = real("hard", "4x5") if spec.layout == "4x5" else CARDS[0]
+    async with ChromaCubeApp(CARDS, start_on_cards=True).run_test(size=size) as pilot:
+        await pilot.app.push_screen(GeneratedPlayScreen(spec, puzzle))
+        await pilot.pause()
+        top, bottom = card_edges(pilot.app)
+        assert top == name
+        assert "…" not in bottom

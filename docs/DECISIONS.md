@@ -805,19 +805,28 @@ frame's half columns on either side and the cube's shaded side.
 
 ## D50: The clues sit on a card, named in its top edge and counted in its bottom edge (2026-10-14)
 The clue list is now a bordered card (`ClueCard`). Its top edge carries the screen's
-heading, so the line above the tray is gone: "Card 8 · Empty Tray" for a classic card,
-the seed title ("Infinite · 4×5 · hard · seed 17", "Daily · 2026-10-08") for a generated
-one. Its bottom edge carries the tier and a count: "Medium · 6 clues", or
+heading, so the line above the tray is gone. A border edge has room for its width less
+six cells, 26 on the 32-column card at 80 × 24, and Textual cuts anything longer, so
+the name is short and puts what identifies the card first: "16 · Caught in the Middle"
+for a classic card (every one fits at 80 × 24), "Seed 48213", "Seed 48213 · 4×5" or
+"Daily · 2026-10-08" for a generated one. The seed is what a player reads out to replay,
+so it must not be the part that gets cut. The difficulty is left out of the top edge
+because the bottom edge shows it.
+
+The bottom edge carries the tier and a count: "Medium · 6 clues", or
 "Hard · Clues 1–3 of 13" while some clues are out of sight (the old "Clues 1–3 of N"
-heading, D45), plus "note ↓" while the note is below the fold. Putting both into the
-border costs no rows, so at 80 × 24 a 4 × 5 card still shows three clues, as before. On
-infinite puzzles the tier repeats the difficulty already in the title; we kept it, so
-the daily puzzle, whose title has no difficulty, still shows one.
+heading, D45), plus "note ↓" while the note is below the fold. When that does not fit,
+the tier goes first, then "Clues"; the count and the note marker stay. A clue counts as
+in sight when any line of it shows, and when only the note does, the count names the
+last clue above it. Putting both into the border costs no rows, so at 80 × 24 a 4 × 5
+card still shows three clues, as before.
 
 Each clue is a gutter (marker, then its number) and the sentence, which wraps under
 itself rather than under the marker. The markers are the same dot, tick and cross, and
 the row keeps its `unknown`, `satisfied` and `violated` classes. An open clue is plain
-text; a satisfied one is dimmed with a green tick, so it reads as checked off; a violated
-one is bold red on a red tint with a red cross. We chose dimming over strike-through so a
-checked clue stays easy to re-read when a later move breaks it. The card's note follows
-the last clue in italics under a dashed rule, and scrolls with the clues.
+text; a satisfied one is drawn at 45% of the text color with a green tick, so it reads
+as checked off in both themes; a violated one is bold red on a red tint with a red
+cross. Clues are spaced by a margin, so a tint covers the clue and not the gap under it.
+We chose dimming over strike-through so a checked clue stays easy to re-read when a
+later move breaks it. The card's note follows the last clue in italics under a dashed
+rule, and scrolls with the clues.

@@ -133,7 +133,7 @@ class PlayScreen(Screen[None]):
 
     def heading(self) -> str:
         """The name in the top edge of the clue card."""
-        return f"Card {self.index + 1} · {self.state.puzzle.title}"
+        return f"{self.index + 1} · {self.state.puzzle.title}"
 
     def on_mount(self) -> None:
         self._fit(self.app.size.width)

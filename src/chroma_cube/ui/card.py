@@ -18,6 +18,10 @@ MARK_STYLES = {Truth.UNKNOWN: "", Truth.SATISFIED: "bold $success", Truth.VIOLAT
 """The marker keeps its state's color even when the clue text is dimmed."""
 
 
+EDGE_CHROME = 6
+"""Cells of a card edge that a title cannot use: the corners, a rule each side, the spaces."""
+
+
 class HangingIndent(Visual):
     """A gutter, then text that wraps under itself rather than under the gutter."""
 
@@ -104,15 +108,25 @@ class ClueCard(Vertical):
         shown = [
             row.number
             for row in rows
-            if row.virtual_region.y >= top and row.virtual_region.y < bottom
+            if row.virtual_region.y < bottom and row.virtual_region.bottom > top
         ]
+        if not shown:
+            # Scrolled to the note: name the last clue above it.
+            shown = [row.number for row in rows if row.virtual_region.y < top][-1:]
         total = len(rows)
-        parts = [self.tier]
         if shown and len(shown) < total:
-            parts.append(f"Clues {shown[0]}–{shown[-1]} of {total}")
+            span = f"{shown[0]}–{shown[-1]}" if shown[0] != shown[-1] else f"{shown[0]}"
+            counts = [f"Clues {span} of {total}", f"{span} of {total}"]
         else:
-            parts.append(f"{total} clue{'' if total == 1 else 's'}")
+            counts = [f"{total} clue{'' if total == 1 else 's'}"]
         notes = self.query("#card-note")
-        if notes and notes.first().virtual_region.bottom > bottom:
-            parts.append("note ↓")
-        self.border_subtitle = " · ".join(part for part in parts if part)
+        note = ["note ↓"] if notes and notes.first().virtual_region.bottom > bottom else []
+        self.border_subtitle = self._fit_edge(
+            [[self.tier, counts[0], *note], [counts[0], *note], [counts[-1], *note]]
+        )
+
+    def _fit_edge(self, choices: list[list[str]]) -> str:
+        """The first choice that fits in the bottom edge; the tier is the first to go."""
+        room = self.size.width - EDGE_CHROME
+        texts = [" · ".join(part for part in parts if part) for parts in choices]
+        return next((text for text in texts if len(text) <= room), texts[-1])
