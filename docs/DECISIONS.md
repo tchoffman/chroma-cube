@@ -838,8 +838,10 @@ game's own pieces rather than from Textual's defaults.
 - **One accent.** The classic magenta cube (`#e0218a`), as `$cube-accent` in the
   stylesheet, marks screen titles, panel titles, the focused panel's border and its
   cursor, and the win dialog's frame. It reads on both the dark and the light theme, and
-  white text on it stays legible. Theme colors are kept for meaning: `$success` for the
-  solved tick, the solved count and the win's cheer. The play screen is left alone.
+  white text on it stays legible. Theme colors are kept for meaning: `$text-success` for
+  the solved tick, the solved count and the win's cheer. It is the theme's text-safe
+  green: about 3.2:1 on the light theme's panels (plain `$success` was about 2:1) and
+  8.5:1 on the dark theme. The play screen is left alone.
 - **Cube colors only as cubes.** The other classic colors appear as filled cubes with
   black or white text, never as colored text, so none of them washes out on either theme.
   Black and white are left out of the decoration, since each vanishes on one theme.
@@ -852,10 +854,13 @@ game's own pieces rather than from Textual's defaults.
 - **Card list.** Each row is number, tick, title (padded to the longest) and the tier as a
   fixed-width badge: easy emerald, medium mustard, hard orange, expert purple. The header
   counts "7 of 25 solved" and the panel's foot carries a legend. The cursor starts on the
-  first unsolved card; coming back with the card under the cursor now solved moves it to
-  the next unsolved card (wrapping), while coming back from an unsolved card leaves it put.
-  With every card solved it starts on card 1.
-- **Infinite.** The difficulty and board lists are titled panels side by side, the
-  difficulties drawn as the same tier badges as the card list.
-- **Win.** A row of cubes, "Solved!", the card's name, the hint count and a cheer that
+  first unsolved card. Coming back from a card that was unsolved when opened and is solved
+  now moves it to the next unsolved card (wrapping); coming back from an unsolved card, or
+  from replaying a card already solved, leaves it put. With every card solved it starts
+  on card 1.
+- **Infinite.** The difficulty and board lists are titled panels of equal height side by
+  side, the difficulties drawn as the same tier badges as the card list. A ▶ marks the
+  highlighted difficulty, since the badge's own color would otherwise hide the cursor
+  in a panel this narrow.
+- **Win.** A row of small filled cubes, "Solved!", the card's name, the hint count and a cheer that
   differs for a solve without hints. The buttons and their ids are unchanged.

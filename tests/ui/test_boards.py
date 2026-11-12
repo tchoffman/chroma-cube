@@ -116,7 +116,7 @@ async def test_a_board_and_a_difficulty_are_picked_by_mouse() -> None:
     async with app(fake).run_test(size=SIZE) as pilot:
         await pilot.press("down", "enter")
         options = boards(pilot)
-        await pilot.click(options, offset=(4, options.region.height // 2))
+        await pilot.click(options, offset=(4, 2))
         assert chosen_marks(pilot) == [False, True, False]
         difficulties = pilot.app.screen.query_one("#difficulties", OptionList)
         await pilot.click(difficulties, offset=(4, 3))

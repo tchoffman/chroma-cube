@@ -7,11 +7,6 @@
     text-style: bold;
 }
 
-.list-heading {
-    padding: 1 1 0 1;
-    text-style: bold;
-}
-
 #cards {
     height: 1fr;
 }
@@ -253,11 +248,12 @@ HomeScreen.-short #tagline {
 }
 
 #solved-count {
-    color: $success;
+    color: $text-success;
     text-style: bold;
 }
 
 #infinite-help {
+    width: 100%;
     padding: 0 1;
     color: $text-muted;
 }
@@ -268,6 +264,7 @@ HomeScreen.-short #tagline {
 }
 
 #pickers OptionList {
+    height: 6;
     width: auto;
     min-width: 20;
     margin: 0 1 0 0;
@@ -307,7 +304,7 @@ WinScreen {
 }
 
 #win-cheer {
-    color: $success;
+    color: $text-success;
     text-style: italic;
 }
 

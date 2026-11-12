@@ -13,7 +13,15 @@ from chroma_cube.progress import Progress
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
 from chroma_cube.ui.home import DifficultyScreen, HomeScreen, Wordmark
-from chroma_cube.ui.screens import TIER_COLORS, CardListScreen, PlayScreen, WinScreen, cheer
+from chroma_cube.ui.screens import (
+    CUBE_COLORS,
+    TIER_COLORS,
+    CardListScreen,
+    PlayScreen,
+    WinScreen,
+    cheer,
+    cube_row,
+)
 from tests.conftest import DEMO
 from tests.ui.test_app import place_solution
 
@@ -134,6 +142,18 @@ async def test_back_from_a_solve_moves_to_the_next_unsolved_card(tmp_path: Path)
         assert text_of(pilot, "#solved-count") == "1 of 3 solved"
 
 
+async def test_replaying_a_solved_card_keeps_the_cursor_on_it(tmp_path: Path) -> None:
+    async with shell_app(solved_progress(tmp_path, 3), cards=True).run_test(size=SIZE) as pilot:
+        cards = pilot.app.screen.query_one("#cards", OptionList)
+        assert cards.highlighted == 3
+        await pilot.press("up", "up", "enter")
+        assert isinstance(pilot.app.screen, PlayScreen)
+        await pilot.press("escape")
+        await pilot.pause()
+        assert isinstance(pilot.app.screen, CardListScreen)
+        assert cards.highlighted == 1
+
+
 async def test_a_card_without_a_tier_still_lists(tmp_path: Path) -> None:
     untiered = replace(DEMO, difficulty="")
     app = ChromaCubeApp((untiered,), Progress(tmp_path), start_on_cards=True)
@@ -160,7 +180,26 @@ async def test_the_infinite_pickers_sit_in_titled_panels(tmp_path: Path) -> None
         assert screen.query_one("#boards", OptionList).border_title == "Board"
 
 
+async def test_the_highlighted_difficulty_is_marked(tmp_path: Path) -> None:
+    async with shell_app(Progress(tmp_path)).run_test(size=SIZE) as pilot:
+        await pilot.press("down", "enter")
+        difficulties = pilot.app.screen.query_one("#difficulties", OptionList)
+
+        def marked() -> list[bool]:
+            return [row.startswith("▶") for row in prompts(difficulties)]
+
+        assert marked() == [True, False, False, False]
+        await pilot.press("down", "down")
+        assert marked() == [False, False, True, False]
+
+
 # ---------------------------------------------------------------------- win
+
+
+def test_the_win_cubes_are_filled_cells_not_glyphs() -> None:
+    row = cube_row()
+    assert not str(row).strip()
+    assert len(row.spans) == len(CUBE_COLORS)
 
 
 async def test_the_win_names_the_card_and_cheers_by_hints(tmp_path: Path) -> None:

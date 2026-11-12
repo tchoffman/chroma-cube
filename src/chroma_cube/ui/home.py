@@ -146,8 +146,8 @@ class DifficultyScreen(Screen[None]):
         with Horizontal(id="pickers"):
             difficulties = OptionList(
                 *(
-                    Option(tier_badge(difficulty, TIER_WIDTH), id=difficulty)
-                    for difficulty in DIFFICULTIES
+                    Option(self._difficulty_prompt(i), id=difficulty)
+                    for i, difficulty in enumerate(DIFFICULTIES)
                 ),
                 id="difficulties",
             )
@@ -161,6 +161,18 @@ class DifficultyScreen(Screen[None]):
             boards.border_subtitle = "Tab to change"
             yield boards
         yield Footer()
+
+    def _difficulty_prompt(self, index: int, highlighted: int | None = 0) -> Content:
+        """A tier badge, with a ▶ beside the one under the cursor."""
+        marker = "▶ " if index == highlighted else "  "
+        return Content.assemble(marker, tier_badge(DIFFICULTIES[index], TIER_WIDTH))
+
+    @on(OptionList.OptionHighlighted, "#difficulties")
+    def mark_difficulty(self, event: OptionList.OptionHighlighted) -> None:
+        difficulties = self.query_one("#difficulties", OptionList)
+        for index in range(len(DIFFICULTIES)):
+            prompt = self._difficulty_prompt(index, event.option_index)
+            difficulties.replace_option_prompt_at_index(index, prompt)
 
     def _prompt(self, index: int) -> str:
         chosen = LAYOUTS[index].key == game(self).layout

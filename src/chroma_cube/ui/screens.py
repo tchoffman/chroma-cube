@@ -95,15 +95,15 @@ def tier_badge(tier: str, width: int = 0) -> Content:
     return Content("") if color is None else cube(f" {tier} ".center(width), color)
 
 
-def cube_row(glyph: str = "■") -> Content:
-    """One glyph per decorative cube color, a space apart."""
-    return Content(" ").join(Content.styled(glyph, color) for color in CUBE_COLORS)
+def cube_row() -> Content:
+    """One small filled cube per decorative cube color, a space apart."""
+    return Content(" ").join(cube("  ", color) for color in CUBE_COLORS)
 
 
 def legend() -> Content:
     """What the marks on a card row mean: the solved tick and the four tier badges."""
     return Content.assemble(
-        ("✓", "bold $success"), " solved  ", *(tier_badge(tier) for tier in TIER_COLORS)
+        ("✓", "bold $text-success"), " solved  ", *(tier_badge(tier) for tier in TIER_COLORS)
     )
 
 
@@ -116,7 +116,14 @@ class CardListScreen(Screen[None]):
 
     DEFAULT_CLASSES: ClassVar[str] = "shell"
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._title_width = 0
+        self._opened_unsolved = False
+        """Whether the card last opened from the list was unsolved when it was opened."""
+
     def compose(self) -> ComposeResult:
+        self._title_width = max((len(card.title) for card in self._game.puzzles), default=0)
         with Horizontal(id="list-header"):
             yield Label("Classic cards", id="list-title")
             yield Label(self._count(), id="solved-count")
@@ -133,12 +140,11 @@ class CardListScreen(Screen[None]):
         ]
 
     def _prompt(self, index: int, puzzle: Puzzle) -> Content:
-        width = max(len(card.title) for card in self._game.puzzles)
         solved = self._game.is_solved(puzzle)
         return Content.assemble(
             (f"{index + 1:>2}  ", "dim"),
-            ("✓" if solved else " ", "bold $success"),
-            f"  {puzzle.title:<{width}}  ",
+            ("✓" if solved else " ", "bold $text-success"),
+            f"  {puzzle.title:<{self._title_width}}  ",
             tier_badge(puzzle.difficulty, TIER_WIDTH),
         )
 
@@ -169,13 +175,21 @@ class CardListScreen(Screen[None]):
             cards.replace_option_prompt_at_index(index, self._prompt(index, puzzle))
         self.query_one("#solved-count", Label).update(self._count())
         current = cards.highlighted
-        if current is not None and self._game.is_solved(self._game.puzzles[current]):
+        just_solved = (
+            current is not None
+            and self._opened_unsolved
+            and self._game.is_solved(self._game.puzzles[current])
+        )
+        if current is not None and just_solved:
             cards.highlighted = self._first_unsolved(current)
+        self._opened_unsolved = False
         cards.focus()
 
     @on(OptionList.OptionSelected)
     def open_card(self, event: OptionList.OptionSelected) -> None:
-        self._game.open_card(event.option_index)
+        index = event.option_index
+        self._opened_unsolved = not self._game.is_solved(self._game.puzzles[index])
+        self._game.open_card(index)
 
 
 class PlayScreen(Screen[None]):
