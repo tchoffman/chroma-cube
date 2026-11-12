@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import ClassVar
 
 from textual.message import Message
@@ -11,7 +12,7 @@ from textual.widgets import Static
 
 from chroma_cube.core import Cell, Color, Truth
 from chroma_cube.ui.cube import chip_line, cube_cell, well_cell
-from chroma_cube.ui.swatch import STATUS_MARKERS, cube_tints, is_dark, text_color
+from chroma_cube.ui.swatch import STATUS_MARKERS, cube_tints, text_color
 
 GIVEN_MARK = "▪"
 """Before a given cube's name, in the same contrasting text color."""
@@ -43,6 +44,7 @@ class TrayCell(Widget):
         self.text = ""
         self.color: Color | None = None
         self.given = False
+        self._drawn: tuple[tuple[object, ...], list[Strip]] | None = None
 
     def show(
         self, color: Color | None, *, given: bool, cursor: bool, held: bool, hinted: bool = False
@@ -59,7 +61,6 @@ class TrayCell(Widget):
             self.styles.background = color.hex
             self.styles.color = text_color(color.hex)
         self.set_class(color is None, "empty")
-        self.set_class(color is not None and is_dark(color.hex), "dark")
         self.set_class(given, "given")
         self.set_class(cursor, "cursor")
         self.set_class(held, "held")
@@ -67,16 +68,24 @@ class TrayCell(Widget):
         self.refresh()
 
     def render_line(self, y: int) -> Strip:
+        lines = self._lines()
+        width = self.size.width
+        return lines[y] if 0 <= y < len(lines) else Strip.blank(width)
+
+    def _lines(self) -> list[Strip]:
+        """Every line of the cell, drawn again only when its size, cube or colors change."""
         width, height = self.size
         frame = _background(self, "tray-cell--frame")
+        style = self.rich_style.without_color
+        floor = shadow = ""
         if self.color is None:
-            lines = well_cell(
-                width,
-                height,
-                frame=frame,
-                floor=_background(self, "tray-cell--floor"),
-                shadow=_background(self, "tray-cell--shadow"),
-            )
+            floor = _background(self, "tray-cell--floor")
+            shadow = _background(self, "tray-cell--shadow")
+        key = (width, height, self.color, self.given, self.text, frame, floor, shadow, style)
+        if self._drawn is not None and self._drawn[0] == key:
+            return self._drawn[1]
+        if self.color is None:
+            lines = well_cell(width, height, frame=frame, floor=floor, shadow=shadow)
         else:
             lines = cube_cell(
                 width,
@@ -86,9 +95,11 @@ class TrayCell(Widget):
                 tints=cube_tints(self.color.hex, given=self.given),
                 text=self.text,
                 text_color=text_color(self.color.hex),
-                style=self.rich_style.without_color,
+                style=style,
             )
-        return Strip(lines[y], width) if 0 <= y < len(lines) else Strip.blank(width)
+        strips = [Strip(line, width) for line in lines]
+        self._drawn = (key, strips)
+        return strips
 
     def on_click(self) -> None:
         self.post_message(self.Clicked(self.cell))
@@ -96,6 +107,8 @@ class TrayCell(Widget):
 
 class PaletteChip(Widget):
     """A cube waiting in the palette strip, drawn as a one-line block."""
+
+    COMPONENT_CLASSES: ClassVar[set[str]] = {"palette-chip--hint"}
 
     class Clicked(Message):
         def __init__(self, color: Color) -> None:
@@ -106,7 +119,6 @@ class PaletteChip(Widget):
         super().__init__(id=f"chip-{color.id}")
         self.color = color
         self.text = color.name
-        self.set_class(is_dark(color.hex), "dark")
 
     def show(self, slot: int | None, *, held: bool, hinted: bool = False) -> None:
         """`slot` is the chip's number key, or None when the cube is on the tray."""
@@ -122,11 +134,15 @@ class PaletteChip(Widget):
         width = self.size.width
         if y != 0:
             return Strip.blank(width, self.rich_style)
+        tints = cube_tints(self.color.hex)
+        if self.has_class("hinted"):
+            hint = _background(self, "palette-chip--hint")
+            tints = replace(tints, top=hint, side=hint)
         line = chip_line(
             width,
             outside=self.background_colors[1].hex6.lower(),
             face=self.color.hex,
-            tints=cube_tints(self.color.hex),
+            tints=tints,
             text=self.text,
             text_color=text_color(self.color.hex),
             style=self.rich_style.without_color,

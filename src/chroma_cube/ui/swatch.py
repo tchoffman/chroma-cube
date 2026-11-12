@@ -25,8 +25,9 @@ SIDE_SHADE = 0.4
 """How far its right side is mixed toward black."""
 BOTTOM_SHADE = 0.55
 """How far its bottom edge, the face furthest from the light, is mixed toward black."""
-PRESSED_SHADE = 0.3
-"""How far a given cube's top edge is shadowed by the rim of the well it sits down in."""
+GIVEN_LIGHT = 0.15
+"""How far a given cube's top is mixed toward white: it sits down in its well, so less
+of it catches the light."""
 
 
 def is_dark(hex_color: str) -> bool:
@@ -40,18 +41,19 @@ def text_color(hex_color: str) -> str:
 
 
 def _mix(hex_color: str, target: int, amount: float) -> str:
+    amount = min(1.0, max(0.0, amount))
     channels = (int(hex_color[offset : offset + 2], 16) for offset in (1, 3, 5))
     mixed = (int(value + (target - value) * amount + 0.5) for value in channels)
     return "#" + "".join(f"{value:02x}" for value in mixed)
 
 
 def lighten(hex_color: str, amount: float) -> str:
-    """`hex_color` mixed toward white: 0 leaves it, 1 is white."""
+    """`hex_color` mixed toward white: 0 leaves it, 1 is white, and beyond is clamped."""
     return _mix(hex_color, 255, amount)
 
 
 def darken(hex_color: str, amount: float) -> str:
-    """`hex_color` mixed toward black: 0 leaves it, 1 is black."""
+    """`hex_color` mixed toward black: 0 leaves it, 1 is black, and beyond is clamped."""
     return _mix(hex_color, 0, amount)
 
 
@@ -65,9 +67,10 @@ class CubeTints:
 
 
 def cube_tints(hex_color: str, *, given: bool = False) -> CubeTints:
-    """A loose cube is lit from above; a given one sits pressed into its well, flat."""
+    """A loose cube is lit from above; a given one sits down in its well, flatter: a faint
+    lit top and no shaded side or bottom."""
     if given:
-        return CubeTints(darken(hex_color, PRESSED_SHADE), hex_color, hex_color)
+        return CubeTints(lighten(hex_color, GIVEN_LIGHT), hex_color, hex_color)
     return CubeTints(
         lighten(hex_color, TOP_LIGHT),
         darken(hex_color, SIDE_SHADE),

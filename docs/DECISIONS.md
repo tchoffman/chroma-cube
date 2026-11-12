@@ -765,30 +765,38 @@ each cell in at most two colors.
 
 - **Cube.** The front face is the cube's own color with its name centred, bold, in the
   D19 contrast color. Above it a lit top (mixed 45% toward white), on its right a shaded
-  side (40% toward black) and below a darker bottom (55%). The top and bottom are half a
-  row thick on cells of 3 and 4 rows and a full row on 5, so the look grows with the cell
-  between `CELL_MIN_HEIGHT` and `CELL_MAX_HEIGHT`. White, Mint and Cyan cannot get much
+  side (40% toward black) down every row of the face, and below a darker bottom (55%).
+  The top is half a row thick; the bottom is half a row on cells of 3 and 4 rows and a
+  row and a half from 5, so the look grows with the cell between `CELL_MIN_HEIGHT` and
+  `CELL_MAX_HEIGHT`. Every edge is an odd number of half-rows: a terminal cell shows only
+  two colors, and an edge ending mid-cell would need a third (frame, edge and face) at
+  the corners, which drew notches in the frame color. White, Mint and Cyan cannot get much
   lighter, so their lit top is faint; their side and bottom carry the depth, and the
   frame outlines them. Black and Indigo cannot get much darker, so the lit top carries
   theirs.
 - **Tray.** Each cell draws a frame half a cell thick around its well, so neighbouring
   cells share one bar and the tray reads as one frame with a well per cell. The frame is
   the foreground at 30% over the page, so it is mid-grey on both dark and light themes. An
-  empty well is the page darkened 20%, with its top and left inner walls darkened 55%,
+  empty well is the page darkened 30%, below the frame on a light theme too, with its top
+  and left inner walls darkened 55%,
   which reads as a hole lit from the top left.
-- **Given cubes** sit pressed into their well: no lit top but a top edge in shadow (30%
-  toward black) and flat side and bottom in the face color, plus the `▪` pin mark from
-  D19. A loose cube stands proud of the tray; a given one does not.
+- **Given cubes** sit down in their well, flatter: a faint lit top (15% toward white) and
+  side and bottom in the face color, plus the `▪` pin mark from D19. Every cube keeps a
+  lit edge; a loose cube stands proud of the tray, a given one does not.
 - **States** color the frame ring around the cell instead of the border: cursor `$accent`,
   hint `$success`, held `$primary`, cursor over all. Held used to be `$warning`, but in
   Textual's default themes that is the same orange as `$accent`, and it was only the
   border style that told them apart. The `▸` mark on a held cube stays.
 - **Palette chips** are one line: a lit strip on the left, the face, a shaded strip on the
   right. When a chip is too narrow for its text the strips go first, then the text is cut
-  with an ellipsis, so names are never cut for the sake of decoration.
+  with an ellipsis, so names are never cut for the sake of decoration. A hinted chip's
+  strips turn `$success`, the hinted cell's ring color; reversing it, as before, reached
+  only the label and looked broken.
 - Colors from the stylesheet are component classes on `TrayCell`
-  (`tray-cell--frame`, `--floor`, `--shadow`), blended over what is behind the tray, not
-  over the cell's own background, which stays the cube's color.
+  (`tray-cell--frame`, `--floor`, `--shadow`) and `PaletteChip` (`palette-chip--hint`),
+  blended over what is behind the widget, not over a cell's own background, which stays
+  the cube's color. The `dark` class D19 used for light borders is gone. A cell keeps its
+  drawn lines until its size, cube or colors change.
 
 The shade characters (░ ▒ ▓) were left out: they are dithered patterns whose look varies
 by font, and they blend the two colors instead of drawing an edge. Cell sizes and

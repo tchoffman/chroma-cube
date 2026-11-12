@@ -48,7 +48,7 @@ TrayCell > .tray-cell--frame {
 }
 
 TrayCell > .tray-cell--floor {
-    background: black 20%;
+    background: black 30%;
 }
 
 TrayCell > .tray-cell--shadow {
@@ -90,8 +90,9 @@ PaletteChip.held {
     text-style: bold underline;
 }
 
-PaletteChip.hinted {
-    text-style: bold reverse;
+/* A hinted chip's strips turn the hint green, like the hinted cell's frame. */
+PaletteChip > .palette-chip--hint {
+    background: $success;
 }
 
 #clues {

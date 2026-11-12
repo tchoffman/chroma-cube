@@ -13,7 +13,7 @@ from rich.style import Style
 
 from chroma_cube.ui.swatch import CubeTints
 
-__all__ = ["chip_line", "cube_cell", "well_cell"]
+__all__ = ["chip_line", "cube_canvas", "cube_cell", "well_canvas", "well_cell"]
 
 Line = list[Segment]
 _Canvas = list[list[str]]
@@ -22,6 +22,28 @@ _BLOCKS = " ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█"
 """A block character by which of its quadrants are in the foreground color, as bits:
 upper left 1, upper right 2, lower left 4, lower right 8."""
 ELLIPSIS = "…"
+
+
+def cube_canvas(width: int, height: int, *, frame: str, face: str, tints: CubeTints) -> _Canvas:
+    """The quadrants of a cube in its well: a frame half a cell thick, a lit top half a row
+    thick, the front face with the shaded side down its right, and a shaded bottom half a
+    row thick, or a row and a half from five rows up. Each edge is an odd number of
+    half-rows, so the edge after it starts on a whole row and no cell needs three colors."""
+    across, down = 2 * width, 2 * height
+    bottom = 1 if height < 5 else 3
+    canvas = [[frame] * across for _ in range(down)]
+    for y in range(1, down - 1):
+        row = canvas[y]
+        for x in range(1, across - 1):
+            if y == 1:
+                row[x] = tints.top
+            elif y >= down - 1 - bottom:
+                row[x] = tints.bottom
+            elif x == across - 2:
+                row[x] = tints.side
+            else:
+                row[x] = face
+    return canvas
 
 
 def cube_cell(
@@ -35,22 +57,8 @@ def cube_cell(
     text_color: str,
     style: Style | None = None,
 ) -> list[Line]:
-    """A cube sitting in its well: a frame half a cell thick, then the cube's top, front face,
-    right side and bottom, with `text` centred on the front face."""
-    across, down = 2 * width, 2 * height
-    edge = 1 if height < 5 else 2  # half-rows of lit top, and of shaded bottom
-    canvas = [[frame] * across for _ in range(down)]
-    for y in range(1, down - 1):
-        row = canvas[y]
-        for x in range(1, across - 1):
-            if y <= edge:
-                row[x] = tints.top
-            elif y >= down - 1 - edge:
-                row[x] = tints.bottom
-            elif x == across - 2:
-                row[x] = tints.side
-            else:
-                row[x] = face
+    """A cube sitting in its well (see `cube_canvas`), with `text` centred on its front face."""
+    canvas = cube_canvas(width, height, frame=frame, face=face, tints=tints)
     lines = [_blocks(canvas, row, frame) for row in range(height)]
     text_style = (style or Style()) + Style(color=text_color, bgcolor=face)
     middle = height // 2
@@ -60,13 +68,19 @@ def cube_cell(
     ]
 
 
-def well_cell(width: int, height: int, *, frame: str, floor: str, shadow: str) -> list[Line]:
-    """An empty well in the frame, its top and left inner walls in shadow."""
+def well_canvas(width: int, height: int, *, frame: str, floor: str, shadow: str) -> _Canvas:
+    """The quadrants of an empty well in the frame, its top and left inner walls in shadow."""
     across, down = 2 * width, 2 * height
     canvas = [[frame] * across for _ in range(down)]
     for y in range(1, down - 1):
         for x in range(1, across - 1):
             canvas[y][x] = shadow if y == 1 or x == 1 else floor
+    return canvas
+
+
+def well_cell(width: int, height: int, *, frame: str, floor: str, shadow: str) -> list[Line]:
+    """An empty well in the frame (see `well_canvas`)."""
+    canvas = well_canvas(width, height, frame=frame, floor=floor, shadow=shadow)
     return [_simple(_blocks(canvas, row, frame)) for row in range(height)]
 
 

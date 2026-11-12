@@ -74,7 +74,14 @@ def test_a_loose_cube_is_lit_on_top_and_shaded_on_its_side_and_bottom() -> None:
         assert strongest >= 2, color.name
 
 
-def test_a_given_cube_is_pressed_in_with_a_shadowed_top_and_flat_sides() -> None:
-    tints = cube_tints("#ff8c00", given=True)
-    assert luminance(tints.top) < luminance("#ff8c00")
-    assert tints.side == tints.bottom == "#ff8c00"
+def test_a_given_cube_sits_flatter_with_a_faint_lit_top_and_flat_sides() -> None:
+    for color in (*CLASSIC_PALETTE, *EXTENDED_20):
+        given, loose = cube_tints(color.hex, given=True), cube_tints(color.hex)
+        assert luminance(color.hex) < luminance(given.top) < luminance(loose.top), color.name
+        assert given.side == given.bottom == color.hex
+
+
+def test_tints_stay_inside_the_color_range() -> None:
+    assert lighten("#808080", 1.5) == "#ffffff"
+    assert darken("#808080", 1.5) == "#000000"
+    assert lighten("#808080", -1) == "#808080"

@@ -9,7 +9,7 @@ from textual.widget import Widget
 from chroma_cube.core import Puzzle
 from chroma_cube.puzzles import classic_puzzles
 from chroma_cube.ui import ChromaCubeApp
-from chroma_cube.ui.cube import chip_line, cube_cell, well_cell
+from chroma_cube.ui.cube import chip_line, cube_canvas, cube_cell, well_canvas, well_cell
 from chroma_cube.ui.screens import PlayScreen
 from chroma_cube.ui.swatch import cube_tints
 from chroma_cube.ui.widgets import PaletteChip, TrayCell
@@ -66,10 +66,33 @@ def test_a_cube_is_lit_on_top_shaded_right_and_below_inside_the_frame(height: in
     assert text_of(lines[height // 2])[0] == "▐"
 
 
-def test_the_lit_top_and_shaded_bottom_thicken_on_a_taller_cell() -> None:
+def test_the_shaded_bottom_thickens_on_a_taller_cell() -> None:
     short, tall = orange(12, 4), orange(12, 5)
-    assert ORANGE not in colors_of(short[0]) and ORANGE in colors_of(short[1])
-    assert TINTS.top in colors_of(tall[1]) and TINTS.bottom in colors_of(tall[3])
+    assert TINTS.bottom not in colors_of(short[2])
+    assert colors_of(tall[3]) == {TINTS.bottom, FRAME}
+
+
+@pytest.mark.parametrize("height", [3, 4, 5, 6, 7])
+def test_the_shaded_side_runs_down_every_row_of_the_front_face(height: int) -> None:
+    lines = orange(12, height)
+    face_rows = [line for line in lines if ORANGE in colors_of(line)]
+    assert face_rows
+    for line in face_rows:
+        assert text_of(line)[-1] == "▌" and TINTS.side in colors_of(line[-1:])
+
+
+@pytest.mark.parametrize("given", [False, True])
+@pytest.mark.parametrize("height", [3, 4, 5, 6, 7])
+def test_no_terminal_cell_needs_more_than_two_colors(height: int, given: bool) -> None:
+    canvases = [
+        cube_canvas(9, height, frame=FRAME, face=ORANGE, tints=cube_tints(ORANGE, given=given)),
+        well_canvas(9, height, frame=FRAME, floor="#101010", shadow="#000000"),
+    ]
+    for canvas in canvases:
+        for y in range(0, len(canvas), 2):
+            for x in range(0, len(canvas[0]), 2):
+                quads = {canvas[y][x], canvas[y][x + 1], canvas[y + 1][x], canvas[y + 1][x + 1]}
+                assert len(quads) <= 2, (height, y // 2, x // 2, quads)
 
 
 def test_a_name_too_long_for_the_face_spills_over_the_edges_then_is_cut() -> None:
@@ -153,7 +176,7 @@ async def test_every_cube_shows_its_full_name_between_a_lit_top_and_a_shaded_bot
             lines = drawn(cell)
             assert cell.text in text_of(lines[len(lines) // 2]), cell.text
             assert tints.top in colors_of(lines[0]), cell.text
-            assert tints.bottom in colors_of(lines[-1]) or tints.bottom == color.hex
+            assert tints.bottom in colors_of(lines[-1]), cell.text
         for chip in screen.query(PaletteChip):
             if chip.display:
                 assert chip.color.name in text_of(drawn(chip)[0])
@@ -193,3 +216,16 @@ async def test_cursor_held_and_hinted_cells_each_ring_in_their_own_color() -> No
         assert screen.state.held is not None
         held = ring(0, 0)
         assert len({plain, cursor, hinted, held}) == 4, (plain, cursor, hinted, held)
+
+
+async def test_a_hinted_chip_shows_green_strips_and_is_not_reversed() -> None:
+    async with ChromaCubeApp((DEMO,), start_on_cards=True).run_test(size=(100, 30)) as pilot:
+        screen = await open_card(pilot, "h")
+        chip = screen.query_one("#chip-magenta", PaletteChip)
+        assert chip.has_class("hinted")
+        line = drawn(chip)[0]
+        hint = ring_color(screen.query_one("#cell-2-1", TrayCell))
+        for edge in (line[0], line[-1]):
+            assert edge.style is not None and edge.style.color is not None
+            assert edge.style.color.get_truecolor().hex == hint
+        assert not any(segment.style and segment.style.reverse for segment in line)
