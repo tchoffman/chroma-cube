@@ -28,7 +28,7 @@ WIDE_FROM = 70
 CLUES_MIN_WIDTH = 24
 """Columns the clue list needs beside the tray."""
 _CELL_EXTRA = 4
-"""A tray cell's two border columns and the two of a given or held mark."""
+"""A tray cell's two edge columns (frame and cube side) and the two of a given or held mark."""
 
 
 def tray_width(puzzle: Puzzle) -> int:
