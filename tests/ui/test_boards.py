@@ -27,6 +27,7 @@ from chroma_cube.ui.screens import PlayScreen
 from chroma_cube.ui.seeds import GameSpec
 from chroma_cube.ui.widgets import ClueRow, PaletteChip, TrayCell
 from tests.conftest import DEMO
+from tests.ui.drawn import card_edges
 from tests.ui.test_infinite import settle
 from tests.ui.test_layout import assert_reachable
 
@@ -77,7 +78,8 @@ def chosen_marks(pilot: Pilot[None]) -> list[bool]:
 
 
 def title(pilot: Pilot[None]) -> str:
-    return str(pilot.app.screen.query_one("#card-title", Label).content)
+    """The name drawn in the top edge of the clue card."""
+    return card_edges(pilot.app)[0]
 
 
 async def test_the_difficulty_screen_offers_the_three_boards() -> None:
@@ -105,7 +107,7 @@ async def test_a_board_is_picked_by_keyboard() -> None:
         assert isinstance(screen, GeneratedPlayScreen)
         [(seed, difficulty, key)] = fake.calls
         assert (difficulty, key) == ("medium", "4x5")
-        assert title(pilot) == f"Infinite · 4×5 · medium · seed {seed}"
+        assert title(pilot) == f"Seed {seed} · 4×5"
         assert screen.state.puzzle.board == BOARD_4X5
 
 
@@ -234,15 +236,15 @@ async def test_the_classic_tray_still_goes_wide_from_70_columns(width: int, narr
         assert pilot.app.screen.has_class("-narrow") is narrow
 
 
-async def test_the_clue_heading_says_how_many_clues_are_out_of_sight() -> None:
+async def test_the_clue_card_says_how_many_clues_are_out_of_sight() -> None:
     puzzle = real("hard", "4x5")
     total = len(puzzle.clues)
     async with ChromaCubeApp((puzzle,), start_on_cards=True).run_test(size=(80, 24)) as pilot:
         await pilot.press("enter")
         await pilot.pause()
-        heading = pilot.app.screen.query_one("#clues-heading", Label)
-        text = str(heading.content)
-        assert text.startswith("Clues 1–") and text.endswith(f" of {total}"), text
+        card = pilot.app.screen.query_one("#card")
+        text = str(card.border_subtitle)
+        assert text.startswith("Hard · Clues 1–") and text.endswith(f" of {total}"), text
         await pilot.resize_terminal(140, 50)
         await pilot.pause()
-        assert str(heading.content) == "Clues"
+        assert str(card.border_subtitle) == f"Hard · {total} clues"

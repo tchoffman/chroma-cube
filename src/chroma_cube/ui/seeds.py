@@ -75,6 +75,18 @@ class GameSpec:
         return f"Infinite · {self.shape} · {self.difficulty} · seed {self.seed}"
 
     @property
+    def card_name(self) -> str:
+        """The short name in the clue card's top edge: what a player reads out to replay it.
+
+        The card's bottom edge shows the difficulty, so it is left out here.
+        """
+        if self.day is not None:
+            return f"Daily · {self.day.isoformat()}"
+        if self.layout == "classic":
+            return f"Seed {self.seed}"
+        return f"Seed {self.seed} · {self.shape}"
+
+    @property
     def shape(self) -> str:
         """The board as rows × columns, e.g. "4×5"."""
         board = layout(self.layout).board
