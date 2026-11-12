@@ -830,3 +830,37 @@ cross. Clues are spaced by a margin, so a tint covers the clue and not the gap u
 We chose dimming over strike-through so a checked clue stays easy to re-read when a
 later move breaks it. The card's note follows the last clue in italics under a dashed
 rule, and scrolls with the clues.
+
+## D51: The shell screens share one magenta accent and dress in classic cubes (2026-10-14)
+Home, the card list, the infinite picker and the win dialog take their look from the
+game's own pieces rather than from Textual's defaults.
+
+- **One accent.** The classic magenta cube (`#e0218a`), as `$cube-accent` in the
+  stylesheet, marks screen titles, panel titles, the focused panel's border and its
+  cursor, and the win dialog's frame. It reads on both the dark and the light theme, and
+  white text on it stays legible. Theme colors are kept for meaning: `$text-success` for
+  the solved tick, the solved count and the win's cheer. It is the theme's text-safe
+  green: about 3.2:1 on the light theme's panels (plain `$success` was about 2:1) and
+  8.5:1 on the dark theme. The play screen is left alone.
+- **Cube colors only as cubes.** The other classic colors appear as filled cubes with
+  black or white text, never as colored text, so none of them washes out on either theme.
+  Black and white are left out of the decoration, since each vanishes on one theme.
+- **Home.** "CHROMA CUBE" is spelled on ten colored cubes, five columns by three rows
+  where the width allows (about square on a terminal), else one row, else one letter per
+  cube. A one-line tagline sits under it and is dropped on terminals under 20 rows. The
+  three modes sit in a "Play" panel, name in bold and description dimmed underneath.
+  Separators between the modes were tried and dropped: on the light theme Textual paints
+  the separator under the highlighted option dark.
+- **Card list.** Each row is number, tick, title (padded to the longest) and the tier as a
+  fixed-width badge: easy emerald, medium mustard, hard orange, expert purple. The header
+  counts "7 of 25 solved" and the panel's foot carries a legend. The cursor starts on the
+  first unsolved card. Coming back from a card that was unsolved when opened and is solved
+  now moves it to the next unsolved card (wrapping); coming back from an unsolved card, or
+  from replaying a card already solved, leaves it put. With every card solved it starts
+  on card 1.
+- **Infinite.** The difficulty and board lists are titled panels of equal height side by
+  side, the difficulties drawn as the same tier badges as the card list. A ▶ marks the
+  highlighted difficulty, since the badge's own color would otherwise hide the cursor
+  in a panel this narrow.
+- **Win.** A row of small filled cubes, "Solved!", the card's name, the hint count and a cheer that
+  differs for a solve without hints. The buttons and their ids are unchanged.
